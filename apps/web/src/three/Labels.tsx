@@ -1,0 +1,126 @@
+import type { ResourceSpec } from "@boarddream/engine";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Star } from "lucide-react";
+import { useMemo, type RefObject } from "react";
+import { Vector3 } from "three";
+import { iconFor } from "../icons";
+import { CARD_H, CARD_W, type TableLayout, type Vec3 } from "./layout";
+
+/**
+ * Live numbers on the table (scores, resource counts, deck size) are HTML, pinned to 3D points.
+ * They all live in one layer that `LabelTracker` repositions every frame, which keeps the text
+ * crisp and avoids a React root per label.
+ */
+
+const SCORE = /score|points|vp/i;
+
+export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 50) * 0.045);
+
+/** Screen anchor of every label, keyed like the label elements' data-anchor. */
+export function labelAnchors(layout: TableLayout): Map<string, Vec3> {
+  const anchors = new Map<string, Vec3>();
+  for (const b of layout.badges) anchors.set(`badge:${b.id}`, b.position);
+  for (const p of layout.piles) {
+    const [x, y, z] = p.position;
+    anchors.set(`pile:${p.id}`, [x + 1.55 * p.scale, y + 0.2, z + 1.55 * p.scale]);
+  }
+  for (const d of layout.decks) {
+    const [x, y, z] = d.position;
+    anchors.set(`deck:${d.id}`, [x + (CARD_W / 2 - 0.5) * d.scale, y + deckHeight(d.count), z + (CARD_H / 2 - 0.5) * d.scale]);
+  }
+  return anchors;
+}
+
+interface LabelsProps {
+  layout: TableLayout;
+  resources: Map<string, ResourceSpec>;
+  layer: RefObject<HTMLDivElement | null>;
+  /** Ids legal moves act on; a targeted counter chip becomes a button. */
+  targets: Set<string>;
+  onPick(id: string, x: number, y: number): void;
+}
+
+export function Labels({ layout, resources, layer, targets, onPick }: LabelsProps) {
+  return (
+    <div className="labels" ref={layer}>
+      {layout.badges.map((badge) => {
+        const score = badge.counters.find((c) => SCORE.test(c.label));
+        const rest = badge.counters.filter((c) => c !== score);
+        return (
+          <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`}>
+            <div className="mat-badge">
+              {badge.active && <span className="turn-pill">{badge.you ? "Your turn" : "Thinking…"}</span>}
+              {badge.note && <span className="badge-note">{badge.note}</span>}
+              {rest.map((c) =>
+                targets.has(c.id) ? (
+                  <button key={c.id} type="button" className="badge-chip target" onClick={(e) => onPick(c.id, e.clientX, e.clientY)}>
+                    <small>{c.label}</small>
+                    {c.value}
+                  </button>
+                ) : (
+                  <span key={c.id} className="badge-chip">
+                    <small>{c.label}</small>
+                    {c.value}
+                  </span>
+                ),
+              )}
+              {score && (
+                <span className="badge-chip score" title={score.label}>
+                  <Star size={13} strokeWidth={0} fill="currentColor" />
+                  {score.value}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {layout.piles.map((pile) => {
+        const resource = pile.resource ?? resources.get(pile.counter.resource ?? "");
+        const Icon = iconFor(resource?.icon);
+        return (
+          <div key={pile.id} className="label" data-anchor={`pile:${pile.id}`}>
+            <button
+              type="button"
+              className={["pile-count", pile.target && "target"].filter(Boolean).join(" ")}
+              style={{ background: resource?.color ?? "#7d8a84" }}
+              title={`${pile.counter.label}: ${pile.counter.value}`}
+              disabled={!pile.target}
+              onClick={(e) => onPick(pile.id, e.clientX, e.clientY)}
+            >
+              <Icon size={11} strokeWidth={2.6} />
+              {pile.counter.value}
+            </button>
+          </div>
+        );
+      })}
+      {layout.decks.map((deck) => (
+        <div key={deck.id} className="label" data-anchor={`deck:${deck.id}`}>
+          <span className="tag-count" title={deck.label}>
+            {deck.count}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Inside the canvas: projects each label's anchor and moves its element there. */
+export function LabelTracker({ anchors, layer }: { anchors: Map<string, Vec3>; layer: RefObject<HTMLDivElement | null> }) {
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  const v = useMemo(() => new Vector3(), []);
+  useFrame(() => {
+    const root = layer.current;
+    if (!root) return;
+    for (const el of Array.from(root.children) as HTMLElement[]) {
+      const anchor = anchors.get(el.dataset.anchor ?? "");
+      if (!anchor) continue;
+      v.fromArray(anchor).project(camera);
+      const x = ((v.x + 1) / 2) * size.width;
+      const y = ((1 - v.y) / 2) * size.height;
+      el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      el.style.visibility = v.z < 1 ? "visible" : "hidden";
+    }
+  });
+  return null;
+}

@@ -79,6 +79,10 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - **Status: done.** `panels(state, viewer)` with counters and card views, resource icons in `meta.resources`, moves that target cards and counters (several moves on one target open a choice menu); strict fuzzing validates panels and targets. Resources, market and card-effect modules with auto-generated rules text and `validateCards`. Glasshouse: 32 plants, 38 cards, 1,000-run fuzz clean, greedy bot beats random play over 80% of the time. The web app now has a felt table, illustrated cards, player mats, a fanned hand, bots that move one at a time, a result screen, and `?game=<id>&watch` for self-playing tables (video b-roll).
 - Not yet in the catalog: the resources, market and effects modules and Glasshouse; they go in with the map modules on Oct 28, followed by an eval rerun.
 
+### Tue Oct 27 (night): 3D tabletop
+- The flat felt table read as cheap on video, so the play area is now a three.js scene (react-three-fiber): a lit walnut table, cloth player mats, card stock with printed faces and backs, resource tokens, raised board tiles and lacquered pieces, with ambient occlusion, bloom and soft shadows.
+- **Status: done.** A generic layout places any game's panels and board: rival mats along the far edge, the board and shared supply in the middle, the viewer's mat in front and the hand held up toward the camera. Cards keep their ids across zones, so they fly from the deck to the market, from the market into a hand and from a hand onto a mat. Card faces are painted on canvas (cost pills, points medallion, illustration window, rules text) and magnified on hover. Legal moves glow gold. The camera frames the table inside whatever the side panels leave free; `F` (or the Focus button) hides the panels for recording. Scores and counts are HTML pinned to 3D points. `?lowfx` turns off post-processing, `?flat` keeps the 2D table, which is also the fallback without WebGL. A layout test walks every reference game and checks that each card is placed once, every legal move has something to click, and the camera keeps the table in frame.
+
 ### Wed Oct 28: map, trade and build family
 - Mechanics: hex map vertices and edges (settlement spots, road adjacency), production, bank and player-to-player trades.
 - An original hex-map settlement reference game with a heuristic bot, and the map UI to match.
@@ -193,12 +197,12 @@ Cost controls:
 - `packages/retrieval`: BM25 with an S-stemmer and trec_eval tie-breaking, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
 - `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat, structured output, token usage), reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline with Muse Spark expansion + rerank retrieval, IoU utilities
 - `eval/retrieval`: 50 queries, graded qrels, three systems, cached Muse Spark replies
-- `apps/web`: create panel (prompt and dials), SVG board (seats, labels, face-down dice) playable against each game's default bot, parameter sliders, live balance stats
-- 63 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- `apps/web`: 3D tabletop (three.js) for every game: cards, mats, tokens, board tiles and pieces, playable against each game's default bot; create panel, parameter sliders, live balance stats; 2D table as a fallback
+- 90 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - `/api/generate` has not run end to end against the real API; the prompts are first drafts
 - Parsing `editImage` responses and decoding SAM masks (day 6)
 - Fuzzing and simulation still run on the main thread (days 3–4)
 - Opponents other than Liar's Dice play randomly (Monte Carlo bots on day 4); with random play, I Doubt It usually runs to its play limit
-- The new board rendering has not been checked visually in a browser yet
+- The 3D table has been checked with scripted headless-Chrome screenshots and clicks (GPU on), not yet on a laptop GPU or at 4K

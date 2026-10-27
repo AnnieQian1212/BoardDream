@@ -1,20 +1,36 @@
 import { createRng, resolveParams, simulate, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
 import { defaultBot, referenceGames } from "@boarddream/library";
-import { RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { TuningPanel } from "./components/TuningPanel";
+import { Tabletop } from "./three/Tabletop";
 
 const HUMAN = 0;
 const SIM_GAMES = 200;
 /** Pause between bot moves so a table full of bots is watchable. */
 const BOT_DELAY = 650;
 
-// ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll).
+// ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll);
+// ?lowfx turns off post-processing; ?flat uses the 2D table instead of WebGL.
 const query = new URLSearchParams(window.location.search);
 const WATCH = query.has("watch");
+const EFFECTS = !query.has("lowfx");
+const FLAT = query.has("flat") || !hasWebGL();
+/** Screen space the floating side panels, top bar and move bar cover. */
+const PANEL_INSET = 326;
+const TOP_INSET = 66;
+const BOTTOM_INSET = 92;
+
+function hasWebGL(): boolean {
+  try {
+    return document.createElement("canvas").getContext("webgl2") !== null;
+  } catch {
+    return false;
+  }
+}
 const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames[0];
 
 interface Match {
@@ -55,6 +71,21 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
+  // Focus mode hides the side panels so the table fills the screen (press F).
+  const [focus, setFocus] = useState(WATCH || window.innerWidth < 1100);
+  const insets = useMemo(
+    () => ({ left: focus ? 0 : PANEL_INSET, right: focus ? 0 : PANEL_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
+    [focus],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      if (!typing && e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey) setFocus((f) => !f);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Bots take their turns one at a time.
   useEffect(() => {
@@ -81,8 +112,26 @@ export function App() {
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
 
+  const tableProps = {
+    game,
+    state: match.state,
+    numPlayers,
+    human: HUMAN,
+    onMove: (move: unknown) => setMatch(applyMove(game, match, HUMAN, move)),
+    onRestart: () => setMatch(startMatch(game, numPlayers, params)),
+  };
+  const tableKey = `${games.indexOf(game)}-${numPlayers}`;
+
   return (
-    <div className="app">
+    <div className={["app", focus && "focus"].filter(Boolean).join(" ")}>
+      {FLAT ? (
+        <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+          <Table key={tableKey} {...tableProps} />
+        </div>
+      ) : (
+        <Tabletop key={tableKey} {...tableProps} insets={insets} effects={EFFECTS} />
+      )}
+
       <header className="topbar">
         <div className="brand">
           <BrandMark />
@@ -99,42 +148,33 @@ export function App() {
           </select>
         </label>
         <span className="tagline">{game.meta.summary}</span>
+        <button type="button" className="ghost" onClick={() => setFocus(!focus)} title="Toggle the side panels (F)">
+          {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />} {focus ? "Panels" : "Focus"}
+        </button>
         <button type="button" className="ghost" onClick={() => setMatch(startMatch(game, numPlayers, params))}>
           <RotateCcw size={15} /> New game
         </button>
       </header>
 
-      <main className="layout">
-        <aside className="sidebar">
-          <CreatePanel
-            onGenerated={(g) => {
-              setGames([...games, g]);
-              selectGame(g);
-            }}
-          />
-        </aside>
-
-        <Table
-          key={`${games.indexOf(game)}-${numPlayers}`}
-          game={game}
-          state={match.state}
-          numPlayers={numPlayers}
-          human={HUMAN}
-          onMove={(move) => setMatch(applyMove(game, match, HUMAN, move))}
-          onRestart={() => setMatch(startMatch(game, numPlayers, params))}
+      <aside className="sidebar left">
+        <CreatePanel
+          onGenerated={(g) => {
+            setGames([...games, g]);
+            selectGame(g);
+          }}
         />
+      </aside>
 
-        <aside className="sidebar">
-          <TuningPanel
-            game={game}
-            numPlayers={numPlayers}
-            params={params}
-            stats={stats}
-            onChange={(players, nextParams) => configure(game, players, nextParams)}
-          />
-          <LogPanel entries={match.log} human={HUMAN} />
-        </aside>
-      </main>
+      <aside className="sidebar right">
+        <TuningPanel
+          game={game}
+          numPlayers={numPlayers}
+          params={params}
+          stats={stats}
+          onChange={(players, nextParams) => configure(game, players, nextParams)}
+        />
+        <LogPanel entries={match.log} human={HUMAN} />
+      </aside>
     </div>
   );
 }

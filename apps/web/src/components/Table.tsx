@@ -168,7 +168,7 @@ function SharedPanel(props: { panel: Panel; resources: Map<string, ResourceSpec>
   );
 }
 
-function Result({ game, state, human, onRestart }: { game: GameModule; state: unknown; human: number; onRestart(): void }) {
+export function Result({ game, state, human, onRestart }: { game: GameModule; state: unknown; human: number; onRestart(): void }) {
   const { winners, scores } = game.outcome(state);
   const headline =
     winners.length === 0 ? "It's a draw" : winners.includes(human) ? (winners.length > 1 ? "Shared victory" : "You win!") : `Player ${winners[0] + 1} wins`;
