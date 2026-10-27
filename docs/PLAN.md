@@ -5,33 +5,41 @@
 - Commit daily and add a line to the "Built during the hackathon" table in the README. The rules require a clear record of what was built during the event.
 - `TODO(day N)` comments in the code map to the schedule below.
 
+## Direction (updated Oct 27)
+
+BoardDream targets the games people actually want to make: medium-complexity, Catan- and Wingspan-style designs, built on resource production, trading and building on a map, or on an engine-building tableau of cards. Reference games are original designs in that genre, never recreations of existing titles. The simple games built on Oct 27 stay in the library as low-complexity references and engine fixtures.
+
+- Generated games are capped at medium scale: about 20–40 cards, 3–5 resources, 30–60 minutes.
+- The UI must look polished, because it is what the demo video shows. Every UI change is checked with screenshots before it is pushed.
+- Rules come from data where possible: cards are described in a small effect language that the engine interprets, so the model writes card data plus a little rules code instead of thousands of lines.
+
 ## Priorities
 
 | Level | Scope | If cut |
 | --- | --- | --- |
-| **P0** | Engine interface, reference games for all three families, mechanic library, retrieval, generate → fuzz → repair loop, playable web app | No project |
-| **P1** | Live balance sliders, AI opponents (Monte Carlo + Muse Spark bluffing), art alignment with metrics | Big hit to the Demo and Use of Meta AI Tooling scores |
-| **P2** | Auto-balance (search params to drive first-player edge to 0), cooperative mode, LLM rerank comparison, Muse Spark Open opponents, werewolf-style voting game | Safe to drop |
+| **P0** | Engine interface with player panels and card effects, two genre reference games, mechanic library, retrieval, generate → fuzz → repair loop, polished playable web app | No project |
+| **P1** | Balance sliders with heuristic bots, Muse Spark opponents that trade and negotiate, card and map art with alignment metrics | Big hit to the Demo and Use of Meta AI Tooling scores |
+| **P2** | Auto-balance, cooperative mode, Muse Spark Open opponents, werewolf-style voting game | Safe to drop |
 
 ## Game families
 
-All public-domain or traditional games. No trademarked names (e.g. Connect Four, Othello).
+All original designs or public-domain games. No trademarked names (e.g. Connect Four, Othello, Catan, Wingspan).
 
 | Family | Reference games | Shows off |
 | --- | --- | --- |
-| `grid` placement and abstract | Line Up (m,n,k, done), plus a Reversi-like or Hex-like game | Art alignment (grids suit per-cell IoU checks); board-size sliders vs first-player win rate |
-| `race` track and dice | Pachisi-like race: roll, move along a track, landing on a rival sends it home | Luck vs strategy dial, non-grid geometry, captures |
-| `bluff` hidden information | Liar's-dice-style bidding first; werewolf-style voting only if time allows | Muse Spark opponents that negotiate and bluff; hidden information through `view()` |
+| `engine` engine building | Glasshouse (original): grow a greenhouse whose plants pay income and score bonuses that chain together | Card effect language, market, tableau UI, card art from Muse Image |
+| `map` map, trade and build | Original hex-map settlement game: production, building on vertices and edges, bank and player trades | Hex map art with SAM alignment, Muse Spark trade negotiation (the CICERO angle in the proposal) |
+| light games | Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It | Low-complexity dial settings, engine fixtures, bluffing opponents |
 
-### Bluff opponents: layered so the game never depends on the LLM
+### AI opponents: layered so a game never depends on the LLM
 
 | Layer | What it does | On failure |
 | --- | --- | --- |
-| Probability bot (local, free) | Computes the chance a bid is true from its own dice; calls "liar" below a threshold, bluffs occasionally | This is the floor; written together with the reference game |
-| Muse Spark move choice | Picks only from the legal move list; local code supplies the probabilities, the model makes the decision | Illegal move or timeout falls back to the probability bot |
-| Table talk | Taunts, probing, bluffing in chat | Turn it off; moves are unaffected |
+| Heuristic bot (local, free) | Game-specific baseline, e.g. the Liar's Dice probability bot or the Glasshouse greedy planter | This is the floor |
+| Muse Spark move choice | Picks only from the legal move list, seeing only its own view | Illegal move or timeout falls back to the heuristic bot |
+| Table talk and trades | Proposes, accepts and rejects trades; taunts and bluffs | Turn it off; moves are unaffected |
 
-Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on the contributor tier, about $7 on standard). If it loses, or the chat reads as fake, drop the chat and give that video time to generation and art.
+Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, or the talk reads as fake, drop the talk and give that video time to generation and art.
 
 ## Daily plan
 
@@ -63,32 +71,38 @@ Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on
 - **Status: done early, on Oct 27.** 13 mechanic modules, 7 reference games (Reversi, Hex, Snakes and Ladders and I Doubt It added), all passing 1,000-run fuzzing. A 39-entry catalog and a 50-query graded eval set (judgments pending author review). Expansion + rerank lifts nDCG@10 from 0.845 to 0.969 and Recall@10 from 0.851 to 0.988 over BM25, cross-checked with `ir_measures`; the designer now uses that pipeline. Details in `eval/retrieval/README.md`.
 - [ ] **Author:** review `eval/retrieval/qrels.txt` (see "For judgment review" in the eval README).
 
-### Thu Oct 29: end-to-end generation (the critical P0 day)
-- Iterate on the spec, compose and repair prompts in `apps/server/src/agent/prompts.ts`.
+### Tue Oct 27 (evening): new direction, engine-building family
+- Engine: player panels (resources, tableau, hand, market) next to the board, resource icons, card views; moves can target cards as well as board cells.
+- Mechanics: resources, market, and the card effect language (gain, pay, draw, points, per-tag bonuses; on play, income and end-game triggers) with auto-generated rules text.
+- Glasshouse, an original engine-building reference game with ~30 plant cards and a greedy bot.
+- Web app redesign: tabletop look, card components, player areas; verified with screenshots.
+- **Status: done.** `panels(state, viewer)` with counters and card views, resource icons in `meta.resources`, moves that target cards and counters (several moves on one target open a choice menu); strict fuzzing validates panels and targets. Resources, market and card-effect modules with auto-generated rules text and `validateCards`. Glasshouse: 32 plants, 38 cards, 1,000-run fuzz clean, greedy bot beats random play over 80% of the time. The web app now has a felt table, illustrated cards, player mats, a fanned hand, bots that move one at a time, a result screen, and `?game=<id>&watch` for self-playing tables (video b-roll).
+- Not yet in the catalog: the resources, market and effects modules and Glasshouse; they go in with the map modules on Oct 28, followed by an eval rerun.
+
+### Wed Oct 28: map, trade and build family
+- Mechanics: hex map vertices and edges (settlement spots, road adjacency), production, bank and player-to-player trades.
+- An original hex-map settlement reference game with a heuristic bot, and the map UI to match.
+- Add genre queries (engine building, trading, worker placement, drafting) to the retrieval eval; resume the qrels review.
+
+### Thu Oct 29: generation for the new genres
+- Spec, compose and repair prompts that produce card data in the effect language plus rules code.
 - Move fuzzing into `worker_threads` with a kill timeout so an infinite loop in generated code cannot hang the server.
 - Optional: generate TypeScript and run `tsc` first, feeding compile errors into the repair loop.
-- Repair benchmark: 20–30 prompts. Record round-0 pass rate, cumulative pass rate by round k, mean repair rounds, and the failure-type breakdown.
-- **Done when:** a one-sentence description becomes a game that loads and plays in the web app.
 
-### Fri Oct 30: balance sliders and stronger bots
-- Run simulation in a Web Worker; sliders update first-player win rate, draw rate and game length live.
-- Flat Monte Carlo bot for perfect-information games; random-bot balance numbers are too weak.
-- Parameter sweep chart with `sweepParam` (e.g. first-player win rate vs board size).
-- (P2) Auto-balance.
-- 12:00 PM: Fireworks / Muse Open livestream.
-- No office hours on weekends; ask any API questions today.
+### Fri Oct 30: end-to-end generation (the critical P0 day)
+- Repair benchmark: 20–30 prompts across the families. Record round-0 pass rate, cumulative pass rate by round k, mean repair rounds, and the failure-type breakdown.
+- **Done when:** a one-paragraph description becomes an engine-building or map game that loads and plays in the web app.
+- 12:00 PM: Fireworks / Muse Open livestream. No office hours on weekends; ask any API questions today.
 
-### Sat Oct 31: AI opponents
-- Muse Spark opponents choose from the legal move list (constrained output); bluff games add chat for negotiation, bluffing and accusations.
-- Opponents see only `view()`, never hidden information.
-- Run the 50-game evaluation above and make the keep/drop call on table talk.
-- Optional: run opponents on Muse Spark Open via Baseten (`meta-models/muse-spark-open-1026`) for the Best Open Weight prize; `ModelClient` works as is.
+### Sat Oct 31: bots, balance and AI opponents
+- Simulation in a Web Worker; sliders update first-player win rate, score spread and game length live, with a parameter sweep chart.
+- Heuristic and Monte Carlo bots so balance numbers mean something for strategy games.
+- Muse Spark opponents choose from legal moves and negotiate trades; run the 50-game evaluation above.
+- Optional: opponents on Muse Spark Open via Baseten (`meta-models/muse-spark-open-1026`) for the Best Open Weight prize.
 
-### Sun Nov 1: art alignment
-- Render geometry to PNG as the control image (resvg or browser canvas).
-- Muse Image (`/v1/images/edits`) paints over it with a style anchor image as reference.
-- SAM 3.1 with one box prompt per cell (`boxPrompt()` is ready) checks the whole board in one request. Decode the masks and compute IoU against `expectedCellMasks()`.
-- Cells below the IoU threshold: crop, repaint locally, composite back. Record `meanIoU` and `alignedShare` before and after repair.
+### Sun Nov 1: art
+- Card illustrations from Muse Image with one style anchor per game, so a generated deck looks like one product.
+- Map art: render geometry to PNG, paint over it with Muse Image, check every hex with SAM 3.1 box prompts (`boxPrompt()` is ready), compute IoU against `expectedCellMasks()`, repaint misaligned cells. Record `meanIoU` and `alignedShare` before and after repair.
 - Fallback: if Muse Image cannot hold the geometry, still show detection + metrics, with the SVG interaction layer drawn over the art.
 
 ### Mon Nov 2: metrics and demo polish
@@ -113,11 +127,11 @@ Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on
 | Time | Content |
 | --- | --- |
 | 0:00–0:20 | The problem: turning a tabletop idea into a playable prototype takes weeks |
-| 0:20–1:10 | Live generation: prompt and dials → retrieved mechanics → rules code → fuzzing catches a bug → automatic repair → passes |
-| 1:10–1:40 | Play, then drag a slider and watch first-player win rate change |
-| 1:40–2:10 | Bluff game: Muse Spark opponents bluff and accuse |
-| 2:10–2:35 | Art: geometry → painting → SAM check → misaligned cells repaired |
-| 2:35–3:00 | Metrics table, all three families, close |
+| 0:20–1:10 | Live generation of an engine-building game: prompt and dials → retrieved mechanics → cards and rules code → fuzzing catches a bug → automatic repair → passes |
+| 1:10–1:40 | Play it with illustrated cards, then drag a slider and watch first-player win rate change |
+| 1:40–2:10 | Map game: Muse Spark opponents propose and turn down trades |
+| 2:10–2:35 | Art: map geometry → painting → SAM check → misaligned hexes repaired |
+| 2:35–3:00 | Metrics table, the game families, close |
 
 ## Metrics
 

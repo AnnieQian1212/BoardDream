@@ -1,5 +1,7 @@
 import { randomBot, type Bot, type GameModule } from "@boarddream/engine";
+import { glasshouseBot } from "./bots/glasshouse";
 import { liarsDiceBot } from "./bots/liars-dice";
+import { glasshouse } from "./games/glasshouse";
 import { hexGame } from "./games/hex";
 import { iDoubtIt } from "./games/i-doubt-it";
 import { liarsDice } from "./games/liars-dice";
@@ -10,14 +12,18 @@ import { snakesLadders } from "./games/snakes-ladders";
 
 export * from "./catalog";
 export * as mechanics from "./mechanics";
+export { glasshouseBot } from "./bots/glasshouse";
 export { bidProbability, liarsDiceBot } from "./bots/liars-dice";
+export { GLASSHOUSE_CARDS, GLASSHOUSE_RESOURCES } from "./games/glasshouse-cards";
 export type { LiarsDiceMove, LiarsDiceView } from "./games/liars-dice";
-export { hexGame, iDoubtIt, liarsDice, lineUp, raceHome, reversi, snakesLadders };
+export { glasshouse, hexGame, iDoubtIt, liarsDice, lineUp, raceHome, reversi, snakesLadders };
 
-export const referenceGames: GameModule[] = [lineUp, reversi, hexGame, raceHome, snakesLadders, liarsDice, iDoubtIt];
+/** Genre references first: they are what the app opens with. */
+export const referenceGames: GameModule[] = [glasshouse, lineUp, reversi, hexGame, raceHome, snakesLadders, liarsDice, iDoubtIt];
 
 /** Game-specific baseline bots; games without one play randomly. */
 const referenceBots: Record<string, Bot> = {
+  [glasshouse.meta.id]: glasshouseBot(),
   [liarsDice.meta.id]: liarsDiceBot(),
 };
 

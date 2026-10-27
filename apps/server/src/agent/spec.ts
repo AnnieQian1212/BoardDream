@@ -59,7 +59,7 @@ export const gameSpecSchema: JsonSchema = {
     properties: {
       title: str,
       pitch: str,
-      family: { type: "string", enum: ["grid", "race", "bluff"] },
+      family: { type: "string", enum: ["grid", "race", "bluff", "engine", "map"] },
       mode: { type: "string", enum: ["competitive", "cooperative", "hidden-role"] },
       minPlayers: int,
       maxPlayers: int,

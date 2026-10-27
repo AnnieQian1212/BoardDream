@@ -11,8 +11,19 @@ export type ParamSpec =
   | { key: string; label: string; kind: "bool"; default: boolean }
   | { key: string; label: string; kind: "choice"; options: string[]; default: string };
 
-export type GameFamily = "grid" | "race" | "bluff";
+export type GameFamily = "grid" | "race" | "bluff" | "engine" | "map";
 export type PlayMode = "competitive" | "cooperative" | "hidden-role";
+
+/**
+ * A resource the game counts. `icon` names one of the renderer's built-in icons, e.g. "droplet",
+ * "sun", "sprout", "trees", "mountain", "wheat", "brick", "coins", "gem", "fish", "star".
+ */
+export interface ResourceSpec {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
 
 export interface GameMeta {
   id: string;
@@ -22,6 +33,7 @@ export interface GameMeta {
   minPlayers: number;
   maxPlayers: number;
   summary: string;
+  resources?: ResourceSpec[];
 }
 
 export interface SetupContext<P extends Params = Params> {
@@ -69,6 +81,44 @@ export interface Geometry {
   pieces: GeometryPiece[];
 }
 
+/** A card as the UI draws it. */
+export interface CardView {
+  id: string;
+  title: string;
+  /** Rules text. */
+  text?: string;
+  /** Resource id to amount. */
+  cost?: Record<string, number>;
+  points?: number;
+  /** Suits, types or habitats; the first tag picks the card's accent color. */
+  tags?: string[];
+  faceDown?: boolean;
+  /** Card illustration; filled in by the art pipeline. */
+  art?: string;
+}
+
+export interface Counter {
+  id: string;
+  label: string;
+  value: number;
+  /** Resource id, for its icon and color. */
+  resource?: string;
+}
+
+/**
+ * A block of non-board UI. "players" panels are each seat's area (resources, tableau), "shared" ones
+ * sit in the middle (market, supply), and "hand" holds the viewer's private cards.
+ */
+export interface Panel {
+  id: string;
+  title: string;
+  zone: "players" | "shared" | "hand";
+  owner?: PlayerId;
+  counters?: Counter[];
+  cards?: CardView[];
+  note?: string;
+}
+
 /**
  * The fixed interface every game implements: hand-written reference games and generated rules alike.
  *
@@ -95,7 +145,12 @@ export interface GameModule<S = any, M = any, P extends Params = any> {
   view?(state: S, player: PlayerId): unknown;
   /** Board layout. With a `viewer`, draw only what that player may see (hidden dice, cards, roles). */
   geometry?(state: S, viewer?: PlayerId): Geometry;
-  /** Id of a geometry cell the move acts on, so the UI can map board clicks to moves. */
+  /** Player areas, hands, markets and supplies. With a `viewer`, show only what that player may see. */
+  panels?(state: S, viewer?: PlayerId): Panel[];
+  /**
+   * Id of the geometry cell, panel card or counter a move acts on, so clicks map to moves. Several
+   * moves may share a target (play or discard a card); the UI then offers a choice.
+   */
   moveTarget?(state: S, move: M): string | undefined;
   /**
    * Short label for logs, the move list and LLM players. With a `viewer` other than the mover, say

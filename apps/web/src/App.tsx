@@ -1,62 +1,75 @@
 import { createRng, resolveParams, simulate, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
 import { defaultBot, referenceGames } from "@boarddream/library";
+import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Board } from "./components/Board";
 import { CreatePanel } from "./components/CreatePanel";
+import { LogPanel, type LogEntry } from "./components/LogPanel";
+import { Table } from "./components/Table";
 import { TuningPanel } from "./components/TuningPanel";
 
 const HUMAN = 0;
-const SIM_GAMES = 300;
+const SIM_GAMES = 200;
+/** Pause between bot moves so a table full of bots is watchable. */
+const BOT_DELAY = 650;
+
+// ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll).
+const query = new URLSearchParams(window.location.search);
+const WATCH = query.has("watch");
+const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames[0];
 
 interface Match {
   state: unknown;
   rng: Rng;
-  log: string[];
+  log: LogEntry[];
 }
 
-// Described from the human's seat, so rivals' hidden cards stay hidden in the log.
-const describe = (game: GameModule, state: unknown, player: number, move: unknown) =>
-  `P${player + 1}: ${game.describeMove?.(state, move, HUMAN) ?? JSON.stringify(move)}`;
+function applyMove(game: GameModule, match: Match, seat: number, move: unknown): Match {
+  // Described from the human's seat, so rivals' hidden cards stay hidden in the log.
+  const text = game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move);
+  const state = game.applyMove(match.state, seat, move, match.rng);
+  const id = (match.log.at(-1)?.id ?? 0) + 1;
+  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text }] };
+}
 
-/** Applies the human's move, if any, then lets bots play until it is the human's turn or the game ends. */
-function advance(game: GameModule, match: Match, move?: unknown): Match {
-  let { state } = match;
-  const log = match.log.slice();
-  if (move !== undefined) {
-    log.push(describe(game, state, HUMAN, move));
-    state = game.applyMove(state, HUMAN, move, match.rng);
-  }
-  const bot = defaultBot(game);
-  while (!game.isTerminal(state)) {
-    const [player] = game.activePlayers(state);
-    if (player === HUMAN) break;
-    // TODO(day 4-5): Monte Carlo bots for perfect-information games, Muse Spark players for bluff games.
-    const view = game.view ? game.view(state, player) : state;
-    const botMove = bot({ game, state: view, player, moves: game.legalMoves(state, player), rng: match.rng });
-    log.push(describe(game, state, player, botMove));
-    state = game.applyMove(state, player, botMove, match.rng);
-  }
-  return { ...match, state, log };
+function botMove(game: GameModule, match: Match, seat: number): Match {
+  const view = game.view ? game.view(match.state, seat) : match.state;
+  const move = defaultBot(game)({ game, state: view, player: seat, moves: game.legalMoves(match.state, seat), rng: match.rng });
+  return applyMove(game, match, seat, move);
 }
 
 function startMatch(game: GameModule, numPlayers: number, params: Params): Match {
   const rng = createRng(Date.now() >>> 0);
-  return advance(game, { state: game.setup({ numPlayers, params, rng }), rng, log: [] });
+  return { state: game.setup({ numPlayers, params, rng }), rng, log: [] };
 }
+
+/** Genre games read best with three at the table; abstracts with their minimum. */
+const defaultPlayers = (game: GameModule) =>
+  game.meta.family === "engine" || game.meta.family === "map"
+    ? Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3))
+    : game.meta.minPlayers;
 
 export function App() {
   const [games, setGames] = useState<GameModule[]>(referenceGames);
-  const [game, setGame] = useState<GameModule>(referenceGames[0]);
-  const [numPlayers, setNumPlayers] = useState(game.meta.minPlayers);
-  const [params, setParams] = useState<Params>(() => resolveParams(game.params));
+  const [game, setGame] = useState<GameModule>(initialGame);
+  const [numPlayers, setNumPlayers] = useState(() => defaultPlayers(initialGame));
+  const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
 
-  // Re-simulate whenever the rules or sliders change. TODO(day 4): move into a Web Worker.
+  // Bots take their turns one at a time.
+  useEffect(() => {
+    if (game.isTerminal(match.state)) return;
+    const [seat] = game.activePlayers(match.state);
+    if (seat === HUMAN && !WATCH) return;
+    const timer = setTimeout(() => setMatch(botMove(game, match, seat)), BOT_DELAY);
+    return () => clearTimeout(timer);
+  }, [game, match]);
+
+  // Re-simulate whenever the rules or sliders change. TODO(Oct 31): move into a Web Worker.
   useEffect(() => {
     setStats(undefined);
     const bots = new Array(numPlayers).fill(defaultBot(game));
-    const timer = setTimeout(() => setStats(simulate(game, { numPlayers, params, games: SIM_GAMES, bots })), 150);
+    const timer = setTimeout(() => setStats(simulate(game, { numPlayers, params, games: SIM_GAMES, bots })), 200);
     return () => clearTimeout(timer);
   }, [game, numPlayers, params]);
 
@@ -66,80 +79,77 @@ export function App() {
     setParams(nextParams);
     setMatch(startMatch(nextGame, nextPlayers, nextParams));
   }
-  const selectGame = (g: GameModule) => configure(g, g.meta.minPlayers, resolveParams(g.params));
-
-  const over = game.isTerminal(match.state);
-  const myTurn = !over && game.activePlayers(match.state)[0] === HUMAN;
-  const targets = new Map<string, unknown>();
-  const otherMoves: unknown[] = [];
-  for (const move of myTurn ? game.legalMoves(match.state, HUMAN) : []) {
-    const cell = game.moveTarget?.(match.state, move);
-    if (cell) targets.set(cell, move);
-    else otherMoves.push(move);
-  }
-  const geometry = game.geometry?.(match.state, HUMAN);
-  const play = (move: unknown) => setMatch(advance(game, match, move));
-
-  let status = myTurn ? "Your turn" : "Waiting for opponents";
-  if (over) {
-    const { winners } = game.outcome(match.state);
-    status =
-      winners.length === 0 ? "Draw" : winners.includes(HUMAN) ? "You win!" : `Player ${winners.map((w) => w + 1).join(", ")} wins`;
-  }
+  const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
 
   return (
     <div className="app">
       <header className="topbar">
-        <h1>BoardDream</h1>
-        <select value={games.indexOf(game)} onChange={(e) => selectGame(games[Number(e.target.value)])}>
-          {games.map((g, i) => (
-            <option key={i} value={i}>
-              {g.meta.name}
-            </option>
-          ))}
-        </select>
+        <div className="brand">
+          <BrandMark />
+          BoardDream
+        </div>
+        <label className="picker">
+          <span>Now playing</span>
+          <select value={games.indexOf(game)} onChange={(e) => selectGame(games[Number(e.target.value)])}>
+            {games.map((g, i) => (
+              <option key={i} value={i}>
+                {g.meta.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="tagline">{game.meta.summary}</span>
+        <button type="button" className="ghost" onClick={() => setMatch(startMatch(game, numPlayers, params))}>
+          <RotateCcw size={15} /> New game
+        </button>
       </header>
 
       <main className="layout">
-        <CreatePanel
-          onGenerated={(g) => {
-            setGames([...games, g]);
-            selectGame(g);
-          }}
-        />
+        <aside className="sidebar">
+          <CreatePanel
+            onGenerated={(g) => {
+              setGames([...games, g]);
+              selectGame(g);
+            }}
+          />
+        </aside>
 
-        <section className="panel play">
-          <div className="status">
-            <strong>{status}</strong>
-            <button onClick={() => setMatch(startMatch(game, numPlayers, params))}>New game</button>
-          </div>
-          {geometry && (
-            <Board geometry={geometry} targets={new Set(targets.keys())} onCell={(id) => targets.has(id) && play(targets.get(id))} />
-          )}
-          {otherMoves.length > 0 && (
-            <div className="moves">
-              {otherMoves.map((move, i) => (
-                <button key={i} onClick={() => play(move)}>
-                  {game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move)}
-                </button>
-              ))}
-            </div>
-          )}
-          <ol className="log">
-            {match.log.slice(-6).map((line, i) => (
-              <li key={match.log.length - i}>{line}</li>
-            ))}
-          </ol>
-        </section>
-
-        <TuningPanel
+        <Table
+          key={`${games.indexOf(game)}-${numPlayers}`}
           game={game}
+          state={match.state}
           numPlayers={numPlayers}
-          params={params}
-          stats={stats}
-          onChange={(players, nextParams) => configure(game, players, nextParams)}
+          human={HUMAN}
+          onMove={(move) => setMatch(applyMove(game, match, HUMAN, move))}
+          onRestart={() => setMatch(startMatch(game, numPlayers, params))}
         />
+
+        <aside className="sidebar">
+          <TuningPanel
+            game={game}
+            numPlayers={numPlayers}
+            params={params}
+            stats={stats}
+            onChange={(players, nextParams) => configure(game, players, nextParams)}
+          />
+          <LogPanel entries={match.log} human={HUMAN} />
+        </aside>
       </main>
     </div>
+  );
+}
+
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <linearGradient id="brand-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f6d98b" />
+          <stop offset="100%" stopColor="#d99a2b" />
+        </linearGradient>
+      </defs>
+      <path d="M16 2.5 27.7 9.25v13.5L16 29.5 4.3 22.75V9.25Z" fill="url(#brand-gold)" />
+      <path d="M16 9.5l1.9 4.6 4.6 1.9-4.6 1.9L16 22.5l-1.9-4.6-4.6-1.9 4.6-1.9Z" fill="#1c2b26" />
+    </svg>
   );
 }

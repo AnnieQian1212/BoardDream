@@ -1,6 +1,6 @@
 import { resolveParams } from "./params";
 import { createRng, type Rng } from "./rng";
-import type { GameModule, Geometry, Outcome, Params, PlayerId } from "./types";
+import type { GameModule, Geometry, Outcome, Panel, Params, PlayerId } from "./types";
 
 /** Picks a move for `player`. `state` is that player's view when the game defines one. */
 export type Bot = (args: { game: GameModule; state: unknown; player: PlayerId; moves: unknown[]; rng: Rng }) => unknown;
@@ -88,15 +88,18 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
     deepFreeze(value);
   };
 
-  // The UI renders geometry and labels every turn, so broken presentation code is a rules bug too.
+  // The UI renders geometry, panels and labels every turn, so broken presentation code is a rules bug too.
   const checkPresentation = (player: PlayerId, move: unknown) => {
     const geometry = game.geometry ? call("geometry", () => game.geometry!(state, player)) : undefined;
-    const problem = geometry && checkGeometry(geometry);
-    if (problem) throw violation("bad-geometry", problem);
+    const geometryProblem = geometry && checkGeometry(geometry);
+    if (geometryProblem) throw violation("bad-geometry", geometryProblem);
+    const panels = game.panels ? call("panels", () => game.panels!(state, player)) : undefined;
+    const panelProblem = panels && checkPanels(panels);
+    if (panelProblem) throw violation("bad-geometry", panelProblem);
     call("describeMove", () => game.describeMove?.(state, move, (player + 1) % numPlayers));
     const target = call("moveTarget", () => game.moveTarget?.(state, move));
-    if (target !== undefined && geometry && !geometry.cells.some((cell) => cell.id === target)) {
-      throw violation("bad-geometry", `moveTarget() returned "${target}", which is not a cell in geometry()`);
+    if (target !== undefined && !targetIds(geometry, panels).has(target)) {
+      throw violation("bad-geometry", `moveTarget() returned "${target}", which is not a cell, card or counter the UI shows`);
     }
   };
 
@@ -181,6 +184,33 @@ function checkGeometry(geometry: Geometry): string | null {
     if (!Array.isArray(cell.polygon) || cell.polygon.length < 3) return `cell "${cell.id}" needs a polygon with at least 3 points`;
   }
   return null;
+}
+
+function checkPanels(panels: Panel[]): string | null {
+  if (!Array.isArray(panels)) return "panels() must return an array of panels";
+  const ids = new Set<string>();
+  for (const panel of panels) {
+    if (!panel || typeof panel.id !== "string" || !["players", "shared", "hand"].includes(panel.zone)) {
+      return 'every panel needs an id and a zone of "players", "shared" or "hand"';
+    }
+    for (const item of [panel, ...(panel.cards ?? []), ...(panel.counters ?? [])]) {
+      if (ids.has(item.id)) return `panels() reuses the id "${item.id}"; card, counter and panel ids must be unique`;
+      ids.add(item.id);
+    }
+    for (const counter of panel.counters ?? []) {
+      if (!Number.isFinite(counter.value)) return `counter "${counter.id}" has a value that is not a finite number`;
+    }
+  }
+  return null;
+}
+
+/** Everything a move may point at: board cells, panel cards and counters. */
+function targetIds(geometry: Geometry | undefined, panels: Panel[] | undefined): Set<string> {
+  const ids = new Set<string>(geometry?.cells.map((cell) => cell.id) ?? []);
+  for (const panel of panels ?? []) {
+    for (const item of [...(panel.cards ?? []), ...(panel.counters ?? [])]) ids.add(item.id);
+  }
+  return ids;
 }
 
 function checkOutcome(outcome: Outcome, numPlayers: number): string | null {

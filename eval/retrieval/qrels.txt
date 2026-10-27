@@ -9,7 +9,7 @@ q02 0 game:race-home 2
 q03 0 mech:bidding 2
 q03 0 mech:hidden-information 2
 q03 0 game:liars-dice 2
-q03 0 mech:dice 1
+q03 0 mech:dice 2
 q04 0 mech:hidden-roles 2
 q04 0 mech:voting 2
 q04 0 mech:hidden-information 1

@@ -1,4 +1,5 @@
 import type { GameModule, PlayMode } from "@boarddream/engine";
+import { Sparkles, Wand2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { loadGeneratedGame } from "../generated";
 
@@ -20,13 +21,19 @@ interface GenerateResponse {
   error?: string;
 }
 
+const MODES: { value: PlayMode; label: string }[] = [
+  { value: "competitive", label: "Versus" },
+  { value: "cooperative", label: "Co-op" },
+  { value: "hidden-role", label: "Hidden role" },
+];
+
 export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): void }) {
   const [prompt, setPrompt] = useState("");
   const [dials, setDials] = useState<Dials>({
     minPlayers: 2,
     maxPlayers: 4,
-    playMinutes: 20,
-    complexity: 2,
+    playMinutes: 45,
+    complexity: 3,
     luck: 0.3,
     mode: "competitive",
   });
@@ -46,13 +53,13 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
       });
       const data = (await res.json()) as GenerateResponse;
       if (!res.ok) throw new Error(data.error ?? res.statusText);
-      const tries = `${data.attempts.length} fuzz pass${data.attempts.length === 1 ? "" : "es"}`;
+      const tries = `${data.attempts.length} playtest round${data.attempts.length === 1 ? "" : "s"}`;
       if (!data.ok) {
         setStatus(`“${data.spec.title}” still fails playtesting after ${tries}.`);
         return;
       }
       onGenerated(loadGeneratedGame(data.source));
-      setStatus(`“${data.spec.title}” passed playtesting after ${tries}.`);
+      setStatus(`“${data.spec.title}” passed after ${tries}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err));
     } finally {
@@ -61,48 +68,57 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
   }
 
   return (
-    <form className="panel" onSubmit={submit}>
-      <h2>Create</h2>
+    <form className="panel create" onSubmit={submit}>
+      <h2>
+        <Sparkles size={17} /> Dream up a game
+      </h2>
+      <p className="hint">Describe it like you would to a friend. BoardDream writes the rules, playtests them and deals you in.</p>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="A race through a haunted mansion where you can push rivals into trapdoors…"
+        placeholder="Rival beekeepers trade nectar and wax to build hives across a flowering valley…"
         rows={5}
         required
       />
-      <div className="control-pair">
-        <label className="control">
-          Min players
-          <input type="number" min={1} max={8} value={dials.minPlayers} onChange={(e) => set("minPlayers", Number(e.target.value))} />
+      <div className="field-pair">
+        <label className="field">
+          <span>Min players</span>
+          <input type="number" min={1} max={6} value={dials.minPlayers} onChange={(e) => set("minPlayers", Number(e.target.value))} />
         </label>
-        <label className="control">
-          Max players
-          <input type="number" min={1} max={8} value={dials.maxPlayers} onChange={(e) => set("maxPlayers", Number(e.target.value))} />
+        <label className="field">
+          <span>Max players</span>
+          <input type="number" min={1} max={6} value={dials.maxPlayers} onChange={(e) => set("maxPlayers", Number(e.target.value))} />
         </label>
       </div>
-      <Range label="Play time" display={`${dials.playMinutes} min`} min={5} max={90} step={5} value={dials.playMinutes} onChange={(v) => set("playMinutes", v)} />
-      <Range label="Complexity" display={`${dials.complexity} / 5`} min={1} max={5} value={dials.complexity} onChange={(v) => set("complexity", v)} />
-      <Range label="Luck vs strategy" display={`${Math.round(dials.luck * 100)}% luck`} min={0} max={1} step={0.1} value={dials.luck} onChange={(v) => set("luck", v)} />
-      <label className="control">
-        Mode
-        <select value={dials.mode} onChange={(e) => set("mode", e.target.value as PlayMode)}>
-          <option value="competitive">Competitive</option>
-          <option value="cooperative">Cooperative</option>
-          <option value="hidden-role">Hidden role</option>
-        </select>
-      </label>
-      <button type="submit" disabled={busy}>
-        {busy ? "Generating…" : "Generate game"}
+      <Range label="Play time" display={`${dials.playMinutes} min`} min={10} max={90} step={5} value={dials.playMinutes} onChange={(v) => set("playMinutes", v)} />
+      <Range label="Complexity" display={["Light", "Easy", "Medium", "Rich", "Heavy"][dials.complexity - 1]} min={1} max={5} value={dials.complexity} onChange={(v) => set("complexity", v)} />
+      <Range label="Luck" display={`${Math.round(dials.luck * 100)}%`} min={0} max={1} step={0.1} value={dials.luck} onChange={(v) => set("luck", v)} />
+      <div className="segmented" role="radiogroup" aria-label="Mode">
+        {MODES.map((mode) => (
+          <button
+            key={mode.value}
+            type="button"
+            role="radio"
+            aria-checked={dials.mode === mode.value}
+            className={dials.mode === mode.value ? "on" : ""}
+            onClick={() => set("mode", mode.value)}
+          >
+            {mode.label}
+          </button>
+        ))}
+      </div>
+      <button type="submit" className="action wide" disabled={busy}>
+        <Wand2 size={16} /> {busy ? "Dreaming…" : "Generate game"}
       </button>
-      {status && <p className="hint">{status}</p>}
+      {status && <p className="hint status-line">{status}</p>}
     </form>
   );
 }
 
 function Range(props: { label: string; display: string; min: number; max: number; step?: number; value: number; onChange(v: number): void }) {
   return (
-    <label className="control">
-      <span className="control-row">
+    <label className="field">
+      <span className="field-row">
         <span>{props.label}</span>
         <output>{props.display}</output>
       </span>

@@ -1,9 +1,27 @@
 import { createRng, fuzz, playMatch, randomBot, simulate, type Bot } from "@boarddream/engine";
 import { describe, expect, it } from "vitest";
-import { catalog, defaultBot, hexGame, iDoubtIt, liarsDice, liarsDiceBot, lineUp, raceHome, referenceGames, reversi } from "./index";
+import {
+  catalog,
+  defaultBot,
+  GLASSHOUSE_CARDS,
+  GLASSHOUSE_RESOURCES,
+  glasshouse,
+  glasshouseBot,
+  hexGame,
+  iDoubtIt,
+  liarsDice,
+  liarsDiceBot,
+  lineUp,
+  raceHome,
+  referenceGames,
+  reversi,
+} from "./index";
 import { raisesAbove } from "./mechanics/bidding";
 import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
 import { atLeastProbability, countFace } from "./mechanics/dice";
+import { applyEffects, buildDeck, endgameScore, rulesText, validateCards, type CardDef } from "./mechanics/effects";
+import { refill, take } from "./mechanics/market";
+import { add, canAfford, formatAmounts, pay, shortfall } from "./mechanics/resources";
 import { dealRoles, visibleRoles } from "./mechanics/roles";
 import { scoreWinners } from "./mechanics/scoring";
 import { applyJumps, bounceMove, generateJumps } from "./mechanics/shortcuts";
@@ -183,7 +201,92 @@ describe("i-doubt-it", () => {
   });
 });
 
+describe("glasshouse", () => {
+  it("has a valid card list", () => {
+    expect(validateCards(GLASSHOUSE_CARDS, GLASSHOUSE_RESOURCES.map((r) => r.id))).toEqual([]);
+    expect(buildDeck(GLASSHOUSE_CARDS)).toHaveLength(38);
+  });
+
+  it("plants a card, paying for it and scoring it", () => {
+    const state = glasshouse.setup({ numPlayers: 2, params: { turns: 14, marketSize: 4, handLimit: 5 }, rng: createRng(1) });
+    const seat = { ...state.seats[0], resources: { water: 3, light: 3, soil: 3 }, hand: ["tulip#1"] };
+    const next = glasshouse.applyMove({ ...state, seats: [seat, state.seats[1]] }, 0, { type: "plant", card: "tulip#1" }, createRng(1));
+    expect(next.seats[0]).toMatchObject({ resources: { water: 2, light: 2, soil: 3 }, points: 2, hand: [], tableau: ["tulip#1"] });
+    expect(next.toMove).toBe(1);
+  });
+
+  it("harvests every plant's income", () => {
+    const state = glasshouse.setup({ numPlayers: 2, params: { turns: 14, marketSize: 4, handLimit: 5 }, rng: createRng(1) });
+    const seat = { ...state.seats[0], resources: {}, tableau: ["mint#1", "duckweed#1", "lily#1", "jade#1"] };
+    const next = glasshouse.applyMove({ ...state, seats: [seat, state.seats[1]] }, 0, { type: "harvest" }, createRng(1));
+    // Mint +1 water, Duckweed +1 water per aquatic (2), Water Lily +1 light, Jade +1 point.
+    expect(next.seats[0].resources).toEqual({ water: 3, light: 1 });
+    expect(next.seats[0].points).toBe(seat.points + 1);
+  });
+
+  it("hides rivals' hands from the panels and the view", () => {
+    const state = glasshouse.setup({ numPlayers: 2, params: { turns: 14, marketSize: 4, handLimit: 5 }, rng: createRng(1) });
+    const panels = glasshouse.panels!(state, 1);
+    expect(panels.filter((p) => p.zone === "hand").map((p) => p.owner)).toEqual([1]);
+    const view = glasshouse.view!(state, 1) as typeof state;
+    expect(view.seats[0].hand.every((c) => c === "hidden")).toBe(true);
+    expect(view.seats[1].hand).toEqual(state.seats[1].hand);
+  });
+
+  it("greedy bot beats random play", () => {
+    const bot = glasshouseBot();
+    const asFirst = simulate(glasshouse, { numPlayers: 2, games: 60, bots: [bot, randomBot] });
+    const asSecond = simulate(glasshouse, { numPlayers: 2, games: 60, seed: 500, bots: [randomBot, bot] });
+    expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2).toBeGreaterThan(0.8);
+  });
+});
+
 describe("mechanics", () => {
+  it("adds, pays and formats resources", () => {
+    expect(add({ water: 1 }, { water: 2, soil: 1 })).toEqual({ water: 3, soil: 1 });
+    expect(canAfford({ water: 1 }, { water: 2 })).toBe(false);
+    expect(pay({ water: 3, light: 1 }, { water: 2 })).toEqual({ water: 1, light: 1 });
+    expect(() => pay({}, { water: 1 })).toThrow(/cannot afford/);
+    expect(shortfall({ water: 1 }, { water: 3, light: 1 })).toEqual({ water: 2, light: 1 });
+    expect(formatAmounts({ water: 2, light: 1 })).toBe("2 water and 1 light");
+  });
+
+  it("refills the market from the deck and its discards", () => {
+    const rng = createRng(1);
+    const full = refill(rng, { row: [], drawPile: [1, 2, 3], discard: [4] }, 3);
+    expect(full.row).toEqual([1, 2, 3]);
+    const after = take(rng, full, 1, 3);
+    expect(after.card).toBe(2);
+    expect(after.market.row).toEqual([1, 3, 4]);
+  });
+
+  it("applies, scores and describes card effects", () => {
+    const cards: Record<string, CardDef> = {
+      a: { id: "a", name: "A", cost: {}, points: 1, tags: ["tree"], endgame: [{ pointsPerTag: { tag: "tree", points: 2 } }] },
+      b: { id: "b", name: "B", cost: {}, points: 0, tags: ["tree"], income: [{ convert: { give: { water: 2 }, get: { light: 3 } } }] },
+    };
+    const cardOf = (i: string) => cards[i.split("#")[0]];
+    const ctx = { cardOf, draw: (n: number) => Array.from({ length: n }, (_, i) => `x#${i}`) };
+    const seat = { resources: { water: 2 }, points: 1, hand: [], tableau: ["a#1", "b#1"] };
+    expect(applyEffects(seat, [{ draw: 2 }, { gain: { soil: 1 } }], ctx)).toMatchObject({ hand: ["x#0", "x#1"], resources: { water: 2, soil: 1 } });
+    expect(applyEffects(seat, cards.b.income, ctx).resources).toEqual({ water: 0, light: 3 });
+    expect(applyEffects({ ...seat, resources: {} }, cards.b.income, ctx).resources).toEqual({});
+    expect(endgameScore(seat, cardOf)).toBe(1 + 2 * 2);
+    expect(rulesText(cards.a)).toBe("Game end: +2 points per tree.");
+  });
+
+  it("flags broken card data", () => {
+    const bad: CardDef[] = [
+      { id: "x", name: "X", cost: { gold: 1 }, points: 1, tags: [] },
+      { id: "x", name: "Y", cost: {}, points: 1, tags: [], onPlay: [{ gain: { water: -1 } }, { teleport: 1 } as never] },
+    ];
+    const problems = validateCards(bad, ["water"]);
+    expect(problems.some((p) => p.includes('unknown resource "gold"'))).toBe(true);
+    expect(problems.some((p) => p.includes('two cards use the id "x"'))).toBe(true);
+    expect(problems.some((p) => p.includes("amount -1"))).toBe(true);
+    expect(problems.some((p) => p.includes("[teleport]"))).toBe(true);
+  });
+
   it("computes binomial tails", () => {
     expect(atLeastProbability(2, 0.5, 1)).toBeCloseTo(0.75);
     expect(atLeastProbability(3, 1 / 6, 0)).toBe(1);
