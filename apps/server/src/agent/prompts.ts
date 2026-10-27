@@ -38,7 +38,8 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - params: one "int" ParamSpec per spec tunable, plus toggles if useful. Read them from ctx.params in setup
   and copy what later turns need into state.
 - Hidden information: implement view(state, player) and redact everything that player cannot see.
-- Boards: implement geometry() with cell polygons in board units, plus moveTarget() so clicks map to moves.
+- Implement geometry(state, viewer) with cell polygons in board units; with a viewer, draw hidden things
+  face down. moveTarget() must return the id of a cell in geometry(), or undefined for off-board moves.
 - Implement describeMove() with short human-readable labels.`;
 
 export function composeMessages(spec: GameSpec, engineInterface: string, references: Reference[]): ChatMessage[] {

@@ -1,6 +1,6 @@
 import { resolveParams } from "./params";
 import { createRng, type Rng } from "./rng";
-import type { GameModule, Outcome, Params, PlayerId } from "./types";
+import type { GameModule, Geometry, Outcome, Params, PlayerId } from "./types";
 
 /** Picks a move for `player`. `state` is that player's view when the game defines one. */
 export type Bot = (args: { game: GameModule; state: unknown; player: PlayerId; moves: unknown[]; rng: Rng }) => unknown;
@@ -14,6 +14,7 @@ export type ViolationKind =
   | "no-legal-moves"
   | "not-serializable"
   | "bad-outcome"
+  | "bad-geometry"
   | "no-termination"
   | "nondeterministic";
 
@@ -87,6 +88,18 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
     deepFreeze(value);
   };
 
+  // The UI renders geometry and labels every turn, so broken presentation code is a rules bug too.
+  const checkPresentation = (player: PlayerId, move: unknown) => {
+    const geometry = game.geometry ? call("geometry", () => game.geometry!(state, player)) : undefined;
+    const problem = geometry && checkGeometry(geometry);
+    if (problem) throw violation("bad-geometry", problem);
+    call("describeMove", () => game.describeMove?.(state, move));
+    const target = call("moveTarget", () => game.moveTarget?.(state, move));
+    if (target !== undefined && geometry && !geometry.cells.some((cell) => cell.id === target)) {
+      throw violation("bad-geometry", `moveTarget() returned "${target}", which is not a cell in geometry()`);
+    }
+  };
+
   let state = call("setup", () => game.setup({ numPlayers, params, rng }));
   checkJson(state, "state");
 
@@ -109,6 +122,7 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
     const bot = opts.bots?.[player] ?? randomBot;
     const move = bot({ game, state: view, player, moves, rng: botRng });
     trace.push({ turn, player, move });
+    if (strict) checkPresentation(player, move);
     state = call("applyMove", () => game.applyMove(state, player, move, rng));
     checkJson(state, "state");
     turn++;
@@ -154,6 +168,19 @@ function deepFreeze(value: unknown): void {
   if (value === null || typeof value !== "object" || Object.isFrozen(value)) return;
   Object.freeze(value);
   for (const child of Object.values(value)) deepFreeze(child);
+}
+
+function checkGeometry(geometry: Geometry): string | null {
+  if (!geometry || !Array.isArray(geometry.cells) || !Array.isArray(geometry.pieces) || !(geometry.width > 0) || !(geometry.height > 0)) {
+    return "geometry() must return { width, height, cells, pieces } with a positive width and height";
+  }
+  const ids = new Set<string>();
+  for (const cell of geometry.cells) {
+    if (ids.has(cell.id)) return `geometry() has two cells with id "${cell.id}"`;
+    ids.add(cell.id);
+    if (!Array.isArray(cell.polygon) || cell.polygon.length < 3) return `cell "${cell.id}" needs a polygon with at least 3 points`;
+  }
+  return null;
 }
 
 function checkOutcome(outcome: Outcome, numPlayers: number): string | null {

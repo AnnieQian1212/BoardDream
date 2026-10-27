@@ -42,6 +42,9 @@ export interface Outcome {
 export interface GeometryCell {
   id: string;
   polygon: [number, number][];
+  /** Tints the cell in this player's color, e.g. a start square or a seat. */
+  owner?: PlayerId;
+  /** "label" cells are text only: no fill, no outline, not clickable. */
   kind?: string;
   label?: string;
 }
@@ -52,6 +55,7 @@ export interface GeometryPiece {
   y: number;
   r: number;
   owner?: PlayerId;
+  shape?: "disc" | "square";
   kind?: string;
   label?: string;
   cellId?: string;
@@ -74,6 +78,8 @@ export interface Geometry {
  * The runner applies one move per step, from the first entry of `activePlayers`. Games with
  * simultaneous moves store submitted moves in state, hide them in `view`, and drop the player
  * from `activePlayers` until the round resolves.
+ *
+ * The fuzzer also exercises `geometry`, `moveTarget` and `describeMove`, because the UI calls them.
  */
 export interface GameModule<S = any, M = any, P extends Params = any> {
   meta: GameMeta;
@@ -87,8 +93,9 @@ export interface GameModule<S = any, M = any, P extends Params = any> {
   outcome(state: S): Outcome;
   /** What `player` may see. Hidden-information games must redact other players' secrets here. */
   view?(state: S, player: PlayerId): unknown;
-  geometry?(state: S): Geometry;
-  /** Cell id a move acts on, so the UI can map board clicks to moves. */
+  /** Board layout. With a `viewer`, draw only what that player may see (hidden dice, cards, roles). */
+  geometry?(state: S, viewer?: PlayerId): Geometry;
+  /** Id of a geometry cell the move acts on, so the UI can map board clicks to moves. */
   moveTarget?(state: S, move: M): string | undefined;
   /** Short label for logs, the move list and LLM players. */
   describeMove?(state: S, move: M): string;

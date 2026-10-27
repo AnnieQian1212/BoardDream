@@ -1,5 +1,5 @@
 import { createRng, resolveParams, simulate, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
-import { referenceGames } from "@boarddream/library";
+import { defaultBot, referenceGames } from "@boarddream/library";
 import { useEffect, useState } from "react";
 import { Board } from "./components/Board";
 import { CreatePanel } from "./components/CreatePanel";
@@ -25,11 +25,13 @@ function advance(game: GameModule, match: Match, move?: unknown): Match {
     log.push(describe(game, state, HUMAN, move));
     state = game.applyMove(state, HUMAN, move, match.rng);
   }
+  const bot = defaultBot(game);
   while (!game.isTerminal(state)) {
     const [player] = game.activePlayers(state);
     if (player === HUMAN) break;
     // TODO(day 4-5): Monte Carlo bots for perfect-information games, Muse Spark players for bluff games.
-    const botMove = match.rng.pick(game.legalMoves(state, player));
+    const view = game.view ? game.view(state, player) : state;
+    const botMove = bot({ game, state: view, player, moves: game.legalMoves(state, player), rng: match.rng });
     log.push(describe(game, state, player, botMove));
     state = game.applyMove(state, player, botMove, match.rng);
   }
@@ -52,7 +54,8 @@ export function App() {
   // Re-simulate whenever the rules or sliders change. TODO(day 4): move into a Web Worker.
   useEffect(() => {
     setStats(undefined);
-    const timer = setTimeout(() => setStats(simulate(game, { numPlayers, params, games: SIM_GAMES })), 150);
+    const bots = new Array(numPlayers).fill(defaultBot(game));
+    const timer = setTimeout(() => setStats(simulate(game, { numPlayers, params, games: SIM_GAMES, bots })), 150);
     return () => clearTimeout(timer);
   }, [game, numPlayers, params]);
 
@@ -73,7 +76,7 @@ export function App() {
     if (cell) targets.set(cell, move);
     else otherMoves.push(move);
   }
-  const geometry = game.geometry?.(match.state);
+  const geometry = game.geometry?.(match.state, HUMAN);
   const play = (move: unknown) => setMatch(advance(game, match, move));
 
   let status = myTurn ? "Your turn" : "Waiting for opponents";

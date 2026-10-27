@@ -38,11 +38,12 @@ Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on
 ### Mon Oct 26: setup
 - [x] Project skeleton (see "Skeleton status" below)
 - [x] Apply for the $150 Meta API credits
-- [ ] Confirm the credits arrived on the Billing page and set a Spend Limit
-- [ ] Apply for Baseten ($100) and Modal ($100) credits
+- [x] Confirm the credits arrived on the Billing page and set a Spend Limit
+- [x] Apply for Baseten ($100) and Modal ($100) credits
 - [x] Add `MODEL_API_KEY` to `.env`; smoke test passed for chat, image generation and SAM (Oct 27)
-- [ ] Confirm the track (Indie Developer) on the Cerebral Valley registration
-- [ ] Introduce yourself in Discord #intros
+- [x] Confirm the track (Indie Developer) on the Cerebral Valley registration
+- [x] Introduce yourself in Discord #intros
+- [x] Repository public on GitHub
 
 ### Tue Oct 27: lock the engine, finish the reference games
 - Hand-write the race and bluff reference games, plus the bluff probability bot. Use them to check that the interface handles dice, hidden information and simultaneous moves.
@@ -50,6 +51,7 @@ Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on
 - Make both new games playable in the web app (non-board moves use the move button list).
 - 12:00 PM: Agents 101 livestream.
 - **Done when:** all three reference games pass `fuzz`.
+- **Status: done.** Race Home and Liar's Dice added; all three games pass 1,000-run fuzzing. The interface is frozen with one addition, `geometry(state, viewer)`, so hidden dice draw face down; simultaneous moves are verified with a test game. Strict fuzzing now also checks `geometry`, `moveTarget` and `describeMove`. The Liar's Dice probability bot wins over 75% against random play.
 
 ### Wed Oct 28: mechanic library, retrieval and eval set
 - 10–15 mechanic modules, each with unit tests (the "verified" in the proposal): dice, track, capture-by-landing, deck/hand, bidding, hidden roles, voting, flanking capture, connection, round limit, scoring.
@@ -161,24 +163,25 @@ Cost controls:
 
 ## Rules checklist
 
-- [ ] Repository is public
+- [x] Repository is public
 - [ ] README states what was built during the hackathon
 - [ ] Only public-domain or traditional games and assets we have rights to; no trademarked names
 - [ ] Video shows only features built during the hackathon
 - [ ] Present the project as retrieval → composed executable code → fuzz verification, not as a basic RAG app
 
-## Skeleton status (Oct 26)
+## Status (Oct 27)
 
 **Working:**
-- `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves and outcomes), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`
-- `packages/library`: `grid` mechanic module, Line Up reference game (m,n,k with optional gravity), retrievable catalog (including planned entries for retrieval eval)
+- `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves, outcomes and presentation functions), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`
+- `packages/library`: `grid`, `dice`, `track` and `bidding` mechanic modules; reference games Line Up (m,n,k with optional gravity), Race Home (Pachisi-style race) and Liar's Dice; Liar's Dice probability bot; retrievable catalog (including planned entries for retrieval eval)
 - `packages/retrieval`: BM25 with an S-stemmer, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
 - `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat + structured output), `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline, IoU utilities
-- `apps/web`: create panel (prompt and dials), SVG board playable against random bots, parameter sliders, live balance stats
-- 23 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- `apps/web`: create panel (prompt and dials), SVG board (seats, labels, face-down dice) playable against each game's default bot, parameter sliders, live balance stats
+- 40 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - `/api/generate` has not run end to end against the real API; the prompts are first drafts
 - Parsing `editImage` responses and decoding SAM masks (day 6)
 - Fuzzing and simulation still run on the main thread (days 3–4)
-- Opponents play randomly
+- Line Up and Race Home opponents still play randomly (Monte Carlo bots on day 4)
+- The new board rendering has not been checked visually in a browser yet

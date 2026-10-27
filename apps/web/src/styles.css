@@ -161,6 +161,29 @@ button:disabled {
   cursor: pointer;
 }
 
+.cell.label {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+
+.cell-label,
+.piece-label {
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.cell-label {
+  font-size: 0.32px;
+  fill: var(--text);
+}
+
+.piece-label {
+  fill: #fff;
+  font-weight: 600;
+}
+
 .piece {
   pointer-events: none;
 }

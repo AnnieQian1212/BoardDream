@@ -49,3 +49,4 @@ All code in this repository was written during the hackathon, starting after kic
 | Date | Added |
 | --- | --- |
 | Oct 26 | Project skeleton: engine interface, fuzzer, simulator, Line Up reference game, BM25 + IR metrics, designer pipeline draft, web app shell |
+| Oct 27 | Race Home and Liar's Dice reference games; dice, track and bidding mechanic modules; Liar's Dice probability bot; viewer-aware geometry for hidden information; fuzzing of geometry, move targets and move labels |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fuzz, playMatch, simulate, type GameModule } from "./index";
+import { fuzz, playMatch, randomBot, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -13,6 +13,29 @@ const nim: GameModule<NimState, number> = {
   applyMove: (s, player, take) => ({ ...s, pile: s.pile - take, toMove: (player + 1) % s.numPlayers, lastTaker: player }),
   isTerminal: (s) => s.pile === 0,
   outcome: (s) => ({ winners: s.lastTaker === null ? [] : [s.lastTaker] }),
+};
+
+type RpsState = { picks: (number | null)[]; wins: number[]; round: number; rounds: number };
+
+// Simultaneous moves: both players pick, the first pick stays hidden until the round resolves.
+const rps: GameModule<RpsState, number> = {
+  meta: { id: "rps", name: "RPS", family: "bluff", mode: "competitive", minPlayers: 2, maxPlayers: 2, summary: "" },
+  params: [{ key: "rounds", label: "Rounds", kind: "int", min: 1, max: 9, default: 3 }],
+  setup: ({ params }) => ({ picks: [null, null], wins: [0, 0], round: 0, rounds: params.rounds }),
+  activePlayers: (s) => (s.round >= s.rounds ? [] : [0, 1].filter((p) => s.picks[p] === null)),
+  legalMoves: () => [0, 1, 2],
+  applyMove(s, player, pick) {
+    const picks = s.picks.map((x, p) => (p === player ? pick : x));
+    if (picks.includes(null)) return { ...s, picks };
+    const [a, b] = picks as number[];
+    const wins = s.wins.slice();
+    if ((a - b + 3) % 3 === 1) wins[0]++;
+    else if ((b - a + 3) % 3 === 1) wins[1]++;
+    return { ...s, picks: [null, null], wins, round: s.round + 1 };
+  },
+  isTerminal: (s) => s.round >= s.rounds,
+  outcome: (s) => ({ winners: s.wins[0] === s.wins[1] ? [] : [s.wins[0] > s.wins[1] ? 0 : 1] }),
+  view: (s, me) => ({ ...s, picks: s.picks.map((x, p) => (p === me || x === null ? x : "hidden")) }),
 };
 
 const firstFailure = (game: GameModule) => fuzz(game, { runs: 30 }).failures[0]?.kind;
@@ -58,6 +81,27 @@ describe("fuzz", () => {
 
   it("catches winners that are not seats", () => {
     expect(firstFailure({ ...nim, outcome: () => ({ winners: [7] }) })).toBe("bad-outcome");
+  });
+
+  it("catches moves that point outside the board", () => {
+    expect(firstFailure({ ...nim, geometry: () => squareGridGeometry(1, 1), moveTarget: () => "nowhere" })).toBe("bad-geometry");
+  });
+
+  it("passes a simultaneous-move game", () => {
+    expect(fuzz(rps, { runs: 200 }).ok).toBe(true);
+  });
+});
+
+describe("hidden information", () => {
+  it("shows a simultaneous mover only their own pick", () => {
+    const seen: RpsState[] = [];
+    const spy: Bot = ({ state, moves, rng }) => {
+      seen.push(state as RpsState);
+      return rng.pick(moves);
+    };
+    playMatch(rps, { numPlayers: 2, bots: [randomBot, spy], strict: true });
+    expect(seen.length).toBe(3);
+    expect(seen.every((view) => view.picks[0] === ("hidden" as unknown))).toBe(true);
   });
 });
 

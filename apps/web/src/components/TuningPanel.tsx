@@ -29,7 +29,7 @@ export function TuningPanel({ game, numPlayers, params, stats, onChange }: Props
       ))}
 
       <h2>Balance</h2>
-      {/* TODO(day 4): real charts, param sweeps and smarter bots than random play. */}
+      {/* TODO(day 4): real charts, param sweeps and Monte Carlo bots for perfect-information games. */}
       {stats ? (
         <dl className="stats">
           {stats.winRateBySeat.map((rate, seat) => (
@@ -63,7 +63,7 @@ export function TuningPanel({ game, numPlayers, params, stats, onChange }: Props
       ) : (
         <p className="hint">Simulating…</p>
       )}
-      {stats && <p className="hint">{stats.games} random-bot games</p>}
+      {stats && <p className="hint">{stats.games} simulated games</p>}
     </aside>
   );
 }
