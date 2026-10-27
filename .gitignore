@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+.vite/
+eval/**/out/
+
+# Local reference copies of the hackathon guide and proposal
+*.pdf

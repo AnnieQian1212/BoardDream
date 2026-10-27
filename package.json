@@ -1,0 +1,22 @@
+{
+  "name": "boarddream",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @boarddream/server\" \"npm run dev -w @boarddream/web\"",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p eval",
+    "eval:retrieval": "tsx eval/retrieval/run.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
