@@ -1,22 +1,21 @@
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
-  AdditiveBlending,
   CylinderGeometry,
   Euler,
   OctahedronGeometry,
   SphereGeometry,
   type BufferGeometry,
   type Group,
-  type MeshBasicMaterial,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { setCursor, setHover } from "./hover";
 import type { PileItem } from "./layout";
+import { step } from "./motion";
 import { hash, seeded } from "./paint";
-import { ringTexture } from "./textures";
-import { GLOW } from "./Card3D";
+import { blobTexture, ringTexture } from "./textures";
+import { HIGHLIGHT } from "./Card3D";
 
 type TokenShape = "bead" | "crystal" | "block" | "coin" | "disc";
 
@@ -68,9 +67,9 @@ const noRaycast = () => null;
 function Material({ shape, color }: { shape: TokenShape; color: string }) {
   switch (shape) {
     case "bead":
-      return <meshPhysicalMaterial color={color} roughness={0.08} clearcoat={1} clearcoatRoughness={0.05} transparent opacity={0.92} ior={1.5} />;
+      return <meshStandardMaterial color={color} roughness={0.12} metalness={0.05} />;
     case "crystal":
-      return <meshPhysicalMaterial color={color} roughness={0.18} clearcoat={1} flatShading emissive={color} emissiveIntensity={0.18} />;
+      return <meshStandardMaterial color={color} roughness={0.2} flatShading emissive={color} emissiveIntensity={0.15} />;
     case "coin":
       return <meshStandardMaterial color={color} roughness={0.3} metalness={0.75} />;
     default:
@@ -80,6 +79,7 @@ function Material({ shape, color }: { shape: TokenShape; color: string }) {
 
 function Token({ shape, color, slot, seed }: { shape: TokenShape; color: string; slot: number; seed: number }) {
   const ref = useRef<Group>(null!);
+  const invalidate = useThree((s) => s.invalidate);
   const [x, layer, z] = SLOTS[slot];
   const rest = useMemo(() => {
     const rand = seeded(seed);
@@ -92,8 +92,11 @@ function Token({ shape, color, slot, seed }: { shape: TokenShape; color: string;
   // New tokens drop in from above.
   useLayoutEffect(() => {
     ref.current.position.set(x + rest.jitter[0], rest.y + 5, z + rest.jitter[1]);
-  }, [x, z, rest]);
-  useFrame((_, dt) => easing.damp(ref.current.position, "y", rest.y, 0.12, dt));
+    invalidate();
+  }, [x, z, rest, invalidate]);
+  useFrame((state, dt) => {
+    if (easing.damp(ref.current.position, "y", rest.y, 0.12, step(dt))) state.invalidate();
+  });
   return (
     <group ref={ref} rotation={rest.rotation}>
       <mesh geometry={GEOMETRY[shape]} castShadow receiveShadow>
@@ -105,15 +108,11 @@ function Token({ shape, color, slot, seed }: { shape: TokenShape; color: string;
 
 /** A heap of resource tokens with a count chip; clickable when gathering it is a legal move. */
 export function Pile3D({ pile, onPick }: { pile: PileItem; onPick(id: string, x: number, y: number): void }) {
-  const ring = useRef<MeshBasicMaterial>(null!);
   const shape = SHAPES[pile.resource?.icon ?? ""] ?? "block";
   const color = pile.resource?.color ?? "#9a8f80";
   const value = pile.counter.value;
   const seed = hash(pile.id);
-  useFrame((state, dt) => {
-    const pulse = pile.target ? 0.6 + 0.3 * Math.sin(state.clock.elapsedTime * 3.2) : 0;
-    easing.damp(ring.current, "opacity", pulse, 0.12, dt);
-  });
+  const spread = 1.6 + Math.min(value, 7) * 0.16;
   return (
     <group
       position={pile.position}
@@ -135,15 +134,23 @@ export function Pile3D({ pile, onPick }: { pile: PileItem; onPick(id: string, x:
       {Array.from({ length: Math.min(value, MAX_SHOWN) }, (_, i) => (
         <Token key={i} shape={shape} color={color} slot={i} seed={seed + i} />
       ))}
-      {/* Hit area and target ring. */}
+      {/* Soft contact shadow, hit area and target ring. */}
+      {value > 0 && (
+        <mesh rotation-x={-Math.PI / 2} position={[0.2, 0.012, 0.3]} raycast={noRaycast} renderOrder={-2}>
+          <planeGeometry args={[2 * spread, 2 * spread]} />
+          <meshBasicMaterial map={blobTexture()} color="#2a1a0c" transparent opacity={0.4} depthWrite={false} />
+        </mesh>
+      )}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.03, 0]}>
-        <circleGeometry args={[2.4, 40]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <circleGeometry args={[2.4, 24]} />
+        <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
       </mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]} raycast={noRaycast}>
-        <planeGeometry args={[6.4, 6.4]} />
-        <meshBasicMaterial ref={ring} map={ringTexture()} color={GLOW} transparent opacity={0} blending={AdditiveBlending} depthWrite={false} toneMapped={false} />
-      </mesh>
+      {pile.target && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]} raycast={noRaycast}>
+          <planeGeometry args={[6.4, 6.4]} />
+          <meshBasicMaterial map={ringTexture()} color={HIGHLIGHT} transparent opacity={0.95} depthWrite={false} toneMapped={false} />
+        </mesh>
+      )}
     </group>
   );
 }

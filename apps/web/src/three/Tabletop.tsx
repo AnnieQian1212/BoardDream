@@ -1,6 +1,7 @@
 import type { CardView, GameModule, ResourceSpec } from "@boarddream/engine";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
@@ -8,6 +9,7 @@ import { setCursor, setHover, useHover } from "./hover";
 import { labelAnchors, Labels } from "./Labels";
 import { layoutTable } from "./layout";
 import { FONT_DISPLAY, FONT_UI } from "./paint";
+import { initialTier, settings, stepDown } from "./quality";
 import { Scene, type Insets } from "./Scene";
 import { cardFace } from "./textures";
 
@@ -18,11 +20,13 @@ interface Props {
   human: number;
   /** Screen space covered by floating panels; the camera frames the table inside the rest. */
   insets: Insets;
-  /** Post-processing (ambient occlusion, bloom); off for slow GPUs. */
-  effects: boolean;
   onMove(move: unknown): void;
   onRestart(): void;
 }
+
+// ?quality=lowest|low|medium|high pins the render quality; ?lowfx is the old spelling of low.
+const params = new URLSearchParams(window.location.search);
+const START = initialTier(params.get("quality") ?? (params.has("lowfx") ? "low" : null));
 
 interface Menu {
   x: number;
@@ -49,8 +53,10 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, effects, onMove, onRestart }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, onMove, onRestart }: Props) {
   const fonts = useFontsReady();
+  const [tier, setTier] = useState(START.tier);
+  const quality = useMemo(() => settings(tier), [tier]);
   const [menu, setMenu] = useState<Menu | null>(null);
   useEffect(() => {
     setMenu(null);
@@ -101,11 +107,15 @@ export function Tabletop({ game, state, numPlayers, human, insets, effects, onMo
     <div className="stage">
       {fonts && (
         <Canvas
-          shadows="percentage"
-          dpr={[1, 2]}
+          frameloop="demand"
+          shadows={quality.shadows ? "percentage" : false}
+          dpr={quality.dpr}
           resize={{ debounce: 0 }}
-          camera={{ fov: 30, near: 1, far: 3000, position: [0, 150, 110] }}
-          gl={{ antialias: !effects, powerPreference: "high-performance" }}
+          camera={{ fov: 30, near: 5, far: 1500, position: [0, 150, 110] }}
+          gl={{ antialias: !quality.ambientOcclusion, powerPreference: "high-performance" }}
+          onCreated={({ gl }) => {
+            gl.toneMapping = NeutralToneMapping;
+          }}
           onPointerMissed={() => setMenu(null)}
         >
           <Suspense fallback={null}>
@@ -116,7 +126,8 @@ export function Tabletop({ game, state, numPlayers, human, insets, effects, onMo
               insets={insets}
               labels={labels}
               mover={mover}
-              effects={effects}
+              quality={quality}
+              onSlow={START.locked ? undefined : () => setTier((t) => stepDown(t))}
               onPick={pick}
             />
           </Suspense>

@@ -1,15 +1,16 @@
 import type { GeometryCell, GeometryPiece } from "@boarddream/engine";
 import { RoundedBox } from "@react-three/drei";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Color, ExtrudeGeometry, LatheGeometry, Shape, Vector2, type Group, type Mesh, type MeshStandardMaterial } from "three";
 import { playerColor } from "../colors";
-import { GOLD } from "./Card3D";
+import { HIGHLIGHT } from "./Card3D";
 import { setCursor } from "./hover";
 import type { BoardItem } from "./layout";
+import { step } from "./motion";
 import { mix } from "./paint";
-import { boardPrint, pieceLabel } from "./textures";
+import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
 
 const SLAB = 0.6;
 const TILE = 0.32;
@@ -18,13 +19,13 @@ const TILE_TOP = SLAB + TILE + 2 * BEVEL;
 const noRaycast = () => null;
 
 const TILE_COLORS: Record<string, string> = {
-  ladder: "#b9d3a8",
-  snake: "#eab9ad",
+  ladder: "#bcd9b0",
+  snake: "#f0c0b2",
 };
-const CREAM = "#ece0c5";
+const CREAM = "#f3ead8";
 
 function tileColor(cell: GeometryCell): string {
-  if (cell.owner !== undefined) return mix(playerColor(cell.owner), CREAM, 0.42);
+  if (cell.owner !== undefined) return mix(playerColor(cell.owner), CREAM, 0.5);
   return TILE_COLORS[cell.kind ?? ""] ?? CREAM;
 }
 
@@ -51,7 +52,7 @@ export function Board3D({ board, targets, onPick }: Props) {
   return (
     <group position={position}>
       <RoundedBox args={[width, SLAB, depth]} radius={0.3} smoothness={3} position={[0, SLAB / 2, 0]} castShadow receiveShadow raycast={noRaycast}>
-        <meshStandardMaterial color="#2b2420" roughness={0.75} />
+        <meshStandardMaterial color={NAVY} roughness={0.7} />
       </RoundedBox>
       {geometry.cells
         .filter((cell) => cell.kind !== "label")
@@ -73,6 +74,8 @@ function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; 
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => invalidate(), [target, hovered, invalidate]);
   const geometry = useMemo(() => {
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel.
@@ -83,12 +86,14 @@ function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; 
   }, [cell.polygon, k]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   const base = useMemo(() => new Color(tileColor(cell)), [cell]);
-  const gold = useMemo(() => new Color(GOLD), []);
+  const highlight = useMemo(() => new Color(HIGHLIGHT), []);
 
-  useFrame((state, dt) => {
-    const glow = target ? 0.25 + 0.2 * Math.sin(state.clock.elapsedTime * 3.2) + (hovered ? 0.9 : 0) : 0;
-    easing.damp(material.current, "emissiveIntensity", glow, 0.12, dt);
-    easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt);
+  useFrame((state, delta) => {
+    const dt = step(delta);
+    const glow = target ? (hovered ? 0.75 : 0.22) : 0;
+    let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
+    moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
+    if (moving) state.invalidate();
   });
 
   return (
@@ -112,7 +117,7 @@ function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; 
         if (target) onPick(cell.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
       }}
     >
-      <meshStandardMaterial ref={material} color={base} emissive={gold} emissiveIntensity={0} roughness={0.68} />
+      <meshStandardMaterial ref={material} color={base} emissive={highlight} emissiveIntensity={0} roughness={0.68} />
     </mesh>
   );
 }
@@ -138,20 +143,28 @@ function Piece({ piece, k, at }: { piece: GeometryPiece; k: number; at: [number,
   const square = piece.shape === "square";
   const height = square ? 2 * r : 0.55 * r;
   const color = playerColor(piece.owner);
+  const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
     ref.current.position.set(at[0], TILE_TOP + 6, at[1]);
     // Only on mount: later moves slide the piece from where it stands.
   }, []);
-  useFrame((_, dt) => easing.damp3(ref.current.position, [at[0], TILE_TOP, at[1]], 0.14, dt));
+  useEffect(() => invalidate(), [at[0], at[1], invalidate]);
+  useFrame((state, dt) => {
+    if (easing.damp3(ref.current.position, [at[0], TILE_TOP, at[1]], 0.14, step(dt))) state.invalidate();
+  });
   return (
     <group ref={ref}>
+      <mesh rotation-x={-Math.PI / 2} position={[r * 0.25, 0.015, r * 0.35]} raycast={noRaycast} renderOrder={-1}>
+        <planeGeometry args={[r * 3.2, r * 3.2]} />
+        <meshBasicMaterial map={blobTexture()} color="#1a1008" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
       {square ? (
         <RoundedBox args={[2 * r, 2 * r, 2 * r]} radius={r * 0.22} smoothness={4} position={[0, r, 0]} castShadow receiveShadow raycast={noRaycast}>
-          <meshPhysicalMaterial color={color} roughness={0.35} clearcoat={0.8} clearcoatRoughness={0.2} />
+          <meshStandardMaterial color={color} roughness={0.35} />
         </RoundedBox>
       ) : (
         <mesh geometry={DISC} scale={[r, height, r]} castShadow receiveShadow raycast={noRaycast}>
-          <meshPhysicalMaterial color={color} roughness={0.32} clearcoat={0.9} clearcoatRoughness={0.15} />
+          <meshStandardMaterial color={color} roughness={0.3} />
         </mesh>
       )}
       {piece.label && (

@@ -36,7 +36,7 @@ cp .env.example .env      # add MODEL_API_KEY
 npm run dev               # server on :8787, web on http://localhost:5173
 ```
 
-Open `http://localhost:5173/?game=glasshouse&watch` to watch bots play a full game. Press `F` to hide the side panels; add `?lowfx` on a slow GPU, or `?flat` for the 2D table.
+Open `http://localhost:5173/?game=glasshouse&watch` to watch bots play a full game. Press `F` to hide the side panels. The table renders only while something moves and picks a quality tier from the GPU (integrated GPUs get no shadow maps or post-processing, and it steps down further if animation drops below 30 fps); force one with `?quality=lowest|low|medium|high`, or use `?flat` for the 2D table.
 
 ```sh
 npm test                  # engine, library, retrieval, sandbox
@@ -54,4 +54,5 @@ All code in this repository was written during the hackathon, starting after kic
 | Oct 27 | Race Home and Liar's Dice reference games; dice, track and bidding mechanic modules; Liar's Dice probability bot; viewer-aware geometry for hidden information; fuzzing of geometry, move targets and move labels |
 | Oct 27 | Mechanic library grown to 13 modules and 7 reference games (Reversi, Hex, Snakes and Ladders, I Doubt It); 50-query retrieval eval set; Muse Spark query expansion and rerank (nDCG@10 0.845 → 0.969 over BM25), now used by the designer |
 | Oct 27 | New focus on Catan- and Wingspan-style games: player panels in the engine, a card effect language, resources and market modules, Glasshouse (original engine-building game) with a greedy bot, and a redesigned tabletop UI |
-| Oct 27 | 3D tabletop in three.js: lit table, painted card faces, animated cards and tokens, raised board tiles, gold highlights for legal moves, camera framing around the side panels, focus mode for recording |
+| Oct 27 | 3D tabletop in three.js: lit table, painted card faces, animated cards and tokens, raised board tiles, highlights for legal moves, camera framing around the side panels, focus mode for recording |
+| Oct 27 | Light daylight theme (oak table, navy market and boards, pastel seat mats, teal highlights); on-demand rendering and GPU quality tiers so the table runs smoothly on integrated graphics |

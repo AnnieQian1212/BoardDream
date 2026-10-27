@@ -14,10 +14,9 @@ const SIM_GAMES = 200;
 const BOT_DELAY = 650;
 
 // ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll);
-// ?lowfx turns off post-processing; ?flat uses the 2D table instead of WebGL.
+// ?quality=lowest|low|medium|high pins the 3D render quality; ?flat uses the 2D table instead of WebGL.
 const query = new URLSearchParams(window.location.search);
 const WATCH = query.has("watch");
-const EFFECTS = !query.has("lowfx");
 const FLAT = query.has("flat") || !hasWebGL();
 /** Screen space the floating side panels, top bar and move bar cover. */
 const PANEL_INSET = 326;
@@ -129,7 +128,7 @@ export function App() {
           <Table key={tableKey} {...tableProps} />
         </div>
       ) : (
-        <Tabletop key={tableKey} {...tableProps} insets={insets} effects={EFFECTS} />
+        <Tabletop key={tableKey} {...tableProps} insets={insets} />
       )}
 
       <header className="topbar">
@@ -189,7 +188,7 @@ function BrandMark() {
         </linearGradient>
       </defs>
       <path d="M16 2.5 27.7 9.25v13.5L16 29.5 4.3 22.75V9.25Z" fill="url(#brand-gold)" />
-      <path d="M16 9.5l1.9 4.6 4.6 1.9-4.6 1.9L16 22.5l-1.9-4.6-4.6-1.9 4.6-1.9Z" fill="#1c2b26" />
+      <path d="M16 9.5l1.9 4.6 4.6 1.9-4.6 1.9L16 22.5l-1.9-4.6-4.6-1.9 4.6-1.9Z" fill="#2a2520" />
     </svg>
   );
 }

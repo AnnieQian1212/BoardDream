@@ -317,7 +317,7 @@ export function cardBack(): CanvasTexture {
 
 let wood: { map: Texture; bump: Texture } | undefined;
 
-/** Walnut planks: long wavy grain lines, slow color drift along each plank, thin seams. */
+/** Light oak planks: long wavy grain lines, slow color drift along each plank, thin seams. */
 export function woodTextures(): { map: Texture; bump: Texture } {
   if (wood) return wood;
   const size = 1024;
@@ -331,8 +331,8 @@ export function woodTextures(): { map: Texture; bump: Texture } {
   const fine = noise2(37, 128, 1024);
   const tones = Array.from({ length: size / plank }, (_, i) => seeded(i + 3)() * 0.2 - 0.1);
   const offsets = Array.from({ length: size / plank }, (_, i) => Math.floor(seeded(i + 99)() * size));
-  const dark = [36, 21, 12];
-  const light = [122, 80, 48];
+  const dark = [176, 136, 96];
+  const light = [234, 208, 170];
   for (let y = 0; y < size; y++) {
     const p = Math.floor(y / plank);
     const ly = y % plank;
@@ -344,8 +344,8 @@ export function woodTextures(): { map: Texture; bump: Texture } {
       // Grain: many thin lines along the plank whose phase wanders slowly.
       const g = Math.sin((fy * 260 + w * 5 + d * 2) * Math.PI * 2);
       const line = Math.max(0, g - 0.55) / 0.45;
-      let v = 0.52 + tones[p] + (d - 0.5) * 0.42 - line * 0.16 + (fine(sx * 128, fy * 1024) - 0.5) * 0.1;
-      if (ly < 2 || ly > plank - 2) v *= 0.4;
+      let v = 0.6 + tones[p] + (d - 0.5) * 0.36 - line * 0.2 + (fine(sx * 128, fy * 1024) - 0.5) * 0.1;
+      if (ly < 2 || ly > plank - 2) v *= 0.55;
       v = Math.min(1, Math.max(0, v));
       const i = (y * size + x) * 4;
       for (let c = 0; c < 3; c++) image.data[i + c] = dark[c] + (light[c] - dark[c]) * v;
@@ -371,9 +371,12 @@ export function woodTextures(): { map: Texture; bump: Texture } {
 const mats = new Map<string, CanvasTexture>();
 const PX = 24;
 
-/** A seat's play mat or the market board: dark tinted cloth, stitched edge and a printed name. */
-export function matTexture(width: number, depth: number, color: string, title: string): CanvasTexture {
-  const key = [width.toFixed(1), depth.toFixed(1), color, title].join("|");
+export const NAVY = "#24304a";
+export const GOLD_INK = "#e3b65c";
+
+/** Seat mats are pastel cloth with a band in the seat color; shared supplies are a navy board with gold trim. */
+export function matTexture(width: number, depth: number, color: string, title: string, shared: boolean): CanvasTexture {
+  const key = [width.toFixed(1), depth.toFixed(1), color, title, shared].join("|");
   return cached(mats, key, () => {
     const scale = Math.min(PX, 2048 / width);
     const [canvas, ctx] = canvas2d(width * scale, depth * scale);
@@ -383,13 +386,14 @@ export function matTexture(width: number, depth: number, color: string, title: s
     roundRect(ctx, 0, 0, w, h, 0.7 * u);
     ctx.save();
     ctx.clip();
-    const base = mix(color, "#15161b", 0.8);
-    const bg = ctx.createRadialGradient(w * 0.5, h * 0.35, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
-    bg.addColorStop(0, mix(base, "#ffffff", 0.07));
-    bg.addColorStop(1, mix(base, "#000000", 0.25));
+    const base = shared ? NAVY : mix(color, "#f6f1e7", 0.82);
+    const bg = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
+    bg.addColorStop(0, mix(base, "#ffffff", shared ? 0.08 : 0.25));
+    bg.addColorStop(1, mix(base, "#000000", shared ? 0.18 : 0.04));
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.025)";
+    // Woven cloth.
+    ctx.strokeStyle = shared ? "rgba(255, 255, 255, 0.025)" : "rgba(60, 40, 20, 0.035)";
     ctx.lineWidth = 1;
     for (let i = 0; i < w + h; i += 5) {
       ctx.beginPath();
@@ -397,52 +401,69 @@ export function matTexture(width: number, depth: number, color: string, title: s
       ctx.lineTo(i - h, h);
       ctx.stroke();
     }
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = shared ? 0.5 : 0.35;
     ctx.fillStyle = grainPattern(ctx);
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
-    // Header band.
-    const band = ctx.createLinearGradient(0, 0, w, 0);
-    band.addColorStop(0, alpha(color, 0.32));
-    band.addColorStop(0.6, alpha(color, 0.08));
-    band.addColorStop(1, alpha(color, 0));
-    ctx.fillStyle = band;
-    ctx.fillRect(0, 0, w, 3 * u);
-    ctx.fillStyle = alpha(color, 0.9);
-    ctx.fillRect(0, 3 * u - 2, w, 2);
+    if (shared) {
+      ctx.fillStyle = "rgba(227, 182, 92, 0.85)";
+      ctx.fillRect(1.2 * u, 3 * u - 1, w - 2.4 * u, 2);
+    } else {
+      const band = ctx.createLinearGradient(0, 0, 0, 3 * u);
+      band.addColorStop(0, mix(color, "#ffffff", 0.08));
+      band.addColorStop(1, mix(color, "#000000", 0.06));
+      ctx.fillStyle = band;
+      ctx.fillRect(0, 0, w, 3 * u);
+    }
     ctx.restore();
     // Stitched edge.
     roundRect(ctx, 0.45 * u, 0.45 * u, w - 0.9 * u, h - 0.9 * u, 0.45 * u);
     ctx.setLineDash([0.45 * u, 0.3 * u]);
     ctx.lineWidth = Math.max(2, 0.08 * u);
-    ctx.strokeStyle = alpha(mix(color, "#ffffff", 0.2), 0.75);
+    ctx.strokeStyle = shared ? alpha(GOLD_INK, 0.7) : alpha(mix(color, "#000000", 0.15), 0.45);
     ctx.stroke();
     ctx.setLineDash([]);
     // Name.
-    ctx.beginPath();
-    ctx.arc(1.55 * u, 1.55 * u, 0.42 * u, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.fillStyle = CREAM;
-    ctx.font = `600 ${1.2 * u}px ${FONT_DISPLAY}`;
+    ctx.fillStyle = shared ? GOLD_INK : "#ffffff";
+    ctx.font = `600 ${1.25 * u}px ${FONT_DISPLAY}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(title, 2.4 * u, 1.62 * u);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+    ctx.shadowBlur = 0.15 * u;
+    ctx.shadowOffsetY = 0.05 * u;
+    ctx.fillText(title, 1.4 * u, 1.58 * u);
+    ctx.shadowColor = "transparent";
     return texture(canvas);
   });
 }
 
 const glows = new Map<string, CanvasTexture>();
 
-/** White soft-edged rounded rect, `blur` units of falloff around a `w` x `h` core. */
-export function glowTexture(w: number, h: number, blur: number, radius: number): CanvasTexture {
-  const key = [w, h, blur, radius].map((n) => n.toFixed(1)).join("|");
+/** White soft-edged rounded rect, `blur` units of falloff around a `w` x `h` core; more passes, denser glow. */
+export function glowTexture(w: number, h: number, blur: number, radius: number, passes = 1): CanvasTexture {
+  const key = [w, h, blur, radius, passes].map((n) => n.toFixed(1)).join("|");
   return cached(glows, key, () => {
     const scale = Math.min(16, 1024 / (w + 2 * blur));
     const [canvas, ctx] = canvas2d((w + 2 * blur) * scale, (h + 2 * blur) * scale);
-    softRect(ctx, blur * scale, blur * scale, w * scale, h * scale, radius * scale, "#ffffff", blur * scale * 0.9);
+    for (let i = 0; i < passes; i++) softRect(ctx, blur * scale, blur * scale, w * scale, h * scale, radius * scale, "#ffffff", blur * scale * 0.9);
     return texture(canvas);
   });
+}
+
+let blob: CanvasTexture | undefined;
+
+/** Soft round shadow for tokens and pieces. */
+export function blobTexture(): CanvasTexture {
+  if (blob) return blob;
+  const [canvas, ctx] = canvas2d(128, 128);
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255, 255, 255, 1)");
+  g.addColorStop(0.45, "rgba(255, 255, 255, 0.6)");
+  g.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  blob = texture(canvas);
+  return blob;
 }
 
 let ring: CanvasTexture | undefined;

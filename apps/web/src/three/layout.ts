@@ -59,6 +59,8 @@ export interface MatItem {
   width: number;
   depth: number;
   active: boolean;
+  /** A shared supply (market) rather than a seat's mat. */
+  shared: boolean;
 }
 
 /** Live numbers drawn as HTML next to a mat's name: score, hand size, round. */
@@ -143,7 +145,7 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
       const seat = panel.zone === "players" ? (panel.owner ?? 0) : undefined;
       const color = seat !== undefined ? playerColor(seat) : "#e6b64a";
       const active = seat !== undefined && seat === input.active;
-      out.mats.push({ id: panel.id, title: opts.title, color, position: [x, 0, z], width, depth, active });
+      out.mats.push({ id: panel.id, title: opts.title, color, position: [x, 0, z], width, depth, active, shared: panel.zone === "shared" });
       const left = x - width / 2 + PAD;
       const top = z - depth / 2;
       const bodyZ = top + HEADER + bodyDepth / 2 - 0.3;

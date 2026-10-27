@@ -1,7 +1,7 @@
 import type { ResourceSpec } from "@boarddream/engine";
 import { Environment, Lightformer } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Bloom, EffectComposer, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, N8AO, ToneMapping } from "@react-three/postprocessing";
 import { easing } from "maath";
 import { ToneMappingMode } from "postprocessing";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -9,10 +9,12 @@ import { Object3D, PerspectiveCamera, Vector3 } from "three";
 import { Board3D } from "./Board3D";
 import { fitCamera, FOV, type Insets } from "./camera";
 import { Card3D, Deck3D } from "./Card3D";
-import type { CardItem, TableLayout, Vec3 } from "./layout";
 import { LabelTracker } from "./Labels";
+import type { CardItem, TableLayout, Vec3 } from "./layout";
 import { Mat3D } from "./Mat3D";
+import { step } from "./motion";
 import { Pile3D } from "./Pile3D";
+import type { Quality } from "./quality";
 import { woodTextures } from "./textures";
 
 export type { Insets } from "./camera";
@@ -26,25 +28,33 @@ interface Props {
   labels: { anchors: Map<string, Vec3>; layer: RefObject<HTMLDivElement | null> };
   /** Seat that made the last move: cards leaving the table fly to their mat. */
   mover?: number;
-  effects: boolean;
+  quality: Quality;
+  /** Called when animation runs too slowly, to step the quality down. */
+  onSlow?(): void;
   onPick(id: string, x: number, y: number): void;
 }
 
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-export function Scene({ layout, resources, targets, insets, labels, mover, effects, onPick }: Props) {
+/**
+ * The table renders on demand: every animated object asks for another frame only while it is
+ * still moving, so a settled table costs nothing.
+ */
+export function Scene({ layout, resources, targets, insets, labels, mover, quality, onSlow, onPick }: Props) {
   const leaving = useLeaving(layout, mover);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => invalidate(), [layout, quality, invalidate]);
   const { min, max } = layout.bounds;
   const center: Vec3 = [(min[0] + max[0]) / 2, 0, (min[2] + max[2]) / 2];
+  const extent = Math.max(max[0] - min[0], max[2] - min[2]) / 2 + 12;
   return (
     <>
-      <color attach="background" args={["#0d0907"]} />
+      <color attach="background" args={["#e6dac8"]} />
       <CameraRig layout={layout} insets={insets} />
-      <Lights center={center} />
-      <Environment resolution={256} environmentIntensity={0.45}>
-        <Lightformer form="rect" intensity={2.2} color="#fff1dc" position={[-20, 60, 10]} rotation-x={Math.PI / 2} scale={[80, 50, 1]} />
-        <Lightformer form="rect" intensity={1.1} color="#b9cdf5" position={[70, 25, -20]} rotation-y={-Math.PI / 2} scale={[60, 20, 1]} />
-        <Lightformer form="rect" intensity={0.7} color="#ffd59a" position={[0, 18, 80]} rotation-y={Math.PI} scale={[80, 16, 1]} />
+      <FrameMonitor onSlow={onSlow} />
+      <Lights center={center} extent={extent} quality={quality} />
+      <Environment resolution={128} environmentIntensity={0.5}>
+        <Lightformer form="rect" intensity={2} color="#fffaf0" position={[-20, 60, 10]} rotation-x={Math.PI / 2} scale={[80, 50, 1]} />
+        <Lightformer form="rect" intensity={1} color="#dfe8ff" position={[70, 25, -20]} rotation-y={-Math.PI / 2} scale={[60, 20, 1]} />
+        <Lightformer form="rect" intensity={0.8} color="#fff1dc" position={[0, 18, 80]} rotation-y={Math.PI} scale={[80, 16, 1]} />
       </Environment>
       <TableSurface center={center} />
 
@@ -63,11 +73,9 @@ export function Scene({ layout, resources, targets, insets, labels, mover, effec
         <Card3D key={card.id} item={card} resources={resources} onPick={onPick} />
       ))}
 
-      {effects && (
+      {quality.ambientOcclusion && (
         <EffectComposer multisampling={4}>
-          <N8AO aoRadius={2.5} distanceFalloff={0.6} intensity={1.6} quality="medium" halfRes />
-          <Bloom mipmapBlur intensity={0.5} luminanceThreshold={0.85} luminanceSmoothing={0.25} />
-          <Vignette offset={0.28} darkness={0.62} />
+          <N8AO aoRadius={2.5} distanceFalloff={0.6} intensity={1.2} quality="medium" halfRes />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />
         </EffectComposer>
       )}
@@ -106,30 +114,50 @@ function useLeaving(layout: TableLayout, mover: number | undefined): CardItem[] 
   return [...gone.current.values()].map((g) => g.item);
 }
 
-function Lights({ center }: { center: Vec3 }) {
+/** Watches frame times while something animates and reports when they stay above ~33 ms. */
+function FrameMonitor({ onSlow }: { onSlow?(): void }) {
+  const samples = useRef<number[]>([]);
+  useFrame((_, dt) => {
+    if (!onSlow) return;
+    // A long gap means the table was idle between on-demand frames; start over.
+    if (dt > 0.25) {
+      samples.current = [];
+      return;
+    }
+    samples.current.push(dt);
+    if (samples.current.length < 40) return;
+    const median = [...samples.current].sort((a, b) => a - b)[20];
+    samples.current = [];
+    if (median > 1 / 30) onSlow();
+  });
+  return null;
+}
+
+function Lights({ center, extent, quality }: { center: Vec3; extent: number; quality: Quality }) {
   const target = useMemo(() => new Object3D(), []);
   const [x, , z] = center;
   return (
     <>
       <primitive object={target} position={center} />
-      <hemisphereLight args={["#ffe8c8", "#2a1a10", 0.45]} />
-      <spotLight
+      <hemisphereLight args={["#fffaf0", "#c9ae8c", 1.15]} />
+      <directionalLight
         target={target}
-        position={[x - 42, 115, z + 30]}
-        angle={0.56}
-        penumbra={0.9}
-        decay={0}
-        intensity={3.4}
-        color="#ffe3bd"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0002}
-        shadow-normalBias={0.04}
-        shadow-radius={5}
-        shadow-camera-near={40}
-        shadow-camera-far={320}
+        position={[x - 45, 90, z + 35]}
+        intensity={1.9}
+        color="#fff3e0"
+        castShadow={quality.shadows}
+        shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.05}
+        shadow-radius={4}
+        shadow-camera-left={-extent}
+        shadow-camera-right={extent}
+        shadow-camera-top={extent}
+        shadow-camera-bottom={-extent}
+        shadow-camera-near={20}
+        shadow-camera-far={260}
       />
-      <directionalLight position={[x + 60, 40, z - 50]} intensity={0.55} color="#9fb8ef" />
+      <directionalLight position={[x + 60, 40, z - 40]} intensity={0.4} color="#dce6ff" />
     </>
   );
 }
@@ -139,7 +167,7 @@ function TableSurface({ center }: { center: Vec3 }) {
   return (
     <mesh rotation-x={-Math.PI / 2} position={[center[0], 0, center[2]]} receiveShadow raycast={() => null}>
       <planeGeometry args={[420, 420]} />
-      <meshPhysicalMaterial map={map} bumpMap={bump} bumpScale={0.6} roughness={0.55} clearcoat={0.3} clearcoatRoughness={0.4} />
+      <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.4} roughness={0.62} envMapIntensity={0.4} />
     </mesh>
   );
 }
@@ -149,27 +177,26 @@ function CameraRig({ layout, insets }: { layout: TableLayout; insets: Insets }) 
   const { width, height } = useThree((s) => s.size);
   const goal = useMemo(() => fitCamera(layout, width, height, insets), [layout, width, height, insets]);
   const look = useRef<Vector3 | null>(null);
-  const aim = useMemo(() => new Vector3(), []);
 
   useEffect(() => {
     camera.fov = FOV;
+    camera.near = 5;
+    camera.far = 1500;
     camera.setViewOffset(width, height, -(insets.left - insets.right) / 2, -(insets.top - insets.bottom) / 2, width, height);
     camera.updateProjectionMatrix();
   }, [camera, width, height, insets]);
 
-  useFrame((state, dt) => {
+  useFrame((state, delta) => {
+    const dt = step(delta);
     if (!look.current) {
       // First frame: start a little higher and swoop in.
       look.current = goal.target.clone();
       camera.position.copy(goal.position).add(new Vector3(0, 40, 30));
     }
-    const t = state.clock.elapsedTime;
-    // A slow drift and a little parallax from the pointer keep the table feeling physical.
-    aim.copy(goal.position);
-    if (!reducedMotion) aim.add({ x: state.pointer.x * 2.2 + Math.sin(t * 0.13) * 1.2, y: state.pointer.y * 1.2, z: Math.cos(t * 0.11) });
-    easing.damp3(camera.position, aim, 0.9, dt);
-    easing.damp3(look.current, goal.target, 0.9, dt);
+    let moving = easing.damp3(camera.position, goal.position, 0.6, dt, Infinity, undefined, 0.01);
+    moving = easing.damp3(look.current, goal.target, 0.6, dt, Infinity, undefined, 0.01) || moving;
     camera.lookAt(look.current);
+    if (moving) state.invalidate();
   });
   return null;
 }
