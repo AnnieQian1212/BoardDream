@@ -14,8 +14,9 @@ interface Match {
   log: string[];
 }
 
+// Described from the human's seat, so rivals' hidden cards stay hidden in the log.
 const describe = (game: GameModule, state: unknown, player: number, move: unknown) =>
-  `P${player + 1}: ${game.describeMove?.(state, move) ?? JSON.stringify(move)}`;
+  `P${player + 1}: ${game.describeMove?.(state, move, HUMAN) ?? JSON.stringify(move)}`;
 
 /** Applies the human's move, if any, then lets bots play until it is the human's turn or the game ends. */
 function advance(game: GameModule, match: Match, move?: unknown): Match {
@@ -119,7 +120,7 @@ export function App() {
             <div className="moves">
               {otherMoves.map((move, i) => (
                 <button key={i} onClick={() => play(move)}>
-                  {game.describeMove?.(match.state, move) ?? JSON.stringify(move)}
+                  {game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move)}
                 </button>
               ))}
             </div>

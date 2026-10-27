@@ -38,7 +38,7 @@ export function Board({ geometry, targets, onCell }: Props) {
 function Cell({ cell, target, onClick }: { cell: GeometryCell; target: boolean; onClick(): void }) {
   const [cx, cy] = centroid(cell.polygon);
   const isLabel = cell.kind === "label";
-  const className = isLabel ? "cell label" : target ? "cell target" : "cell";
+  const className = ["cell", cell.kind, target && "target"].filter(Boolean).join(" ");
   const tint = !isLabel && !target && cell.owner !== undefined ? { fill: colorOf(cell.owner), fillOpacity: 0.18 } : undefined;
   return (
     <g>

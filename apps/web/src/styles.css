@@ -156,9 +156,28 @@ button:disabled {
   vector-effect: non-scaling-stroke;
 }
 
-.cell.target {
+/* Extra specificity so playable cells stay highlighted over ladder and snake tints. */
+.board .cell.target {
   fill: var(--target);
   cursor: pointer;
+}
+
+.cell.ladder {
+  fill: #cfe8cf;
+}
+
+.cell.snake {
+  fill: #f2d0cc;
+}
+
+@media (prefers-color-scheme: dark) {
+  .cell.ladder {
+    fill: #2c4430;
+  }
+
+  .cell.snake {
+    fill: #4a2e2b;
+  }
 }
 
 .cell.label {

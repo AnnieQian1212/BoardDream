@@ -1,6 +1,7 @@
 import { rectPolygon, type GameModule, type GeometryCell, type GeometryPiece, type PlayerId } from "@boarddream/engine";
 import * as bidding from "../mechanics/bidding";
 import * as dice from "../mechanics/dice";
+import * as turns from "../mechanics/turns";
 
 type LiarsDiceParams = { startDice: number; wildOnes: boolean };
 
@@ -46,13 +47,7 @@ const biddableFaces = (s: { wildOnes: boolean }) => (s.wildOnes ? [2, 3, 4, 5, 6
 
 const totalDice = (rows: number[][]) => rows.reduce((n, row) => n + row.length, 0);
 
-function nextInPlay(rows: number[][], from: PlayerId): PlayerId {
-  for (let step = 1; step <= rows.length; step++) {
-    const p = (from + step) % rows.length;
-    if (rows[p].length > 0) return p;
-  }
-  return from;
-}
+const nextInPlay = (rows: number[][], from: PlayerId) => turns.nextSeat(from, rows.length, (seat) => rows[seat].length > 0);
 
 const bidText = (bid: bidding.Bid) => `${bid.quantity} × ${bid.face}s`;
 

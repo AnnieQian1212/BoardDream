@@ -97,6 +97,9 @@ export interface GameModule<S = any, M = any, P extends Params = any> {
   geometry?(state: S, viewer?: PlayerId): Geometry;
   /** Id of a geometry cell the move acts on, so the UI can map board clicks to moves. */
   moveTarget?(state: S, move: M): string | undefined;
-  /** Short label for logs, the move list and LLM players. */
-  describeMove?(state: S, move: M): string;
+  /**
+   * Short label for logs, the move list and LLM players. With a `viewer` other than the mover, say
+   * only what that viewer may know (a rival's face-down card stays hidden).
+   */
+  describeMove?(state: S, move: M, viewer?: PlayerId): string;
 }

@@ -93,7 +93,7 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
     const geometry = game.geometry ? call("geometry", () => game.geometry!(state, player)) : undefined;
     const problem = geometry && checkGeometry(geometry);
     if (problem) throw violation("bad-geometry", problem);
-    call("describeMove", () => game.describeMove?.(state, move));
+    call("describeMove", () => game.describeMove?.(state, move, (player + 1) % numPlayers));
     const target = call("moveTarget", () => game.moveTarget?.(state, move));
     if (target !== undefined && geometry && !geometry.cells.some((cell) => cell.id === target)) {
       throw violation("bad-geometry", `moveTarget() returned "${target}", which is not a cell in geometry()`);

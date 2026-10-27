@@ -40,7 +40,8 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - Hidden information: implement view(state, player) and redact everything that player cannot see.
 - Implement geometry(state, viewer) with cell polygons in board units; with a viewer, draw hidden things
   face down. moveTarget() must return the id of a cell in geometry(), or undefined for off-board moves.
-- Implement describeMove() with short human-readable labels.`;
+- Implement describeMove(state, move, viewer) with short human-readable labels; when the viewer is not the
+  mover, leave out anything hidden from them (e.g. which cards were really played face down).`;
 
 export function composeMessages(spec: GameSpec, engineInterface: string, references: Reference[]): ChatMessage[] {
   const refs = references

@@ -1,5 +1,6 @@
 import { regularPolygon, type GameModule, type GeometryPiece, type PlayerId } from "@boarddream/engine";
 import * as dice from "../mechanics/dice";
+import * as scoring from "../mechanics/scoring";
 import * as track from "../mechanics/track";
 
 type RaceParams = { trackLength: number; pawns: number; sixToEnter: boolean; maxRounds: number };
@@ -33,12 +34,8 @@ const squareOf = (s: RaceState, player: PlayerId, progress: number) =>
 
 const progressTotal = (s: RaceState, player: PlayerId) => s.pawns[player].reduce((sum, p) => sum + Math.max(p, 0), 0);
 
-/** Players furthest along when the round limit hits; ties share the win. */
-function leaders(s: RaceState): PlayerId[] {
-  const totals = s.pawns.map((_, p) => progressTotal(s, p));
-  const best = Math.max(...totals);
-  return totals.flatMap((total, p) => (total === best ? [p] : []));
-}
+/** Players furthest along when the round limit hits; ties share the win, a full tie is a draw. */
+const leaders = (s: RaceState) => scoring.scoreWinners(s.pawns.map((_, p) => progressTotal(s, p)));
 
 /**
  * Pachisi-style race: roll a die, move a pawn once around the loop and into home. Landing on a
@@ -75,7 +72,7 @@ export const raceHome: GameModule<RaceState, RaceMove, RaceParams> = {
     winners: null,
   }),
 
-  activePlayers: (s) => (s.winners ? [] : [s.toMove]),
+  activePlayers: (s) => (s.winners !== null ? [] : [s.toMove]),
 
   legalMoves(s, player) {
     if (s.roll === null) return [{ type: "roll" }];
