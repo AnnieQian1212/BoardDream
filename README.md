@@ -7,7 +7,7 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 ## How it works
 
 1. **Spec.** Muse Spark turns the prompt and dials (players, play time, complexity, luck vs strategy, competitive / cooperative / hidden role) into a structured game spec.
-2. **Retrieve.** The spec's mechanics are matched against an indexed library of verified mechanic modules and public-domain reference games. Retrieval quality is measured with standard IR metrics (nDCG, Recall, MRR).
+2. **Retrieve.** Muse Spark rewrites the idea into mechanic vocabulary, BM25 pulls candidates from an indexed library of verified mechanic modules and public-domain reference games, and Muse Spark reranks them by how directly the game needs each one. On a 50-query graded eval set this lifts nDCG@10 from 0.845 (BM25) to 0.969 ([details](eval/retrieval/README.md)).
 3. **Compose.** Muse Spark writes rules code against one fixed engine interface, reusing the retrieved modules instead of writing from scratch.
 4. **Fuzz and repair.** Thousands of random playouts run in strict mode: states are frozen and must be plain JSON, games must terminate, every turn needs a legal move, outcomes must be valid, and the same seed must replay the same game. Failures go back to the model with replay seeds until the rules pass.
 5. **Tune.** Every tunable value becomes a slider; simulation bots report first-player win rate, draw rate and game length as you drag.
@@ -50,3 +50,4 @@ All code in this repository was written during the hackathon, starting after kic
 | --- | --- |
 | Oct 26 | Project skeleton: engine interface, fuzzer, simulator, Line Up reference game, BM25 + IR metrics, designer pipeline draft, web app shell |
 | Oct 27 | Race Home and Liar's Dice reference games; dice, track and bidding mechanic modules; Liar's Dice probability bot; viewer-aware geometry for hidden information; fuzzing of geometry, move targets and move labels |
+| Oct 27 | Mechanic library grown to 13 modules and 7 reference games (Reversi, Hex, Snakes and Ladders, I Doubt It); 50-query retrieval eval set; Muse Spark query expansion and rerank (nDCG@10 0.845 → 0.969 over BM25), now used by the designer |

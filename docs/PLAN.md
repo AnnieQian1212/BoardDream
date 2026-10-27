@@ -60,6 +60,8 @@ Evaluate on Oct 31: Muse Spark vs the probability bot over 50 games (under $1 on
 - Compare BM25, BM25 + LLM query expansion, and + Muse Spark rerank; cross-check with `ir_measures`.
 - 12:00 PM: Agents 102 (verifiable agents), directly relevant to the fuzz-repair loop.
 - **Done when:** `npm run eval:retrieval` compares all three systems.
+- **Status: done early, on Oct 27.** 13 mechanic modules, 7 reference games (Reversi, Hex, Snakes and Ladders and I Doubt It added), all passing 1,000-run fuzzing. A 39-entry catalog and a 50-query graded eval set (judgments pending author review). Expansion + rerank lifts nDCG@10 from 0.845 to 0.969 and Recall@10 from 0.851 to 0.988 over BM25, cross-checked with `ir_measures`; the designer now uses that pipeline. Details in `eval/retrieval/README.md`.
+- [ ] **Author:** review `eval/retrieval/qrels.txt` (see "For judgment review" in the eval README).
 
 ### Thu Oct 29: end-to-end generation (the critical P0 day)
 - Iterate on the spec, compose and repair prompts in `apps/server/src/agent/prompts.ts`.
@@ -173,15 +175,16 @@ Cost controls:
 
 **Working:**
 - `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves, outcomes and presentation functions), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`
-- `packages/library`: `grid`, `dice`, `track` and `bidding` mechanic modules; reference games Line Up (m,n,k with optional gravity), Race Home (Pachisi-style race) and Liar's Dice; Liar's Dice probability bot; retrievable catalog (including planned entries for retrieval eval)
-- `packages/retrieval`: BM25 with an S-stemmer, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
-- `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat + structured output), `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline, IoU utilities
+- `packages/library`: 13 mechanic modules (grid, hex, flanking, connection, dice, track, shortcuts, bidding, deck, roles, voting, turns, scoring); 7 reference games (Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It); Liar's Dice probability bot; 39-entry retrievable catalog
+- `packages/retrieval`: BM25 with an S-stemmer and trec_eval tie-breaking, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
+- `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat, structured output, token usage), reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline with Muse Spark expansion + rerank retrieval, IoU utilities
+- `eval/retrieval`: 50 queries, graded qrels, three systems, cached Muse Spark replies
 - `apps/web`: create panel (prompt and dials), SVG board (seats, labels, face-down dice) playable against each game's default bot, parameter sliders, live balance stats
-- 40 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- 63 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - `/api/generate` has not run end to end against the real API; the prompts are first drafts
 - Parsing `editImage` responses and decoding SAM masks (day 6)
 - Fuzzing and simulation still run on the main thread (days 3–4)
-- Line Up and Race Home opponents still play randomly (Monte Carlo bots on day 4)
+- Opponents other than Liar's Dice play randomly (Monte Carlo bots on day 4); with random play, I Doubt It usually runs to its play limit
 - The new board rendering has not been checked visually in a browser yet

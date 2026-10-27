@@ -1,0 +1,34 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You name board game mechanics. Given a game idea, list 3 to 8 standard mechanic names and close\nsynonyms a designer would search a mechanic library for, such as \"roll and move\", \"set collection\", \"hidden roles\",\n\"k in a row\", \"flanking capture\", \"push your luck\". Short phrases only; no explanations."
+    },
+    {
+      "role": "user",
+      "content": "a haunted mansion race where trapdoors drop you back several rooms and secret passages jump you ahead"
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Mechanics",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mechanics"
+        ],
+        "properties": {
+          "mechanics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"mechanics\": [\"roll and move\", \"race\", \"snakes and ladders\", \"chutes and ladders\", \"point to point movement\", \"grid movement\"]}"
+}

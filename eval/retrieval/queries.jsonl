@@ -1,4 +1,50 @@
-{"qid": "q1", "text": "a racing game where players roll dice and move pawns around a track, and landing on a rival sends them home"}
-{"qid": "q2", "text": "four in a row where pieces fall to the bottom of the column"}
-{"qid": "q3", "text": "everyone hides dice under a cup and bids on how many sixes there are; anyone can call liar"}
-{"qid": "q4", "text": "a village secretly hides werewolves; each night they strike and each day the players vote someone out"}
+{"qid": "q01", "text": "four in a row where pieces fall to the bottom of the column"}
+{"qid": "q02", "text": "a racing game where players roll dice and move pawns around a track, and landing on a rival sends them home"}
+{"qid": "q03", "text": "everyone hides dice under a cup and bids on how many sixes there are; anyone can call liar"}
+{"qid": "q04", "text": "a village secretly hides werewolves; each night they strike and each day the players vote someone out"}
+{"qid": "q05", "text": "tic-tac-toe on a bigger board where you need five in a row"}
+{"qid": "q06", "text": "place stones to sandwich your opponent's stones and turn them to your color"}
+{"qid": "q07", "text": "build a path of your tiles from your side of a hexagon board to the opposite side before your rival does"}
+{"qid": "q08", "text": "kids' game climbing up a numbered board with ladders but sliding down on snakes"}
+{"qid": "q09", "text": "bluffing card game: put cards face down and say what they are, others can call you out"}
+{"qid": "q10", "text": "a hidden traitor among the crew sabotages the mission while everyone tries to figure out who"}
+{"qid": "q11", "text": "roll dice as many times as you dare to rack up points, but rolling a one wipes out your turn"}
+{"qid": "q12", "text": "checkers style game where you capture by hopping over enemy pieces"}
+{"qid": "q13", "text": "players take turns bidding coins for paintings, highest bid wins the painting"}
+{"qid": "q14", "text": "a trick-taking card game where you must follow suit and trumps beat everything"}
+{"qid": "q15", "text": "draw tiles and lay them down to build a map of roads and cities that score points"}
+{"qid": "q16", "text": "flip over face-down cards two at a time trying to find matching pairs"}
+{"qid": "q17", "text": "guess the secret color code and get hints about how many pegs are right"}
+{"qid": "q18", "text": "everyone secretly chooses rock, paper or scissors at the same time and reveals together"}
+{"qid": "q19", "text": "players work together against a spreading disease, losing together if outbreaks get out of hand"}
+{"qid": "q20", "text": "trade sheep, wood and brick with other players to build settlements"}
+{"qid": "q21", "text": "collect sets of matching cards, bigger sets earn more points"}
+{"qid": "q22", "text": "each round pick one card from your hand and pass the rest to your left"}
+{"qid": "q23", "text": "send your workers to claim action spots on the farm; once a spot is taken nobody else can use it"}
+{"qid": "q24", "text": "control the most regions on a map by placing armies, majority in each region scores"}
+{"qid": "q25", "text": "a dice-rolling race once around a loop to get all your pawns home first, sixes let you roll again"}
+{"qid": "q26", "text": "pure luck family race game for young kids, roll and move"}
+{"qid": "q27", "text": "abstract strategy for two with no luck where the board fills up and the player with the most pieces wins"}
+{"qid": "q28", "text": "a connection game with no draws where the second player can steal the first move"}
+{"qid": "q29", "text": "liar's dice but with cards instead of dice"}
+{"qid": "q30", "text": "social deduction game where players secretly belong to two teams and vote to exile suspects"}
+{"qid": "q31", "text": "the last player standing wins; players drop out when they lose all their tokens"}
+{"qid": "q32", "text": "turn order reverses direction when someone plays a special card"}
+{"qid": "q33", "text": "highest score after ten rounds wins, ties are shared"}
+{"qid": "q34", "text": "shed all your cards first; you can lie about what you are playing"}
+{"qid": "q35", "text": "a game played on a honeycomb board"}
+{"qid": "q36", "text": "move a piece forward along the spaces by the number rolled, exact roll needed to finish"}
+{"qid": "q37", "text": "a bluffing dice game for 2 to 6 players where losing a challenge costs you a die"}
+{"qid": "q38", "text": "drop discs into a vertical grid, first to connect four wins"}
+{"qid": "q39", "text": "go-like territory game where surrounding empty areas scores them"}
+{"qid": "q40", "text": "deal the whole deck out evenly to everyone at the start"}
+{"qid": "q41", "text": "each player draws a hand of five cards and refills from the draw pile, reshuffling the discards"}
+{"qid": "q42", "text": "pirates race their ships around an island, rolling dice and ramming rivals back to port"}
+{"qid": "q43", "text": "spies bluff about their identity, and a wrong accusation eliminates the accuser"}
+{"qid": "q44", "text": "a haunted mansion race where trapdoors drop you back several rooms and secret passages jump you ahead"}
+{"qid": "q45", "text": "a 3-player abstract where you try to align three of your markers on a small grid"}
+{"qid": "q46", "text": "convert your neighbor's pieces when you outflank them along a line"}
+{"qid": "q47", "text": "estimate the odds that at least three of the hidden dice show a five"}
+{"qid": "q48", "text": "raise the stakes on a claim, and the next person must top it or challenge it"}
+{"qid": "q49", "text": "a cooperative dice game where the team must reach the goal before the round limit runs out"}
+{"qid": "q50", "text": "a party game where everyone votes on who is most likely to be lying"}

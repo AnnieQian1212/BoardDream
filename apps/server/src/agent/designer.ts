@@ -1,10 +1,15 @@
 import { fuzz, type FuzzFailure, type GameModule } from "@boarddream/engine";
-import type { Bm25Index, Hit } from "@boarddream/retrieval";
+import type { Bm25Index } from "@boarddream/retrieval";
 import type { ModelClient } from "../meta/client";
 import { loadGameFromSource } from "../sandbox";
 import { composeMessages, extractCode, formatFailures, repairMessages, specMessages } from "./prompts";
 import { engineInterfaceSource, loadReference, type Reference } from "./references";
+import { expandedSearch, rerank } from "./retrieve";
 import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
+
+/** Candidates the reranker sees, and how many of its top picks go into the compose prompt. */
+const RERANK_POOL = 20;
+const REFERENCES = 6;
 
 export interface DesignDeps {
   llm: ModelClient;
@@ -23,7 +28,8 @@ export interface RulesCheck {
 export interface DesignResult {
   ok: boolean;
   spec: GameSpec;
-  retrieved: Hit[];
+  /** Catalog ids handed to the compose step, most useful first. */
+  retrieved: string[];
   source: string;
   /** One entry per fuzz pass: attempt 0 is the first draft, then one per repair. */
   attempts: RulesCheck[];
@@ -36,9 +42,14 @@ export async function designGame(request: GameRequest, deps: DesignDeps): Promis
   onProgress("drafting spec");
   const spec = await llm.chatJson<GameSpec>(specMessages(request), gameSpecSchema);
 
-  // BM25 baseline. TODO(day 2-3): LLM query expansion + rerank, compared with `npm run eval:retrieval`.
-  const retrieved = index.search([spec.pitch, spec.winCondition, ...spec.mechanics].join(" "), 6);
-  const references = retrieved.map((hit) => loadReference(hit.id)).filter((r): r is Reference => r !== undefined);
+  // The pipeline eval/retrieval measures: Muse Spark query expansion, BM25, then Muse Spark rerank.
+  onProgress("retrieving mechanics");
+  const pool = (await expandedSearch(llm, index, request.prompt, RERANK_POOL))
+    .map((hit) => loadReference(hit.id))
+    .filter((r): r is Reference => r !== undefined);
+  const order = await rerank(llm, request.prompt, pool.map((r) => r.entry));
+  const retrieved = order.slice(0, REFERENCES);
+  const references = retrieved.map((id) => pool.find((r) => r.entry.id === id)!);
 
   onProgress("writing rules");
   let source = extractCode(await llm.chat(composeMessages(spec, engineInterfaceSource(), references)));

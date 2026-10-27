@@ -1,0 +1,52 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: control the most regions on a map by placing armies, majority in each region scores\n\nCandidates:\n- mech:area-control: Area control. Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- mech:voting: Voting and elimination. Players vote on a target; tally the ballots, find the most-voted or a strict majority, and eliminate or exile them. Ties and abstentions handled.\n- mech:scoring: Scoring, end conditions and ties. Decide who wins at the end: highest score, first to reach a target, or furthest along when a round limit runs out; ties share the win and a full tie is a draw.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- game:reversi: Reversi. Two players place discs on a square board, flipping rival lines they trap between their own discs; a player with no flipping move passes and the most discs wins.\n- mech:flanking: Flanking capture. Placing a piece flips every straight run of rival pieces it traps between itself and another of your own pieces; only placements that flip something are legal.\n- mech:gravity-drop: Gravity drop placement. Pieces are dropped into a column and fall to the lowest empty cell, as in drop-in-column games. Players choose a column, not a cell.\n- mech:worker-placement: Worker placement. Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.\n- mech:trading: Trading and negotiation. Players propose trades of resources or favors to each other; deals are binding or not, and table talk decides who helps whom.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- mech:track: Track movement. Pawns move forward along a looping track of squares by a rolled amount, each player entering at their own start square and going once around to home.\n- mech:hidden-roles: Hidden roles. Secretly deal roles or teams; each player sees only their own role, and some roles know their teammates. Social deduction, traitors, werewolves, spies.\n- mech:cooperative-threat: Shared threat (cooperative). All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.\n- mech:hidden-information: Hidden information. Each player holds secrets (dice under a cup, a hand of cards, a role) that others cannot see. view() redacts them per player and geometry(state, viewer) draws them face down."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:area-control",
+                "mech:tile-placement",
+                "mech:voting",
+                "mech:scoring",
+                "mech:set-collection",
+                "game:reversi",
+                "mech:flanking",
+                "mech:gravity-drop",
+                "mech:worker-placement",
+                "mech:trading",
+                "mech:trick-taking",
+                "game:line-up",
+                "mech:track",
+                "mech:hidden-roles",
+                "mech:cooperative-threat",
+                "mech:hidden-information"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:area-control\", \"mech:scoring\"]}"
+}

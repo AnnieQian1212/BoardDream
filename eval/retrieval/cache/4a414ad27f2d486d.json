@@ -1,0 +1,49 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: collect sets of matching cards, bigger sets earn more points\n\nCandidates:\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- mech:deck: Deck, hands and discard. Build a deck of cards, shuffle with the seeded rng, deal hands round-robin, draw cards and reshuffle the discard pile when the draw pile runs out.\n- mech:scoring: Scoring, end conditions and ties. Decide who wins at the end: highest score, first to reach a target, or furthest along when a round limit runs out; ties share the win and a full tie is a draw.\n- mech:memory: Memory matching. Cards lie face down; flip two per turn and keep them if they match, otherwise turn them back over.\n- game:i-doubt-it: I Doubt It. Players play cards face down claiming the rank whose turn it is; the next player accepts or doubts, and whoever was wrong picks up the pile. First to empty their hand wins.\n- mech:hidden-information: Hidden information. Each player holds secrets (dice under a cup, a hand of cards, a role) that others cannot see. view() redacts them per player and geometry(state, viewer) draws them face down.\n- mech:bidding: Escalating bids and challenges. Players make ever-higher claims about hidden information; the next player raises the bid or calls liar, and the loser of the challenge is penalized.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- mech:dice: Dice rolling. Roll one or more dice with the seeded rng, count dice showing a face (with wild faces), and compute the binomial odds that at least k dice match. Chance, luck and push-your-luck.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- mech:face-down-claims: Face-down claims and doubt. Play cards face down while announcing what they are; the next player accepts or doubts, and the pile goes to whoever was wrong."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:set-collection",
+                "mech:card-drafting",
+                "mech:deck",
+                "mech:scoring",
+                "mech:memory",
+                "game:i-doubt-it",
+                "mech:hidden-information",
+                "mech:bidding",
+                "mech:tile-placement",
+                "mech:dice",
+                "mech:trick-taking",
+                "mech:push-your-luck",
+                "mech:face-down-claims"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:set-collection\", \"mech:deck\", \"mech:scoring\", \"mech:card-drafting\", \"mech:hidden-information\"]}"
+}

@@ -72,9 +72,10 @@ export class Bm25Index {
         scores.set(doc, (scores.get(doc) ?? 0) + (idf * tf * (this.k1 + 1)) / norm);
       }
     }
+    // Ties go to the larger id, as trec_eval orders them, so run files evaluate the same everywhere.
     return [...scores]
       .map(([doc, score]) => ({ id: this.ids[doc], score }))
-      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+      .sort((a, b) => b.score - a.score || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
       .slice(0, k);
   }
 }
