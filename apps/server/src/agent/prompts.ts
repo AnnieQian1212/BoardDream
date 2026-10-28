@@ -67,6 +67,12 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - Card games: write cards as data with the effects module (CardDef: cost, points, tags, onPlay, income,
   endgame), build the deck with buildDeck so every copy has a stable id like "fern#2", show text from
   rulesText, and keep a card's id the same in every zone so the UI can animate it.
+- Drafting: keep a drafting.Draft in state. Picks are simultaneous: activePlayers returns drafting.waiting,
+  view hides rival hands and picks with drafting.hideDraft, and the applyMove that records the last pick also
+  calls drafting.resolve to reveal the picks and pass the hands. Open drafts from a shared row use snakeOrder.
+- Deck building: one deckbuilding.PlayerDeck per seat; bought cards go to the discard pile (gainCard), each
+  turn ends with cleanup, and view hides draw piles and rival hands with hideDeck. Score collections with
+  sets (countKinds, scoreByKind, scoreDistinctSets, fullSets).
 - Map games: build the map once at module scope with hexmap.buildHexMap, keep only ids in state, and use
   canSettle / canRoad / settleSpots / roadSpots, production.produce and the trade helpers.
 - Worker placement: keep placements as workers.Placements and use openSpaces / place / nextToPlace; draw

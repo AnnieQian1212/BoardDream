@@ -124,6 +124,7 @@ q39 0 mech:area-control 2
 q39 0 mech:square-grid 1
 q40 0 mech:deck 2
 q41 0 mech:deck 2
+q41 0 mech:deck-building 1
 q42 0 mech:track 2
 q42 0 mech:dice 2
 q42 0 mech:capture-by-landing 2
@@ -200,3 +201,7 @@ q62 0 mech:trading 2
 q62 0 mech:production 2
 q62 0 mech:resources 2
 q62 0 mech:scoring 1
+q63 0 mech:deck-building 2
+q63 0 mech:deck 1
+q63 0 mech:market 1
+q63 0 mech:effects 1

@@ -52,5 +52,5 @@
       }
     }
   },
-  "reply": "{\"ranking\": [\"mech:bidding\", \"game:liars-dice\", \"mech:dice\", \"mech:hidden-information\", \"mech:turn-order\"]}"
+  "reply": "{\"ranking\": [\"mech:bidding\", \"game:liars-dice\", \"mech:hidden-information\", \"mech:dice\", \"mech:turn-order\"]}"
 }

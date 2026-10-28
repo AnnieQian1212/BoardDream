@@ -28,6 +28,9 @@ import {
 } from "./index";
 import { raisesAbove } from "./mechanics/bidding";
 import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
+import { allCards, cleanup, gainCard, hideDeck, moveCard, newDeck, playCard, trashCard, type PlayerDeck } from "./mechanics/deckbuilding";
+import { allPicked, draftOver, hideDraft, passHands, pick, resolve, roundDirection, snakeOrder, startDraft, waiting } from "./mechanics/drafting";
+import { countKinds, distinctSets, fullSets, sameKindSets, scoreByKind, scoreDistinctSets, tablePoints } from "./mechanics/sets";
 import { buildHexMap, canRoad, canSettle, radiusCoords, roadSpots, settleSpots } from "./mechanics/hexmap";
 import { cornerYield, flipEvent, produce } from "./mechanics/production";
 import { bankTrade, settle as settleOffer, swapOptions } from "./mechanics/trade";
@@ -510,6 +513,77 @@ describe("wildmere", () => {
 });
 
 describe("mechanics", () => {
+  it("drafts by picking one card and passing the rest, all seats at once", () => {
+    let draft = startDraft([["a1", "a2", "a3"], ["b1", "b2", "b3"], ["c1", "c2", "c3"]]);
+    expect(waiting(draft)).toEqual([0, 1, 2]);
+    draft = pick(pick(draft, 0, 2), 2, 0);
+    expect(waiting(draft)).toEqual([1]);
+    expect(() => pick(draft, 0, 1)).toThrow();
+    expect(() => pick(draft, 1, 3)).toThrow();
+    expect(() => resolve(draft)).toThrow();
+    // Seat 1 sees its own hand and that the others have picked, not what.
+    expect(hideDraft(draft, 1, "?")).toEqual({
+      hands: [["?", "?", "?"], ["b1", "b2", "b3"], ["?", "?", "?"]],
+      picks: ["hidden", null, "hidden"],
+      direction: 1,
+    });
+    draft = pick(draft, 1, 1);
+    expect(allPicked(draft)).toBe(true);
+    const step = resolve(draft);
+    expect(step.picked).toEqual(["a3", "b2", "c1"]);
+    // Seat 0's leftovers go to seat 1, and seat 2's wrap around to seat 0.
+    expect(step.draft.hands).toEqual([["c2", "c3"], ["a1", "a2"], ["b1", "b3"]]);
+    expect(step.draft.picks).toEqual([null, null, null]);
+    expect(draftOver(step.draft)).toBe(false);
+    expect(draftOver(step.draft, 2)).toBe(true);
+    expect(passHands([["a"], ["b"], ["c"]], -1)).toEqual([["b"], ["c"], ["a"]]);
+    expect([0, 1, 2].map(roundDirection)).toEqual([1, -1, 1]);
+    expect(snakeOrder(3, 2)).toEqual([0, 1, 2, 2, 1, 0]);
+    expect(snakeOrder(2, 3, 1)).toEqual([1, 0, 0, 1, 1, 0]);
+    // A seat with an empty hand never waits.
+    expect(waiting(startDraft([["a"], []]))).toEqual([0]);
+  });
+
+  it("scores sets of matching and of different kinds", () => {
+    const counts = countKinds(["fish", "fern", "fish", "shell", "fish"]);
+    expect(counts).toEqual({ fish: 3, fern: 1, shell: 1 });
+    expect(countKinds([{ suit: "x" }, { suit: "y" }, { suit: "x" }], (c) => c.suit)).toEqual({ x: 2, y: 1 });
+    expect([0, 1, 3, 9].map((n) => tablePoints(n, [1, 3, 6]))).toEqual([0, 1, 6, 6]);
+    expect(distinctSets(counts)).toEqual([3, 1, 1]);
+    expect(distinctSets(counts, ["fish", "fern"])).toEqual([2, 1, 1]);
+    expect(distinctSets({ a: 2, b: 2, c: 1 }, undefined, 2)).toEqual([2, 2, 1]);
+    expect(fullSets(counts, ["fish", "fern", "shell"])).toBe(1);
+    expect(fullSets(counts, ["fish", "coral"])).toBe(0);
+    expect(sameKindSets({ a: 5, b: 2 }, 2)).toBe(3);
+    expect(scoreByKind({ a: 3, b: 1 }, [1, 3, 6])).toBe(7);
+    expect(scoreDistinctSets(counts, [1, 3, 6])).toBe(8);
+  });
+
+  it("builds a deck: play, buy into the discards, clean up and reshuffle", () => {
+    const rng = createRng(2);
+    let deck = newDeck(rng, ["c1", "c2", "c3", "c4", "c5", "e1", "e2"], 5);
+    expect(deck.hand).toHaveLength(5);
+    expect(deck.drawPile).toHaveLength(2);
+    const [first, second] = deck.hand;
+    deck = playCard(deck, first);
+    expect(deck.inPlay).toEqual([first]);
+    expect(() => playCard(deck, first)).toThrow();
+    deck = gainCard(deck, "gold1");
+    deck = trashCard(deck, second);
+    expect(allCards(deck).sort()).toEqual(["c1", "c2", "c3", "c4", "c5", "e1", "e2", "gold1"].filter((c) => c !== second).sort());
+    // Cleanup discards 4 cards, draws the 2 left and reshuffles the discards for the other 3.
+    deck = cleanup(rng, deck, 5);
+    expect(deck.hand).toHaveLength(5);
+    expect(deck.inPlay).toEqual([]);
+    expect(deck.drawPile.length + deck.discard.length).toBe(2);
+    expect(allCards(deck)).toHaveLength(7);
+    const top = moveCard(gainCard(deck, "map1", "drawPile"), deck.hand[0], "hand", "drawPile");
+    expect(top.drawPile.slice(0, 2)).toEqual([deck.hand[0], "map1"]);
+    const seen: PlayerDeck<string> = hideDeck(deck, false, "?");
+    expect(seen.hand).toEqual(["?", "?", "?", "?", "?"]);
+    expect(hideDeck(deck, true, "?").hand).toEqual(deck.hand);
+  });
+
   it("places workers on spaces with room", () => {
     const spaces = [{ id: "mine", capacity: 1 }, { id: "dock", capacity: 2 }, { id: "inn" }];
     let placed = place({}, "mine", 0);

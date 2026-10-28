@@ -2,7 +2,9 @@
 export * as bidding from "./bidding";
 export * as connection from "./connection";
 export * as deck from "./deck";
+export * as deckbuilding from "./deckbuilding";
 export * as dice from "./dice";
+export * as drafting from "./drafting";
 export * as effects from "./effects";
 export * as flanking from "./flanking";
 export * as grid from "./grid";
@@ -14,6 +16,7 @@ export * as production from "./production";
 export * as resources from "./resources";
 export * as roles from "./roles";
 export * as scoring from "./scoring";
+export * as sets from "./sets";
 export * as shortcuts from "./shortcuts";
 export * as tiles from "./tiles";
 export * as trade from "./trade";

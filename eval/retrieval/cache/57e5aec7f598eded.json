@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: a game played on a honeycomb board\n\nCandidates:\n- game:wildmere: Wildmere (tile placement and regions). Original tile-laying game: take hex tiles from a market row, where skipping tiles costs funds, then turn each one and lay it next to a growing valley so terrain edges match. Matching edges pay funds and join woodland, meadow, wetland and heath into regions; a region scores as soon as it is enclosed, one point per tile to whoever laid the most of it, and rangers add weight to a claim.\n- mech:hex-grid: Hexagonal grid board. Board of hexagonal cells in axial coordinates with six neighbors per cell, laid out as a rhombus, with polygons for drawing.\n- mech:area-control: Area control. Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- game:highsail: Highsail (worker placement and majorities). Original worker-placement game: send airship crews to action spaces on a skyport, where a taken space is blocked, to gather timber, crystal, fuel and coins. Take charters from an office row and launch them for points, income every round or end-game bonuses; each launch and each surveyed outpost adds to the majorities on five sky islands, which score after the middle and last rounds.\n- mech:effects: Card effect language. Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data.\n- game:lantern-isles: Lantern Isles (settle and trade). Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.\n- mech:hex-map: Hex map corners and edges. Build on a map of hexagonal tiles: settlements on the corners where tiles meet, roads along the edges between corners. The distance rule keeps settlements apart, roads must connect to your network and stop at rival buildings, and settlements upgrade to cities.\n- mech:square-grid: Square grid board. Rectangular board of square cells stored row-major. Bounds checks, orthogonal and diagonal neighbors, index and coordinate conversion.\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors.\n- game:hex: Hex. Two players claim hexagons on a rhombus board, one linking top to bottom and the other left to right; someone always connects, and a swap rule balances the first move.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- mech:deck-building: Deck building. Every player starts with a small deck of basic cards and buys stronger ones during the game. Bought cards go to the buyer's own discard pile and come back after a reshuffle; each turn a player plays from a fresh hand, discards it with the played cards and draws a new one, and trashing weak cards thins the deck.\n- mech:flanking: Flanking capture. Placing a piece flips every straight run of rival pieces it traps between itself and another of your own pieces; only placements that flip something are legal.\n- mech:gravity-drop: Gravity drop placement. Pieces are dropped into a column and fall to the lowest empty cell, as in drop-in-column games. Players choose a column, not a cell.\n- mech:jump-capture: Jump capture. Capture by jumping over an adjacent enemy piece into the empty square beyond; chained multi-jumps, forced captures.\n- mech:capture-by-landing: Capture by landing. Landing exactly on an opponent's pawn sends it back to start; safe squares protect pawns.\n- mech:track: Track movement. Pawns move forward along a looping track of squares by a rolled amount, each player entering at their own start square and going once around to home.\n- game:race-home: Race Home (Pachisi-style race). Roll a die and race pawns once around a looping track into home; landing on a rival sends it back to base, start squares are safe, a six rolls again, and a round limit ends long games."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "game:wildmere",
+                "mech:hex-grid",
+                "mech:area-control",
+                "mech:tile-placement",
+                "game:highsail",
+                "mech:effects",
+                "game:lantern-isles",
+                "mech:hex-map",
+                "mech:square-grid",
+                "mech:connection",
+                "game:hex",
+                "game:line-up",
+                "mech:production",
+                "mech:deck-building",
+                "mech:flanking",
+                "mech:gravity-drop",
+                "mech:jump-capture",
+                "mech:capture-by-landing",
+                "mech:track",
+                "game:race-home"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:hex-grid\", \"game:hex\", \"mech:connection\", \"mech:hex-map\"]}"
+}

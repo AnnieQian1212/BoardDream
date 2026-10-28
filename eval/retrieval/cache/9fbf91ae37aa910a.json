@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: trade four of a kind to the bank for any one resource you need\n\nCandidates:\n- mech:trading: Trading: bank and player offers. Trade resources at a fixed rate with the bank, such as three or four of one kind for any one, or offer another player a swap that they accept or decline; a pending offer passes the decision to them.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- game:lantern-isles: Lantern Isles (settle and trade). Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:resources: Resource pools and costs. Count resources as plain objects, check whether a player can afford a cost, pay it, gain income and see what is still missing. Wood, brick, coins, gems, energy: any named goods.\n- game:wildmere: Wildmere (tile placement and regions). Original tile-laying game: take hex tiles from a market row, where skipping tiles costs funds, then turn each one and lay it next to a growing valley so terrain edges match. Matching edges pay funds and join woodland, meadow, wetland and heath into regions; a region scores as soon as it is enclosed, one point per tile to whoever laid the most of it, and rangers add weight to a claim.\n- mech:shortcuts: Ladders and snakes. Landing on certain squares jumps you forward (ladders, shortcuts) or back (snakes, chutes, traps); overshooting the final square bounces you back.\n- mech:square-grid: Square grid board. Rectangular board of square cells stored row-major. Bounds checks, orthogonal and diagonal neighbors, index and coordinate conversion.\n- mech:market: Card market row. A face-up row of cards that players buy or take from; the row refills from the draw pile after each pick, reshuffling the discards, and players may also draw blind.\n- mech:effects: Card effect language. Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data.\n- mech:turn-order: Turn order. Pass the turn around the table clockwise or counterclockwise, skipping players who are out; start a round from any seat.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- mech:worker-placement: Worker placement. Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- mech:deck-building: Deck building. Every player starts with a small deck of basic cards and buys stronger ones during the game. Bought cards go to the buyer's own discard pile and come back after a reshuffle; each turn a player plays from a fresh hand, discards it with the played cards and draws a new one, and trashing weak cards thins the deck.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- mech:dice: Dice rolling. Roll one or more dice with the seeded rng, count dice showing a face (with wild faces), and compute the binomial odds that at least k dice match. Chance, luck and push-your-luck.\n- game:hex: Hex. Two players claim hexagons on a rhombus board, one linking top to bottom and the other left to right; someone always connects, and a swap rule balances the first move."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:trading",
+                "mech:set-collection",
+                "game:lantern-isles",
+                "mech:push-your-luck",
+                "game:glasshouse",
+                "game:snakes-ladders",
+                "mech:resources",
+                "game:wildmere",
+                "mech:shortcuts",
+                "mech:square-grid",
+                "mech:market",
+                "mech:effects",
+                "mech:turn-order",
+                "mech:production",
+                "mech:worker-placement",
+                "mech:card-drafting",
+                "mech:deck-building",
+                "mech:trick-taking",
+                "mech:dice",
+                "game:hex"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:trading\", \"mech:resources\", \"game:lantern-isles\"]}"
+}

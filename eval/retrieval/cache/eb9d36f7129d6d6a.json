@@ -52,5 +52,5 @@
       }
     }
   },
-  "reply": "{\"ranking\": [\"mech:dice\", \"mech:hidden-information\", \"game:liars-dice\", \"mech:bidding\"]}"
+  "reply": "{\"ranking\": [\"mech:dice\", \"game:liars-dice\", \"mech:hidden-information\", \"mech:bidding\"]}"
 }
