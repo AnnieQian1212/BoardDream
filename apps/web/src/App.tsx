@@ -2,6 +2,8 @@ import { createRng, resolveParams, type BalanceStats, type GameModule, type Para
 import { referenceGames } from "@boarddream/library";
 import { Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { collectCards, useArt } from "./art";
+import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
@@ -69,12 +71,18 @@ export function App() {
   const [stats, setStats] = useState<BalanceStats>();
   // Muse Spark plays the social moves (offers, bids, bluffs) when the server has an API key.
   const [muse, setMuse] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
   useEffect(() => {
     fetch("/api/health")
       .then((res) => res.json() as Promise<{ hasApiKey?: boolean }>)
-      .then((health) => setMuse(Boolean(health.hasApiKey) && !query.has("bots")))
+      .then((health) => {
+        setHasApiKey(Boolean(health.hasApiKey));
+        setMuse(Boolean(health.hasApiKey) && !query.has("bots"));
+      })
       .catch(() => {});
   }, []);
+  const { art, painting, paint } = useArt(game);
+  const cardCount = useMemo(() => collectCards(game).length, [game]);
   // Games generated earlier on this machine join the picker; ?game=<id> can open one of them.
   useEffect(() => {
     let cancelled = false;
@@ -177,7 +185,7 @@ export function App() {
           <Table key={tableKey} {...tableProps} />
         </div>
       ) : (
-        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} />
+        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} art={art} />
       )}
 
       <header className="topbar">
@@ -230,6 +238,9 @@ export function App() {
           simGames={SIM_GAMES}
           onChange={(players, nextParams) => configure(game, players, nextParams)}
         />
+        {cardCount > 0 && (
+          <ArtPanel cards={cardCount} painted={art.size} painting={painting} available={hasApiKey} onPaint={() => void paint()} />
+        )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
     </div>

@@ -46,6 +46,9 @@ function cached<T>(cache: Map<string, T>, key: string, make: () => T): T {
 
 const faces = new Map<string, CanvasTexture>();
 
+/** Fires when a texture changes after creation (card art finished loading), so the scene can redraw. */
+export const textureUpdates = new EventTarget();
+
 export function cardFace(card: CardView, resources: Map<string, ResourceSpec>): CanvasTexture {
   const costs = Object.entries(card.cost ?? {}).filter(([, n]) => n > 0);
   const key = JSON.stringify([card.title, card.text, costs, card.points, card.tags, card.art, costs.map(([id]) => resources.get(id))]);
@@ -59,6 +62,7 @@ export function cardFace(card: CardView, resources: Map<string, ResourceSpec>): 
       image.onload = () => {
         paintFace(ctx, card, costs, resources, image);
         t.needsUpdate = true;
+        textureUpdates.dispatchEvent(new Event("update"));
       };
       image.src = card.art;
     }
@@ -92,7 +96,8 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
   roundRect(ctx, ax, ay, aw, ah, 18);
   ctx.clip();
   if (art) {
-    const s = Math.max(aw / art.width, ah / art.height);
+    // Painted art leaves a wide paper margin; zoom in so the subject fills the window.
+    const s = Math.max(aw / art.width, ah / art.height) * 1.3;
     ctx.drawImage(art, ax + (aw - art.width * s) / 2, ay + (ah - art.height * s) / 2, art.width * s, art.height * s);
   } else {
     paintWash(ctx, tag, icon, ax, ay, aw, ah, hash(card.title));

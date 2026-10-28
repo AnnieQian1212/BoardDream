@@ -15,7 +15,7 @@ import { Mat3D } from "./Mat3D";
 import { step } from "./motion";
 import { Pile3D } from "./Pile3D";
 import type { Quality } from "./quality";
-import { woodTextures } from "./textures";
+import { textureUpdates, woodTextures } from "./textures";
 
 export type { Insets } from "./camera";
 
@@ -42,6 +42,11 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
   const leaving = useLeaving(layout, mover);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [layout, quality, invalidate]);
+  useEffect(() => {
+    const redraw = () => invalidate();
+    textureUpdates.addEventListener("update", redraw);
+    return () => textureUpdates.removeEventListener("update", redraw);
+  }, [invalidate]);
   const { min, max } = layout.bounds;
   const center: Vec3 = [(min[0] + max[0]) / 2, 0, (min[2] + max[2]) / 2];
   const extent = Math.max(max[0] - min[0], max[2] - min[2]) / 2 + 12;

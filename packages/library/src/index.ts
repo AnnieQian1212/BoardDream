@@ -13,6 +13,7 @@ import { reversi } from "./games/reversi";
 import { snakesLadders } from "./games/snakes-ladders";
 
 export * from "./catalog";
+export * from "./table-talk";
 export * as mechanics from "./mechanics";
 export { glasshouseBot } from "./bots/glasshouse";
 export { lanternIslesBot } from "./bots/lantern-isles";

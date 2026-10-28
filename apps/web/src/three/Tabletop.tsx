@@ -22,6 +22,8 @@ interface Props {
   insets: Insets;
   /** The latest line of table talk, shown as a bubble at the speaker's seat for a few seconds. */
   speech?: Speech;
+  /** Painted card art by card title. */
+  art?: Map<string, string>;
   onMove(move: unknown): void;
   onRestart(): void;
 }
@@ -74,7 +76,7 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, speech, onMove, onRestart }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, art, onMove, onRestart }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
@@ -105,7 +107,11 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, onMov
   }, [game, state, human, myTurn]);
   const targets = useMemo(() => new Set(byTarget.keys()), [byTarget]);
 
-  const panels = useMemo(() => game.panels?.(state, human) ?? [], [game, state, human]);
+  const panels = useMemo(() => {
+    const raw = game.panels?.(state, human) ?? [];
+    if (!art?.size) return raw;
+    return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
+  }, [game, state, human, art]);
   const layout = useMemo(
     () => layoutTable({ panels, geometry: game.geometry?.(state, human), human, active, targets, resources }),
     [game, state, panels, human, active, targets, resources],
