@@ -49,6 +49,7 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be
     unique.
 - outcome(state).scores should also give the current standings before the game ends; bots read them.
+- meta.rules: 3-6 short sentences that teach the game to a new player (also read by AI opponents).
 - Declare meta.resources ([{ id, name, icon, color }]) when the game counts resources. Icons: droplet, sun,
   sprout, tree, trees, mountain, wheat, brick, coins, gem, fish, flame, leaf, star.
 - moveTarget(state, move) returns the id of the board cell, card or counter the move acts on, or

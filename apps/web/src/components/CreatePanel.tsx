@@ -18,7 +18,7 @@ interface GenerateResult {
   /** Where the server saved the game; it joins the picker on later visits. */
   id?: string;
   ok: boolean;
-  spec: { title: string };
+  spec: { title: string; rules?: string[] };
   source: string;
   retrieved: string[];
   attempts: unknown[];
@@ -79,7 +79,7 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
         setStatus(`“${result.spec.title}” still fails playtesting after ${tries}.`);
         return;
       }
-      onGenerated(loadGeneratedGame(result.source, result.id));
+      onGenerated(loadGeneratedGame(result.source, result.id, result.spec.rules));
       setStatus(`“${result.spec.title}” passed after ${tries}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err));

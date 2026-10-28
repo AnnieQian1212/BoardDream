@@ -88,11 +88,11 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = (await (await fetch("/api/games")).json()) as { id: string }[];
+      const list = (await (await fetch("/api/games")).json()) as { id: string; rules?: string[] }[];
       const loaded: GameModule[] = [];
       for (const saved of list) {
         try {
-          loaded.push(loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text(), saved.id));
+          loaded.push(loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text(), saved.id, saved.rules));
         } catch {
           // A game that no longer loads (e.g. after an engine change) stays out of the picker.
         }

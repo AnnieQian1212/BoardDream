@@ -17,6 +17,8 @@ export interface SavedGame {
   retrieved: string[];
   /** Playtest rounds before the rules passed (1 = the first draft). */
   rounds: number;
+  /** The designer's rules, for players and AI opponents. */
+  rules: string[];
 }
 
 const slug = (title: string) =>
@@ -37,6 +39,7 @@ export function saveGame(result: DesignResult): SavedGame {
     createdAt: new Date().toISOString(),
     retrieved: result.retrieved,
     rounds: result.attempts.length,
+    rules: result.spec.rules,
   };
   writeFileSync(new URL(`${id}.js`, DIR), result.source + "\n");
   writeFileSync(new URL(`${id}.json`, DIR), JSON.stringify({ ...saved, spec: result.spec, attempts: result.attempts }, null, 2) + "\n");
@@ -49,11 +52,12 @@ export function listGames(): SavedGame[] {
   return readdirSync(DIR)
     .filter((name) => name.endsWith(".json"))
     .map((name) => {
-      const { spec: _spec, attempts: _attempts, ...saved } = JSON.parse(readFileSync(new URL(name, DIR), "utf8")) as SavedGame & {
-        spec: unknown;
+      const { spec, attempts: _attempts, ...saved } = JSON.parse(readFileSync(new URL(name, DIR), "utf8")) as SavedGame & {
+        spec?: { rules?: string[] };
         attempts: unknown;
       };
-      return saved;
+      // Games saved before rules were recorded still have them in their spec.
+      return { ...saved, rules: saved.rules ?? spec?.rules ?? [] };
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

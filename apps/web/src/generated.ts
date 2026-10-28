@@ -16,7 +16,7 @@ export const generatedSource = (game: GameModule) => sources.get(game);
  * Runs generated rules that already passed server-side fuzzing and playtesting. `id` replaces the
  * game's own id (the saved game's id), so two generated games never collide.
  */
-export function loadGeneratedGame(source: string, id?: string): GameModule {
+export function loadGeneratedGame(source: string, id?: string, rules?: string[]): GameModule {
   const module = { exports: {} as Record<string, unknown> };
   const require = (id: string) => {
     if (id in MODULES) return MODULES[id];
@@ -25,7 +25,8 @@ export function loadGeneratedGame(source: string, id?: string): GameModule {
   new Function("module", "exports", "require", `"use strict";\n${source}`)(module, module.exports, require);
   const exported = module.exports as { default?: unknown; game?: unknown };
   const game = (exported.default ?? exported.game ?? exported) as GameModule;
-  const named = id ? { ...game, meta: { ...game.meta, id } } : game;
+  // The designer's rules fill in when the module does not state its own.
+  const named = { ...game, meta: { ...game.meta, id: id ?? game.meta.id, rules: game.meta.rules ?? rules } };
   sources.set(named, source);
   return named;
 }

@@ -205,15 +205,17 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
         if (target) onPick(cell.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
       }}
     >
-      {painted ? (
-        <>
-          {/* Extrude groups: 0 is the top and bottom caps (painted), 1 the sides. */}
-          <meshStandardMaterial ref={material} attach="material-0" map={painted.texture} color={tint} emissive={highlight} emissiveIntensity={0} roughness={0.72} />
-          <meshStandardMaterial attach="material-1" color={base} roughness={0.72} />
-        </>
-      ) : (
-        <meshStandardMaterial ref={material} color={base} emissive={highlight} emissiveIntensity={0} roughness={0.68} />
-      )}
+      {/* A painted tile wears its art on top; the sides pick up the painting's border color. Keyed so
+          three builds a fresh shader when the map arrives. */}
+      <meshStandardMaterial
+        key={painted ? "painted" : "plain"}
+        ref={material}
+        map={painted?.texture ?? null}
+        color={painted ? tint : base}
+        emissive={highlight}
+        emissiveIntensity={0}
+        roughness={painted ? 0.72 : 0.68}
+      />
     </mesh>
   );
 }
