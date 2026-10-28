@@ -6,6 +6,7 @@ import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { TuningPanel } from "./components/TuningPanel";
+import { loadGeneratedGame } from "./generated";
 import { Tabletop } from "./three/Tabletop";
 
 const HUMAN = 0;
@@ -70,6 +71,32 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
+  // Games generated earlier on this machine join the picker; ?game=<id> can open one of them.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = (await (await fetch("/api/games")).json()) as { id: string }[];
+      const loaded: GameModule[] = [];
+      for (const saved of list) {
+        try {
+          const game = loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text());
+          loaded.push({ ...game, meta: { ...game.meta, id: saved.id } });
+        } catch {
+          // A game that no longer loads (e.g. after an engine change) stays out of the picker.
+        }
+      }
+      if (cancelled || loaded.length === 0) return;
+      setGames((current) => [...current, ...loaded.filter((g) => !current.some((c) => c.meta.id === g.meta.id))]);
+      const wanted = loaded.find((g) => g.meta.id === query.get("game"));
+      if (wanted) selectGame(wanted);
+    })().catch(() => {
+      // No server running: reference games only.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Focus mode hides the side panels so the table fills the screen (press F).
   const [focus, setFocus] = useState(WATCH || window.innerWidth < 1100);
   const insets = useMemo(

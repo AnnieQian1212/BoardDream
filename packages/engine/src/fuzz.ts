@@ -12,6 +12,8 @@ export interface FuzzOptions {
   defaultParamShare?: number;
   /** Runs replayed a second time to catch hidden nondeterminism such as Math.random. */
   determinismChecks?: number;
+  /** Called before each run, e.g. so a watchdog can name the run that hangs. */
+  onRun?(run: { index: number; seed: number; numPlayers: number; params: Params }): void;
 }
 
 export interface FuzzFailure {
@@ -54,6 +56,7 @@ export function fuzz(game: GameModule, opts: FuzzOptions = {}): FuzzReport {
     const numPlayers = game.meta.minPlayers + rng.int(game.meta.maxPlayers - game.meta.minPlayers + 1);
     const params = rng.next() < defaultParamShare ? resolveParams(game.params) : sampleParams(game.params, rng);
     const matchOpts = { numPlayers, params, seed: runSeed, maxTurns, strict: true };
+    opts.onRun?.({ index: run, seed: runSeed, numPlayers, params });
     try {
       const result = playMatch(game, matchOpts);
       if (run < determinismChecks && fingerprint(playMatch(game, matchOpts)) !== fingerprint(result)) {

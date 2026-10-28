@@ -1,9 +1,9 @@
-import type { FuzzFailure } from "@boarddream/engine";
 import type { ChatMessage } from "../meta/client";
+import type { RulesCheck } from "./check";
 import type { Reference } from "./references";
 import type { GameRequest, GameSpec } from "./spec";
 
-// First drafts. Day 3 is for iterating on these against the fuzz-repair benchmark.
+// Iterated against the fuzz-repair benchmark in eval/generation.
 
 export function specMessages(request: GameRequest): ChatMessage[] {
   return [
@@ -11,10 +11,13 @@ export function specMessages(request: GameRequest): ChatMessage[] {
       role: "system",
       content: `You are BoardDream's lead game designer. Turn a player's idea and dial settings into a compact,
 implementable spec for a turn-based board game that runs in a browser.
-- family: "grid" for boards, placement and abstract strategy; "race" for tracks and dice; "bluff" for hidden
-  information, bidding and hidden roles.
+- family: "engine" for tableau and engine building (cards that cost resources and pay income or bonuses); "map"
+  for building on a hex map with production and trading; "grid" for boards, placement and abstract strategy;
+  "race" for tracks and dice; "bluff" for hidden information, bidding and hidden roles.
 - Respect the dials: player count range, play time, complexity (1 light to 5 heavy), luck (0 pure strategy
   to 1 pure luck) and mode.
+- The game must be original: never a recreation of a published game, even renamed. Medium scale: 3-5
+  resources, 20-40 distinct cards at most, a map of at most 19-37 tiles.
 - Prefer a few well-known mechanics combined cleanly over novel complexity.
 - tunables are integer knobs the rules read from params (board size, target score, hand size, round limit).
   Include 2-4, with ranges where every value still gives a playable game.
@@ -38,8 +41,23 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - params: one "int" ParamSpec per spec tunable, plus toggles if useful. Read them from ctx.params in setup
   and copy what later turns need into state.
 - Hidden information: implement view(state, player) and redact everything that player cannot see.
-- Implement geometry(state, viewer) with cell polygons in board units; with a viewer, draw hidden things
-  face down. moveTarget() must return the id of a cell in geometry(), or undefined for off-board moves.
+- The table UI is built from two optional functions; implement whichever the game needs (most need both):
+  - geometry(state, viewer): the board as cell polygons in board units, plus pieces; with a viewer, draw
+    hidden things face down. Cells with kind "vertex" or "edge" render as building spots and roads.
+  - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, score,
+    played cards), "shared" panels (a market row, a supply, a deck counter labelled "Deck") and a "hand"
+    panel for the viewer's own cards only. Counter ids and card ids must be unique.
+- Declare meta.resources ([{ id, name, icon, color }]) when the game counts resources. Icons: droplet, sun,
+  sprout, tree, trees, mountain, wheat, brick, coins, gem, fish, flame, leaf, star.
+- moveTarget(state, move) returns the id of the board cell, card or counter the move acts on, or
+  undefined for moves shown as buttons (end turn, pass). Several moves may share a target.
+- Card games: write cards as data with the effects module (CardDef: cost, points, tags, onPlay, income,
+  endgame), build the deck with buildDeck so every copy has a stable id like "fern#2", show text from
+  rulesText, and keep a card's id the same in every zone so the UI can animate it.
+- Map games: build the map once at module scope with hexmap.buildHexMap, keep only ids in state, and use
+  canSettle / canRoad / settleSpots / roadSpots, production.produce and the trade helpers.
+- Keep every rules function cheap; the fuzzer plays 1,000 full games. Bound the length of a game (a round or
+  turn limit param) and of a turn (a cap on actions or trades).
 - Implement describeMove(state, move, viewer) with short human-readable labels; when the viewer is not the
   mover, leave out anything hidden from them (e.g. which cards were really played face down).`;
 
@@ -65,9 +83,14 @@ export function composeMessages(spec: GameSpec, engineInterface: string, referen
   ];
 }
 
-export function formatFailures(loadError: string | undefined, failures: FuzzFailure[]): string {
-  if (loadError) return `- The module failed to load: ${loadError}`;
-  return failures
+export function formatFailures(check: RulesCheck): string {
+  if (check.loadError) return `- The module failed to load: ${check.loadError}`;
+  if (check.stalled) {
+    const { seed, numPlayers, params, afterMs } = check.stalled;
+    return `- [hang] one game ran for over ${Math.round(afterMs / 1000)} s without finishing, almost certainly an infinite loop in setup, legalMoves, applyMove or another rules function (seed ${seed}, ${numPlayers} players, params ${JSON.stringify(params)}). Make every loop provably terminate.`;
+  }
+  if (check.aborted) return `- [aborted] ${check.aborted}. Keep each move cheap: no exhaustive search inside rules functions.`;
+  return check.failures
     .map((f) => {
       const replay = `seed ${f.seed}, ${f.numPlayers} players, params ${JSON.stringify(f.params)}`;
       const moves = f.recentMoves.map((m) => `p${m.player}:${JSON.stringify(m.move)}`).join(" ");

@@ -13,12 +13,46 @@ interface Dials {
   mode: PlayMode;
 }
 
-interface GenerateResponse {
+interface GenerateResult {
+  /** Where the server saved the game; it joins the picker on later visits. */
+  id?: string;
   ok: boolean;
   spec: { title: string };
   source: string;
+  retrieved: string[];
   attempts: unknown[];
-  error?: string;
+}
+
+/** Friendly text for the designer's progress events. */
+function progressText(event: string): string {
+  if (event === "drafting spec") return "Drafting the design…";
+  if (event === "retrieving mechanics") return "Finding mechanics in the library…";
+  if (event === "writing rules") return "Writing the rules…";
+  const fuzzing = event.match(/^fuzzing attempt (\d+)/);
+  if (fuzzing) return Number(fuzzing[1]) === 0 ? "Playtesting 1,000 games…" : `Playtesting fix ${fuzzing[1]}…`;
+  if (event.startsWith("repairing")) return `Fixing what broke (${event.replace(/^repairing:?\s*/, "")})…`;
+  return event;
+}
+
+/** Reads a server-sent event stream, calling `on` for each event. */
+async function readEvents(res: Response, on: (event: string, data: string) => void) {
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let end: number;
+    // Events end with a blank line; normalize CRLF first.
+    buffer = buffer.replace(/\r\n/g, "\n");
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      const event = block.match(/^event: (.*)$/m)?.[1] ?? "message";
+      const data = [...block.matchAll(/^data: ?(.*)$/gm)].map((m) => m[1]).join("\n");
+      on(event, data);
+    }
+  }
 }
 
 const MODES: { value: PlayMode; label: string }[] = [
@@ -44,22 +78,30 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setStatus("Designing, writing rules and playtesting…");
+    setStatus("Starting…");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, dials }),
       });
-      const data = (await res.json()) as GenerateResponse;
-      if (!res.ok) throw new Error(data.error ?? res.statusText);
-      const tries = `${data.attempts.length} playtest round${data.attempts.length === 1 ? "" : "s"}`;
-      if (!data.ok) {
-        setStatus(`“${data.spec.title}” still fails playtesting after ${tries}.`);
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
+      let result: GenerateResult | undefined;
+      let failure: string | undefined;
+      await readEvents(res, (event, data) => {
+        if (event === "progress") setStatus(progressText(data));
+        else if (event === "result") result = JSON.parse(data) as GenerateResult;
+        else if (event === "error") failure = data;
+      });
+      if (!result) throw new Error(failure ?? "the server closed the connection");
+      const tries = `${result.attempts.length} playtest round${result.attempts.length === 1 ? "" : "s"}`;
+      if (!result.ok) {
+        setStatus(`“${result.spec.title}” still fails playtesting after ${tries}.`);
         return;
       }
-      onGenerated(loadGeneratedGame(data.source));
-      setStatus(`“${data.spec.title}” passed after ${tries}.`);
+      const game = loadGeneratedGame(result.source);
+      onGenerated(result.id ? { ...game, meta: { ...game.meta, id: result.id } } : game);
+      setStatus(`“${result.spec.title}” passed after ${tries}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err));
     } finally {

@@ -1,7 +1,6 @@
-import { fuzz, type FuzzFailure, type GameModule } from "@boarddream/engine";
 import type { Bm25Index } from "@boarddream/retrieval";
 import type { ModelClient } from "../meta/client";
-import { loadGameFromSource } from "../sandbox";
+import { checkRulesIsolated, type RulesCheck } from "./check";
 import { composeMessages, extractCode, formatFailures, repairMessages, specMessages } from "./prompts";
 import { engineInterfaceSource, loadReference, type Reference } from "./references";
 import { expandedSearch, rerank } from "./retrieve";
@@ -17,12 +16,6 @@ export interface DesignDeps {
   maxRepairs?: number;
   fuzzRuns?: number;
   onProgress?: (event: string) => void;
-}
-
-export interface RulesCheck {
-  ok: boolean;
-  loadError?: string;
-  failures: FuzzFailure[];
 }
 
 export interface DesignResult {
@@ -57,22 +50,17 @@ export async function designGame(request: GameRequest, deps: DesignDeps): Promis
   const attempts: RulesCheck[] = [];
   for (let attempt = 0; ; attempt++) {
     onProgress(`fuzzing attempt ${attempt}`);
-    const check = checkRules(source, fuzzRuns);
+    const check = await checkRulesIsolated(source, { runs: fuzzRuns });
     attempts.push(check);
     if (check.ok || attempt >= maxRepairs) return { ok: check.ok, spec, retrieved, source, attempts };
-    onProgress(`repairing ${check.loadError ? "load error" : `${check.failures.length} failures`}`);
-    source = extractCode(await llm.chat(repairMessages(spec, source, formatFailures(check.loadError, check.failures))));
+    onProgress(`repairing: ${summarize(check)}`);
+    source = extractCode(await llm.chat(repairMessages(spec, source, formatFailures(check))));
   }
 }
 
-/** Loads generated rules and fuzzes them. TODO(day 3): run in a worker thread so infinite loops can be killed. */
-export function checkRules(source: string, runs: number): RulesCheck {
-  let game: GameModule;
-  try {
-    game = loadGameFromSource(source);
-  } catch (err) {
-    return { ok: false, loadError: err instanceof Error ? err.message : String(err), failures: [] };
-  }
-  const report = fuzz(game, { runs });
-  return { ok: report.ok, failures: report.failures };
+function summarize(check: RulesCheck): string {
+  if (check.loadError) return "load error";
+  if (check.stalled) return "a game hung";
+  if (check.aborted) return check.aborted;
+  return `${check.failures.length} failure kinds`;
 }

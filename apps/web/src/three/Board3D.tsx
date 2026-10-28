@@ -9,7 +9,7 @@ import { HIGHLIGHT } from "./Card3D";
 import { setCursor } from "./hover";
 import type { BoardItem } from "./layout";
 import { step } from "./motion";
-import { mix } from "./paint";
+import { hash, mix } from "./paint";
 import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
 
 const SLAB = 0.6;
@@ -39,8 +39,13 @@ const CREAM = "#f3ead8";
 function tileColor(cell: GeometryCell): string {
   // Roads and buildings spots take the full seat color; owned tiles get a tint.
   if (cell.owner !== undefined) return SPOTS.has(cell.kind ?? "") ? playerColor(cell.owner) : mix(playerColor(cell.owner), CREAM, 0.5);
-  return TILE_COLORS[cell.kind ?? ""] ?? CREAM;
+  const kind = cell.kind ?? "";
+  if (TILE_COLORS[kind]) return TILE_COLORS[kind];
+  // Kinds a generated game invents (obsidian, caldera, ...) get a stable soft color of their own.
+  return kind ? mix(UNKNOWN[hash(kind) % UNKNOWN.length], CREAM, 0.35) : CREAM;
 }
+
+const UNKNOWN = ["#c98b6b", "#8fb0c9", "#b5a3cf", "#d9b86c", "#93b98a", "#c99aa8", "#8fc1b8", "#b8a58f"];
 
 const centroid = (polygon: [number, number][]): [number, number] => [
   polygon.reduce((sum, [x]) => sum + x, 0) / polygon.length,

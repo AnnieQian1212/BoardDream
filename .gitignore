@@ -5,6 +5,10 @@ dist/
 .DS_Store
 .vite/
 eval/**/out/
+# Generation replies are large; results are summarized in eval/generation/README.md
+eval/generation/cache/
+# Games generated on this machine (apps/server/src/store.ts)
+data/
 # Working copies of the judgment review; the reviewed grades land in qrels.txt
 eval/retrieval/review*.csv
 

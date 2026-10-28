@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkRules } from "./agent/designer";
+import { checkRules, checkRulesIsolated } from "./agent/check";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { loadGameFromSource } from "./sandbox";
@@ -41,6 +41,30 @@ describe("sandbox", () => {
   it("turns Math.random into a fuzz failure", () => {
     const check = checkRules(NIM.replace("pile: params.pile", "pile: 5 + Math.floor(Math.random() * 9)"), 10);
     expect(check.failures[0].message).toMatch(/Math.random is not allowed/);
+  });
+});
+
+describe("isolated checker", () => {
+  it("fuzzes in a worker thread", async () => {
+    expect(await checkRulesIsolated(NIM, { runs: 100 })).toEqual({ ok: true, failures: [] });
+  });
+
+  it("kills a hanging game and names the run to replay", async () => {
+    const hangs = NIM.replace("applyMove: (s, p, take) => (", "applyMove: (s, p, take) => { if (s.pile < 4) for (;;) {} return (").replace(
+      "last: p }),",
+      "last: p }); },",
+    );
+    const started = Date.now();
+    const check = await checkRulesIsolated(hangs, { runs: 50, stallMs: 1000 });
+    expect(check.ok).toBe(false);
+    expect(check.stalled).toMatchObject({ numPlayers: 2 });
+    expect(typeof check.stalled!.seed).toBe("number");
+    expect(Date.now() - started).toBeLessThan(8000);
+  });
+
+  it("reports load errors from the worker", async () => {
+    const check = await checkRulesIsolated(`require("fs");`, { runs: 10 });
+    expect(check.loadError).toMatch(/not allowed/);
   });
 });
 
