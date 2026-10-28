@@ -8,9 +8,16 @@ export function leaders(scores: readonly number[], eligible: (seat: number) => b
   return seats.filter((seat) => scores[seat] === best);
 }
 
-/** Outcome winners by score: the leaders, or [] (a draw) when every seat ties. */
-export function scoreWinners(scores: readonly number[]): number[] {
-  const top = leaders(scores);
+/**
+ * Outcome winners by score: the leaders, or [] (a draw) when every seat ties. An optional
+ * `tiebreak` (more is better, e.g. money left) settles ties between the leaders first.
+ */
+export function scoreWinners(scores: readonly number[], tiebreak?: readonly number[]): number[] {
+  let top = leaders(scores);
+  if (tiebreak && top.length > 1) {
+    const tied = top;
+    top = leaders(tiebreak, (seat) => tied.includes(seat));
+  }
   return top.length === scores.length ? [] : top;
 }
 

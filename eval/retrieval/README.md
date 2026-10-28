@@ -4,13 +4,13 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
 
 ## Setup
 
-- **Collection:** the 47 entries in `packages/library/src/catalog.ts`: 36 with code (26 mechanics, 10 reference games) and 11 planned mechanics without code. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, tile placement next to hex tiles); the designer itself only retrieves entries with code.
+- **Collection:** the 48 entries in `packages/library/src/catalog.ts`: 38 with code (27 mechanics, 11 reference games) and 10 planned mechanics without code. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, push your luck next to dice races); the designer itself only retrieves entries with code.
 - **Queries:** 62 game ideas in `queries.jsonl`, written the way players describe games rather than in catalog vocabulary. q51–q62 cover the engine-building and map genres: card markets, card effects and end-game bonuses, settlements on hex corners, tile production, bank and player trades. Several are deliberate traps: "connect four" (q38) is a k-in-a-row game, not a connection game; "bidding coins for paintings" (q13) is an auction, not a bluff; "tiles" on a hexagon board (q07) is a connection game, not tile placement.
 - **Judgments:** `qrels.txt`, TREC format, graded 0–2:
   - **2:** the game cannot be built without this mechanic, or this reference game is a close template.
   - **1:** useful but not essential, e.g. a generic helper the idea explicitly needs, or a related reference game.
   - unlisted entries are 0.
-- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, then reviewed by the author the same day (see [Author review](#author-review)). The three judgments for Highsail, added to the catalog after the review, are drafted and pending review: 2 for q23 (worker placement with blocked spaces), 1 for q24 (region majorities) and 1 for q51 (cards that pay income). They were deliberately not drafted with Muse Spark, which is the model under test in two of the three systems.
+- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, then reviewed by the author the same day (see [Author review](#author-review)). Six judgments for the two reference games added after the review are drafted and pending review. Highsail: 2 for q23 (worker placement with blocked spaces), 1 for q24 (region majorities) and 1 for q51 (cards that pay income). Wildmere: 2 for q15 (laying tiles into a map whose features score), 1 for q24 (region majorities) and 1 for q35 (a hex board). None were drafted with Muse Spark, which is the model under test in two of the three systems.
 - **Measures:** P@10, Recall@10, nDCG@10 (linear gain, as in trec_eval), MRR, MAP.
 
 ## Systems
@@ -23,21 +23,21 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
 
 Model: `muse-spark-1.3` with structured output; prompts in `apps/server/src/agent/retrieve.ts`. The designer pipeline uses the third system.
 
-## Results (Oct 27, 2026)
+## Results (Oct 28, 2026)
 
 | System | P@10 | Recall@10 | nDCG@10 | MRR | MAP |
 | --- | --- | --- | --- | --- | --- |
-| `bm25` | 0.252 | 0.805 | 0.814 | 0.943 | 0.649 |
-| `bm25+expand` | 0.294 | 0.924 | 0.895 | 0.976 | 0.769 |
-| `bm25+expand+rerank` | 0.308 | 0.965 | **0.966** | 1.000 | **0.920** |
+| `bm25` | 0.256 | 0.807 | 0.811 | 0.935 | 0.647 |
+| `bm25+expand` | 0.297 | 0.921 | 0.901 | 0.992 | 0.777 |
+| `bm25+expand+rerank` | 0.315 | 0.969 | **0.967** | 1.000 | **0.925** |
 
-- Per query on nDCG@10, expansion beats BM25 on 39 queries, ties on 15 and loses on 8; expansion plus rerank beats it on 52, ties on 8 and loses on 2.
-- The two rerank losses are small reorderings among relevant entries: q05 0.98 → 0.97, q48 0.96 → 0.95.
-- The genre queries (q51–q62) behave like the rest: BM25 0.831, expansion plus rerank 0.953 nDCG@10.
-- Earlier versions of the collection, in nDCG@10 for the three systems: 0.818, 0.894 and 0.968 with the reviewed judgments before Highsail and the worker-placement and area-control modules (46 entries); 0.825, 0.893 and 0.964 with the drafted judgments; 0.845, 0.905 and 0.969 before the genre additions (50 queries, 39 entries).
+- Per query on nDCG@10, expansion beats BM25 on 41 queries, ties on 14 and loses on 7; expansion plus rerank beats it on 53, ties on 8 and loses on 1.
+- The one rerank loss is a small reordering among relevant entries: q05 0.98 → 0.97.
+- The genre queries (q51–q62) behave like the rest: BM25 0.814, expansion plus rerank 0.954 nDCG@10.
+- Earlier versions of the collection, in nDCG@10 for the three systems: 0.814, 0.895 and 0.966 with Highsail but before the tile-placement module and Wildmere (47 entries); 0.818, 0.894 and 0.968 with the reviewed judgments before Highsail and the worker-placement and area-control modules (46 entries); 0.825, 0.893 and 0.964 with the drafted judgments; 0.845, 0.905 and 0.969 before the genre additions (50 queries, 39 entries).
 - P@10 is low for every system by construction: most queries have only 2–4 relevant entries.
 - All numbers match `ir_measures` to four decimals. BM25 breaks score ties the way trec_eval does, so the run files evaluate identically in both.
-- The full run makes 124 Muse Spark calls (one expansion and one rerank per query) and costs about $1, almost all of it reasoning tokens. Adding the genre queries and catalog entries took 73 new calls ($0.82); adding Highsail took 48 ($0.61).
+- The full run makes 124 Muse Spark calls (one expansion and one rerank per query) and costs about $1, almost all of it reasoning tokens. Adding the genre queries and catalog entries took 73 new calls ($0.82); adding Highsail took 48 ($0.61); adding Wildmere and the tile-placement module took 51 ($0.66).
 
 ### Author review
 

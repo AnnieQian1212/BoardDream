@@ -61,6 +61,11 @@ export interface GeometryCell {
   /** "label" cells are text only: no fill, no outline, not clickable. */
   kind?: string;
   label?: string;
+  /**
+   * Edge-matched tiles: a terrain kind per polygon edge (edge i runs from polygon[i] to
+   * polygon[i + 1]). Each is painted as a wedge from the cell's center to that edge.
+   */
+  segments?: string[];
 }
 
 export interface GeometryPiece {

@@ -1072,6 +1072,10 @@ button.card {
   pointer-events: none;
 }
 
+.board .wedges {
+  pointer-events: none;
+}
+
 .board .cell.target {
   fill: #f7dd93;
   cursor: pointer;

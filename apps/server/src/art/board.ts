@@ -18,8 +18,11 @@ const GUIDE_WIDTH = 1536;
 const THRESHOLD = 0.8;
 const SAM_OBJECTS = 16;
 
-/** Tiles worth painting and checking: not text, not the small building spots and roads. */
-const isTile = (cell: GeometryCell) => cell.kind !== "label" && cell.kind !== "vertex" && cell.kind !== "edge";
+/**
+ * Tiles worth painting and checking: not text, not the small building spots and roads, and not
+ * edge-matched tiles, which show their terrain segments instead.
+ */
+const isTile = (cell: GeometryCell) => cell.kind !== "label" && cell.kind !== "vertex" && cell.kind !== "edge" && !cell.segments;
 
 const GUIDE_COLORS: Record<string, [number, number, number]> = {
   forest: [70, 140, 70],

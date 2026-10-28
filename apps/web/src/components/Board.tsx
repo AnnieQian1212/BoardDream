@@ -1,6 +1,6 @@
 import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
 import type { CSSProperties } from "react";
-import { PLAYER_COLORS, playerColor } from "../colors";
+import { PLAYER_COLORS, playerColor, TILE_COLORS } from "../colors";
 
 interface Props {
   geometry: Geometry;
@@ -87,11 +87,25 @@ function Cell({ cell, target, onClick }: { cell: GeometryCell; target: boolean; 
   return (
     <g>
       <polygon points={cell.polygon.map((p) => p.join(",")).join(" ")} className={className} style={tint} onClick={onClick} />
+      {cell.segments && <Wedges cell={cell} center={[cx, cy]} />}
       {cell.label && (
         <text x={cx} y={cy} className="cell-label" fontSize={labelSize(cell, cell.label)}>
           {cell.label}
         </text>
       )}
+    </g>
+  );
+}
+
+/** Edge-matched tile: a wedge per edge in its terrain's color, inset so the tile's rim shows. */
+function Wedges({ cell, center: [cx, cy] }: { cell: GeometryCell; center: number[] }) {
+  const n = cell.polygon.length;
+  const inset = ([x, y]: [number, number]) => `${cx + (x - cx) * 0.84},${cy + (y - cy) * 0.84}`;
+  return (
+    <g className="wedges">
+      {cell.segments!.map((kind, i) => (
+        <polygon key={i} points={`${cx},${cy} ${inset(cell.polygon[i % n])} ${inset(cell.polygon[(i + 1) % n])}`} fill={TILE_COLORS[kind] ?? "#c9bfa8"} />
+      ))}
     </g>
   );
 }

@@ -15,6 +15,7 @@ export * as resources from "./resources";
 export * as roles from "./roles";
 export * as scoring from "./scoring";
 export * as shortcuts from "./shortcuts";
+export * as tiles from "./tiles";
 export * as trade from "./trade";
 export * as track from "./track";
 export * as turns from "./turns";

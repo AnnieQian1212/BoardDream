@@ -30,6 +30,7 @@ All original designs or public-domain games. No trademarked names (e.g. Connect 
 | `engine` engine building | Glasshouse (original): grow a greenhouse whose plants pay income and score bonuses that chain together | Card effect language, market, tableau UI, card art from Muse Image |
 | `map` map, trade and build | Original hex-map settlement game: production, building on vertices and edges, bank and player trades | Hex map art with SAM alignment, Muse Spark trade negotiation (the CICERO angle in the proposal) |
 | `engine` worker placement and majorities | Highsail (original): airship crews on a skyport's action spaces, charters that score, pay income or end-game bonuses, outposts that win majorities on five sky islands | Worker placement and area majority modules, blocking, two scoring rounds |
+| `grid` tile placement | Wildmere (original): hex tiles with a terrain on each edge, laid into a shared valley; matching edges pay funds and join regions that score when enclosed, for whoever laid most of them | Tile placement module (rotation, edge matching, regions, open edges), edge-matched tiles on the 3D table, a tile market priced by position |
 | test fixtures (not in the app) | Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It | Engine features (grids, dice, tracks, hidden hands, simultaneous play), retrieval eval, the Liar's Dice opponents benchmark |
 
 ### AI opponents: layered so a game never depends on the LLM
@@ -107,6 +108,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - **Next, from the BoardGameGeek top-50 list:** the mechanics most of those games share and the library lacks, in order: worker placement and area majority (Stone Age, Agricola, Caylus, Small World, Dominant Species, Tigris & Euphrates), tile placement (Carcassonne, Kingdom Builder, Ingenious), card drafting, deck building and set collection (7 Wonders, Dominion, Ticket to Ride), a cooperative shared threat (Pandemic, Elder Sign), and a social-deduction game whose Muse Spark players argue and vote (The Resistance, Werewolves). Each new mechanic gets a module with tests; worker placement plus area majority also gets a third original reference game. Then the generation benchmark is rebuilt on hobby-weight ideas across these families and reports the planner win rate.
 - From Board Game Arena: show each game's profile on BGA's four axes (complexity, strategy, luck, interaction), measured by simulation instead of player votes.
 - **Done (worker placement and majorities):** `workers` (action spaces with capacities, open spaces, placement, next seat with crew left) and `majority` (standings, controller, awards with ties splitting the places they span, scoring every region) with unit tests; both catalog entries are now ready. Highsail, the third original reference game: 2–4 players send crew to 11 action spaces on a skyport, take and launch 24 charters (cargo scores, surveys pay income, envoys score at the end) and build outposts on five sky islands that pay majorities after the middle and last rounds; recruiting adds crew, the Admiralty takes first place, otherwise the trailing seat goes first. 1,000-run strict fuzz clean. Its bot beats random play in 100% (2 players), 96% (3) and 91% (4) of games; bot-vs-bot seat win rates over 800 games are 50/47, 35/37/33 and 28/29/26/25 after giving the first seat a fourth coin (with equal coins it won least: 32% of 3-player games). The generic planner wins 67% of 3-player games against random play. Retrieval eval rerun with Highsail in the collection: nDCG@10 0.814 / 0.895 / 0.966.
+- **Done (tile placement), Oct 28:** `tiles` (square and hex boards, rotation, the frontier, edge matching strict or counted, segments, regions joined across matching edges with open and rim edge counts) with unit tests; the catalog entry is now ready, and geometry cells can carry `segments` (a terrain per edge) that the 3D table and the flat board paint as wedges. Wildmere, the fourth original reference game, for 2–4 players: take one of four hex tiles from a market row (each skipped tile costs a fund, left on it for whoever takes it), turn it and lay it next to the valley; every matching edge after the first pays a fund. A woodland, meadow, wetland or heath region scores the moment none of its edges faces an empty space: a point per tile to whoever laid the most of it, half to the runner-up with 3+ players. Rangers (2 funds) count as two tiles in a region until it scores. The game ends when the 37-space valley is full; 3 leftover funds score a point, and ties go to the most funds. 1,000-run strict fuzz clean. Its bot beats random play in every test game; bot-vs-bot seat win rates over 200 games are 53/47, 33/39/28 and 23/28/28/22 after giving the first seat 2 funds and the others 3 (with equal funds the first seat won 49% of 3-player games and the last 25%). The generic planner wins 80% of 3-player games against random play. Retrieval eval rerun: nDCG@10 0.811 / 0.901 / 0.967.
 
 ### Thu Oct 29: generation for the new genres
 - Spec, compose and repair prompts that produce card data in the effect language plus rules code.
@@ -210,20 +212,19 @@ Cost controls:
 - [ ] Video shows only features built during the hackathon
 - [ ] Present the project as retrieval → composed executable code → fuzz verification, not as a basic RAG app
 
-## Status (Oct 27)
+## Status (Oct 28)
 
 **Working:**
-- `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves, outcomes and presentation functions), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`
-- `packages/library`: 19 mechanic modules (grid, hex, flanking, connection, dice, track, shortcuts, bidding, deck, roles, voting, turns, scoring, resources, market, effects, hexmap, production, trade); 9 reference games (Glasshouse, Lantern Isles, Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It); bots for Glasshouse, Lantern Isles and Liar's Dice; 46-entry retrievable catalog
+- `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves, outcomes and presentation functions), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`, a generic heuristic bot with optional playouts
+- `packages/library`: 22 mechanic modules (grid, hex, flanking, connection, dice, track, shortcuts, bidding, deck, roles, voting, turns, scoring, resources, market, effects, hexmap, production, trade, workers, majority, tiles); four original reference games (Glasshouse, Lantern Isles, Highsail, Wildmere) and seven small fixture games; dedicated bots for the four reference games and Liar's Dice; a 48-entry retrievable catalog
 - `packages/retrieval`: BM25 with an S-stemmer and trec_eval tie-breaking, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
-- `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat, structured output, token usage), reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline with Muse Spark expansion + rerank retrieval, IoU utilities
-- `eval/retrieval`: 62 queries, graded qrels, three systems, cached Muse Spark replies
-- `apps/web`: 3D tabletop (three.js) for every game: cards, mats, tokens, board tiles and pieces, playable against each game's default bot; create panel, parameter sliders, live balance stats; 2D table as a fallback
-- 105 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- `apps/server`: Hono API, Model API client, reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), the `designGame` pipeline (spec, Muse Spark expansion + rerank retrieval, rules code, fuzz in a worker with a watchdog, repair, playtest with the strategic-depth check), Muse Spark opponents, card and board art with SAM 3.1 alignment
+- `eval/`: retrieval (62 queries, 202 graded judgments, three systems), generation (24 ideas, 24 pass after one repair) and opponents benchmarks, with cached Muse Spark replies
+- `apps/web`: 3D tabletop (three.js) for every game, including edge-matched tiles; create panel, parameter sliders, live balance stats from a web worker; 2D table as a fallback
+- 136 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
-- `/api/generate` has not run end to end against the real API; the prompts are first drafts
-- Parsing `editImage` responses and decoding SAM masks (day 6)
-- Fuzzing and simulation still run on the main thread (days 3–4)
-- Opponents other than Liar's Dice play randomly (Monte Carlo bots on day 4); with random play, I Doubt It usually runs to its play limit
+- The generation benchmark still includes light ideas from before the hobby-games focus; it is next to be rebuilt on hobby-weight ideas, with the planner win rate reported
+- Six retrieval judgments for Highsail and Wildmere await author review
+- Deployment, demo video and submission (Nov 3–4)
 - The 3D table has been checked with scripted headless-Chrome screenshots and clicks (GPU on), not yet on a laptop GPU or at 4K

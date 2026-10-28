@@ -22,6 +22,9 @@ import {
   raceHome,
   referenceGames,
   reversi,
+  wildmere,
+  wildmereBot,
+  WILDMERE_TILES,
 } from "./index";
 import { raisesAbove } from "./mechanics/bidding";
 import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
@@ -41,6 +44,9 @@ import { majority, topVoted } from "./mechanics/voting";
 import { controller, majorityAwards, presence, scoreRegions, standings } from "./mechanics/majority";
 import { nextToPlace, openSpaces, place, placedBy } from "./mechanics/workers";
 import { islandOf, outpostsLeft, workersLeft, type HighsailMove, type HighsailState } from "./games/highsail";
+import { distinctRotations, fit, fits, frontier, hexBoard, partKey, placements, regionIndex, regions, rotate, segmentPoint, segments, squareBoard } from "./mechanics/tiles";
+import { rangerSpots, regionPresence, valleyRegions, type WildmereMove, type WildmereState } from "./games/wildmere";
+import { START_TILE } from "./games/wildmere-tiles";
 
 describe("reference and fixture games", () => {
   for (const game of [...referenceGames, ...fixtureGames]) {
@@ -424,6 +430,85 @@ describe("highsail", () => {
   });
 });
 
+describe("wildmere", () => {
+  const params = { radius: 3, marketSize: 4, rangers: 3 };
+  const start = (numPlayers = 3) => wildmere.setup({ numPlayers, params, rng: createRng(4) });
+  const act = (s: WildmereState, move: WildmereMove) => wildmere.applyMove(s, s.toMove, move, createRng(9));
+  const solid = (terrain: string) => WILDMERE_TILES.findIndex((t) => t.every((e) => e === terrain));
+
+  it("deals exactly the tiles that fill the valley", () => {
+    const s = start();
+    expect(s.supply.length + s.market.length).toBe(36);
+    expect(s.placed).toEqual({ "0,0": { edges: START_TILE } });
+    expect(s.funds).toEqual([2, 3, 3]);
+    expect((wildmere.view!(s, 1) as WildmereState).supply).toEqual(s.supply.slice().sort((a, b) => a - b));
+  });
+
+  it("leaves a fund on every skipped tile, pays out the taken one's, and turns it", () => {
+    let s = act(start(), { type: "take", slot: 2 });
+    expect(s.funds[0]).toBe(0);
+    expect(s.market.map((m) => m.funds)).toEqual([1, 1, 0, 0]);
+    expect(s.phase).toBe("place");
+    expect(wildmere.legalMoves(s, 0).filter((m) => m.type === "place")).toHaveLength(6);
+    s = act(act(act(s, { type: "turn", dir: 1 }), { type: "turn", dir: -1 }), { type: "turn", dir: -1 });
+    expect(s.held!.rotation).toBe(5);
+    s = act(s, wildmere.legalMoves(s, 0).find((m) => m.type === "place")!);
+    if (s.phase === "ranger") s = act(s, { type: "done" });
+    expect(s.toMove).toBe(1);
+    expect(wildmere.legalMoves(s, 1).map((m) => (m.type === "take" ? m.slot : -1))).toEqual([0, 1, 2, 3]);
+    expect(act(s, { type: "take", slot: 0 }).funds[1]).toBe(4);
+  });
+
+  it("scores a region the moment its last open edge is covered, for whoever placed most of it", () => {
+    // The start tile's woodland (sides 0 and 1) runs into seat 1's tile east of it; only side 1 is open.
+    const meadow = ["meadow", "meadow", "meadow", "woodland", "meadow", "meadow"];
+    let s: WildmereState = {
+      ...start(),
+      placed: { "0,0": { edges: START_TILE }, "1,0": { edges: meadow, owner: 1 } },
+      phase: "place",
+      held: { tile: solid("meadow"), rotation: 0, turns: 0 },
+      funds: [5, 3, 3],
+    };
+    // A meadow tile below the start tile shuts the woodland in, and joins seat 1's meadow.
+    s = act(s, { type: "place", cell: "0,1" });
+    expect(s.completed).toEqual([{ terrain: "woodland", size: 2, points: [0, 2, 0] }]);
+    expect(s.points).toEqual([0, 2, 0]);
+    expect(s.funds[0]).toBe(5);
+    expect(s.phase).toBe("ranger");
+    expect(rangerSpots(s)).toEqual([0]);
+    s = act(s, { type: "ranger", side: 0 });
+    expect([s.funds[0], s.rangersLeft[0], s.toMove]).toEqual([3, 2, 1]);
+    const all = valleyRegions(s);
+    const meadowRegion = all.find((r) => r.terrain === "meadow" && r.cells.includes("0,1"))!;
+    expect([...meadowRegion.cells].sort()).toEqual(["0,1", "1,0"]);
+    expect(regionPresence(s, meadowRegion, regionIndex(all))).toEqual([3, 1, 0]);
+  });
+
+  it("closes a region on the neutral start tile without paying anyone", () => {
+    // The start tile's heath is a single side; a woodland tile across it closes it.
+    let s: WildmereState = { ...start(), phase: "place", held: { tile: solid("woodland"), rotation: 0, turns: 0 } };
+    s = act(s, { type: "place", cell: "1,-1" });
+    expect(s.completed).toEqual([{ terrain: "heath", size: 1, points: [0, 0, 0] }]);
+  });
+
+  it("ends when the valley is full, with every ranger home", () => {
+    const result = playMatch(wildmere, { numPlayers: 3, params, seed: 3, strict: true });
+    const s = result.finalState as WildmereState;
+    expect(Object.keys(s.placed)).toHaveLength(37);
+    expect(valleyRegions(s).every((r) => r.open === 0)).toBe(true);
+    expect(s.rangers).toEqual([]);
+    expect(s.rangersLeft).toEqual([3, 3, 3]);
+    expect(result.outcome.winners.length).toBeGreaterThan(0);
+  });
+
+  it("dedicated bot beats random play", { timeout: 30_000 }, () => {
+    const bot = wildmereBot();
+    const asFirst = simulate(wildmere, { numPlayers: 2, games: 10, bots: [bot, randomBot] });
+    const asSecond = simulate(wildmere, { numPlayers: 2, games: 10, seed: 500, bots: [randomBot, bot] });
+    expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2).toBeGreaterThan(0.85);
+  });
+});
+
 describe("mechanics", () => {
   it("places workers on spaces with room", () => {
     const spaces = [{ id: "mine", capacity: 1 }, { id: "dock", capacity: 2 }, { id: "inn" }];
@@ -436,6 +521,53 @@ describe("mechanics", () => {
     // Seat 1 is out of workers, so after seat 0 comes seat 2, then nobody.
     expect(nextToPlace([0, 1, 2], 0, (seat) => (seat === 1 ? 0 : 1))).toBe(2);
     expect(nextToPlace([0, 1, 2], 0, () => 0)).toBeUndefined();
+  });
+
+  it("turns tiles, splits them into segments and matches edges", () => {
+    expect(rotate(["a", "b", "c", "d"], 1)).toEqual(["d", "a", "b", "c"]);
+    expect(rotate(["a", "b", "c", "d"], -1)).toEqual(["b", "c", "d", "a"]);
+    expect(segments(["a", "b", "b", "a", "a", "a"])).toEqual([
+      { terrain: "b", sides: [1, 2] },
+      { terrain: "a", sides: [3, 4, 5, 0] },
+    ]);
+    expect(segments(["a", "a", "a", "a"])).toEqual([{ terrain: "a", sides: [0, 1, 2, 3] }]);
+    expect(partKey("x", ["a", "b", "b", "a", "a", "a"], 0)).toBe("x:0");
+    expect(partKey("x", ["a", "b", "b", "a", "a", "a"], 2)).toBe("x:1");
+    expect(distinctRotations(["a", "b", "a", "b"])).toEqual([0, 1]);
+    const board = squareBoard(3, 3);
+    expect(board.byId["1,1"].neighbors).toEqual(["1,0", "2,1", "1,2", "0,1"]);
+    expect(board.byId["0,0"].neighbors).toEqual([undefined, "1,0", "0,1", undefined]);
+    const placed = { "1,1": { edges: ["road", "field", "field", "field"] } };
+    expect(frontier(board, placed)).toEqual(["1,0", "0,1", "2,1", "1,2"]);
+    // The tile north of it meets the road with its south edge.
+    expect(fit(board, placed, "1,0", ["x", "x", "road", "x"])).toEqual({ touching: 1, matching: 1, mismatched: 0 });
+    expect(fits(board, placed, "1,0", ["x", "x", "field", "x"])).toBe(false);
+    expect(fits(board, placed, "1,0", ["x", "x", "field", "x"], false)).toBe(true);
+    expect(fits(board, placed, "0,0", ["road", "road", "road", "road"], false)).toBe(false);
+    expect(placements(board, placed, ["road", "road", "road", "road"])).toEqual([{ cell: "1,0", rotation: 0, matching: 1 }]);
+  });
+
+  it("joins matching edges into regions, closed by mismatches and the rim", () => {
+    const board = hexBoard(1);
+    expect(board.cells).toHaveLength(7);
+    expect(board.byId["0,0"].neighbors).toEqual(["1,0", "0,1", "-1,1", "-1,0", "0,-1", "1,-1"]);
+    const sea = new Array(6).fill("sea");
+    const land = new Array(6).fill("land");
+    const placed: Record<string, { edges: string[] }> = { "0,0": { edges: ["sea", "sea", "sea", "land", "land", "land"] } };
+    expect(regions(board, placed).map((r) => [r.terrain, r.cells.length, r.open, r.rim])).toEqual([
+      ["sea", 1, 3, 0],
+      ["land", 1, 3, 0],
+    ]);
+    // A sea tile east joins the sea; three of its sides face past the rim.
+    placed["1,0"] = { edges: sea };
+    expect(regions(board, placed).find((r) => r.terrain === "sea")).toMatchObject({ id: "0,0:0", cells: ["0,0", "1,0"], open: 4, rim: 3 });
+    // A land tile below both closes two of the sea's edges without joining it.
+    placed["0,1"] = { edges: land };
+    const list = regions(board, placed);
+    expect(list.find((r) => r.terrain === "sea")!.open).toBe(2);
+    expect(list.filter((r) => r.terrain === "land").map((r) => r.cells)).toEqual([["0,0"], ["0,1"]]);
+    expect(regionIndex(list)["1,0:0"].id).toBe("0,0:0");
+    expect(segmentPoint(board, "0,1", [0, 1, 2, 3, 4, 5])).toEqual(board.byId["0,1"].center);
   });
 
   it("scores area majorities with ties splitting the places they span", () => {

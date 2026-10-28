@@ -3,6 +3,7 @@ import { glasshouseBot } from "./bots/glasshouse";
 import { highsailBot } from "./bots/highsail";
 import { lanternIslesBot } from "./bots/lantern-isles";
 import { liarsDiceBot } from "./bots/liars-dice";
+import { wildmereBot } from "./bots/wildmere";
 import { glasshouse } from "./games/glasshouse";
 import { hexGame } from "./games/hex";
 import { highsail } from "./games/highsail";
@@ -13,6 +14,7 @@ import { lineUp } from "./games/line-up";
 import { raceHome } from "./games/race-home";
 import { reversi } from "./games/reversi";
 import { snakesLadders } from "./games/snakes-ladders";
+import { wildmere } from "./games/wildmere";
 
 export * from "./catalog";
 export * from "./table-talk";
@@ -26,10 +28,13 @@ export { HIGHSAIL_CHARTERS, HIGHSAIL_RESOURCES, ISLANDS } from "./games/highsail
 export { highsailScore, spacesFor, type HighsailMove, type HighsailState } from "./games/highsail";
 export { LANTERN_MAP, LANTERN_RESOURCES, lanternScore, type LanternMove, type LanternState } from "./games/lantern-isles";
 export type { LiarsDiceMove, LiarsDiceView } from "./games/liars-dice";
-export { glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders };
+export { wildmereBot, wildmereValue } from "./bots/wildmere";
+export { TERRAINS, WILDMERE_RESOURCES, WILDMERE_TILES } from "./games/wildmere-tiles";
+export { wildmereScore, type WildmereMove, type WildmereState } from "./games/wildmere";
+export { glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders, wildmere };
 
 /** Original hobby games for teens and adults: what the app offers and what generated games aim for. */
-export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail];
+export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail, wildmere];
 
 /**
  * Small classic games that exercise engine features (grids, dice, tracks, hidden hands, bluffing,
@@ -43,6 +48,7 @@ const referenceBots: Record<string, Bot> = {
   [highsail.meta.id]: highsailBot(),
   [lanternIsles.meta.id]: lanternIslesBot(),
   [liarsDice.meta.id]: liarsDiceBot(),
+  [wildmere.meta.id]: wildmereBot(),
 };
 
 const quickBot = heuristicBot();

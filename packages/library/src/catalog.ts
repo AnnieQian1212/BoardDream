@@ -345,6 +345,17 @@ export const catalog: CatalogEntry[] = [
     source: "mechanics/majority.ts",
     status: "ready",
   },
+  {
+    id: "mech:tile-placement",
+    kind: "mechanic",
+    title: "Tile placement",
+    description: "Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.",
+    tags: ["tiles", "map building", "edge matching", "placement", "landscape"],
+    families: ["grid"],
+    usage: mechanics("tiles"),
+    source: "mechanics/tiles.ts",
+    status: "ready",
+  },
 
   // Reference games
   {
@@ -457,6 +468,17 @@ export const catalog: CatalogEntry[] = [
     source: "games/highsail.ts",
     status: "ready",
   },
+  {
+    id: "game:wildmere",
+    kind: "game",
+    title: "Wildmere (tile placement and regions)",
+    description:
+      "Original tile-laying game: take hex tiles from a market row, where skipping tiles costs funds, then turn each one and lay it next to a growing valley so terrain edges match. Matching edges pay funds and join woodland, meadow, wetland and heath into regions; a region scores as soon as it is enclosed, one point per tile to whoever laid the most of it, and rangers add weight to a claim.",
+    tags: ["tile placement", "edge matching", "hex tiles", "map building", "area majority", "enclosure", "market row"],
+    families: ["grid"],
+    source: "games/wildmere.ts",
+    status: "ready",
+  },
 
   // Planned mechanics: no code yet, kept as realistic near-misses for retrieval evaluation
   {
@@ -465,15 +487,6 @@ export const catalog: CatalogEntry[] = [
     title: "Jump capture",
     description: "Capture by jumping over an adjacent enemy piece into the empty square beyond; chained multi-jumps, forced captures.",
     tags: ["jump", "capture", "checkers", "draughts", "multi-jump"],
-    families: ["grid"],
-    status: "planned",
-  },
-  {
-    id: "mech:tile-placement",
-    kind: "mechanic",
-    title: "Tile placement",
-    description: "Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.",
-    tags: ["tiles", "map building", "edge matching", "placement", "landscape"],
     families: ["grid"],
     status: "planned",
   },

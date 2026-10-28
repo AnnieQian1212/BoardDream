@@ -47,6 +47,7 @@ q14 0 mech:trick-taking 2
 q14 0 mech:deck 1
 q15 0 mech:tile-placement 2
 q15 0 mech:scoring 1
+q15 0 game:wildmere 2
 q16 0 mech:memory 2
 q16 0 mech:deck 1
 q17 0 mech:deduction 2
@@ -71,6 +72,7 @@ q23 0 game:highsail 2
 q24 0 mech:area-control 2
 q24 0 mech:scoring 1
 q24 0 game:highsail 1
+q24 0 game:wildmere 1
 q25 0 game:race-home 2
 q25 0 mech:track 2
 q25 0 mech:dice 2
@@ -106,6 +108,7 @@ q35 0 mech:hex-grid 2
 q35 0 game:hex 1
 q35 0 mech:hex-map 1
 q35 0 game:lantern-isles 1
+q35 0 game:wildmere 1
 q36 0 mech:track 2
 q36 0 mech:dice 2
 q36 0 mech:shortcuts 1

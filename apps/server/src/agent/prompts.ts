@@ -72,6 +72,10 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - Worker placement: keep placements as workers.Placements and use openSpaces / place / nextToPlace; draw
   action spaces as labelled board cells with the workers as pieces (shape "pawn") on them. Majorities: keep
   per-region counts and score them with majority.majorityAwards or scoreRegions.
+- Tile placement: build the board once at module scope with tiles.hexBoard or tiles.squareBoard, keep placed
+  tiles as { [cellId]: { edges, owner } } with edges already turned by tiles.rotate, offer tiles.frontier
+  cells (tiles.placements when edges must match), and score with tiles.regions (complete when open is 0).
+  Draw placed tiles as cells whose segments are their edges; the table paints each edge's terrain.
 - Keep every rules function cheap; the fuzzer plays 1,000 full games. Bound the length of a game (a round or
   turn limit param) and of a turn (a cap on actions or trades).
 - Implement describeMove(state, move, viewer) with short human-readable labels; when the viewer is not the

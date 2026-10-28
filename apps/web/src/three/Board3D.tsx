@@ -3,8 +3,22 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Color, ExtrudeGeometry, LatheGeometry, Shape, SRGBColorSpace, TextureLoader, Vector2, type Group, type Mesh, type MeshStandardMaterial, type Texture } from "three";
-import { playerColor } from "../colors";
+import {
+  BufferGeometry,
+  Color,
+  ExtrudeGeometry,
+  Float32BufferAttribute,
+  LatheGeometry,
+  Shape,
+  SRGBColorSpace,
+  TextureLoader,
+  Vector2,
+  type Group,
+  type Mesh,
+  type MeshStandardMaterial,
+  type Texture,
+} from "three";
+import { playerColor, TILE_COLORS } from "../colors";
 import { HIGHLIGHT } from "./Card3D";
 import { setCursor } from "./hover";
 import type { BoardItem } from "./layout";
@@ -22,33 +36,17 @@ const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
 const SPOTS = new Set(["vertex", "edge"]);
 const noRaycast = () => null;
 
-const TILE_COLORS: Record<string, string> = {
-  ladder: "#bcd9b0",
-  snake: "#f0c0b2",
-  // Map terrains.
-  forest: "#6f9a5a",
-  quarry: "#a6a59d",
-  fields: "#e2c463",
-  reef: "#6eaed6",
-  lagoon: "#9cd3cb",
-  vertex: "#f3ead8",
-  edge: "#e6dac2",
-  // Highsail: the skyport's action spaces and the five sky islands.
-  skyport: "#efe4cf",
-  ironcrag: "#a9a6a0",
-  mistwood: "#7fa86a",
-  emberfall: "#e39a6b",
-  saltspire: "#e6dcc4",
-  lowhaven: "#8cc9c0",
-};
 const CREAM = "#f3ead8";
 
 function tileColor(cell: GeometryCell): string {
   // Roads and buildings spots take the full seat color; owned tiles get a tint.
   if (cell.owner !== undefined) return SPOTS.has(cell.kind ?? "") ? playerColor(cell.owner) : mix(playerColor(cell.owner), CREAM, 0.5);
-  const kind = cell.kind ?? "";
+  return cell.segments ? CREAM : kindColor(cell.kind ?? "");
+}
+
+/** A kind's own color; kinds a generated game invents (obsidian, caldera, ...) get a stable soft one. */
+function kindColor(kind: string): string {
   if (TILE_COLORS[kind]) return TILE_COLORS[kind];
-  // Kinds a generated game invents (obsidian, caldera, ...) get a stable soft color of their own.
   return kind ? mix(UNKNOWN[hash(kind) % UNKNOWN.length], CREAM, 0.35) : CREAM;
 }
 
@@ -76,6 +74,8 @@ interface Props {
 
 /** Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id. */
 function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell): [number, number] | undefined {
+  // Edge-matched tiles show their terrain segments, never painted art.
+  if (cell.segments) return undefined;
   const sources = paint?.sources[cell.kind ?? "plain"];
   return sources?.length ? sources[hash(cell.id) % sources.length] : undefined;
 }
@@ -177,6 +177,32 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
     // The painted prop is rebuilt every render; only its content matters here.
   }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // Edge-matched tiles: a wedge per edge on top, inset so a rim of the tile (its owner's tint) shows.
+  const segmentKey = cell.segments?.join(",");
+  const wedges = useMemo(() => {
+    if (!cell.segments) return undefined;
+    const [cx, cy] = centroid(cell.polygon);
+    const f = k * 0.9 * 0.84;
+    const n = cell.polygon.length;
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const color = new Color();
+    cell.segments.forEach((kind, i) => {
+      const [ax, ay] = cell.polygon[i % n];
+      const [bx, by] = cell.polygon[(i + 1) % n];
+      // Corners run clockwise seen from above, so each wedge lists them backwards to face up.
+      positions.push(0, 0, 0, (bx - cx) * f, 0, (by - cy) * f, (ax - cx) * f, 0, (ay - cy) * f);
+      color.set(kindColor(kind));
+      for (let v = 0; v < 3; v++) colors.push(color.r, color.g, color.b);
+    });
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    g.setAttribute("color", new Float32BufferAttribute(colors, 3));
+    g.setAttribute("normal", new Float32BufferAttribute(positions.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+    return g;
+  }, [segmentKey, cell.polygon, k]);
+  useEffect(() => () => wedges?.dispose(), [wedges]);
+  const wedgeMaterial = useRef<MeshStandardMaterial>(null);
   const base = useMemo(() => new Color(tileColor(cell)), [cell]);
   // On a painted tile the art shows through; ownership tints it.
   const tint = useMemo(() => new Color(cell.owner !== undefined ? mix(playerColor(cell.owner), "#ffffff", 0.45) : "#ffffff"), [cell.owner]);
@@ -187,6 +213,7 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
     // Small spots need a stronger glow than whole tiles to be noticed.
     const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.22) : 0;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
+    if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
     if (moving) state.invalidate();
   });
@@ -223,6 +250,11 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
         emissiveIntensity={0}
         roughness={painted ? 0.72 : 0.68}
       />
+      {wedges && (
+        <mesh geometry={wedges} position={[0, TILE_TOP - SLAB + 0.004, 0]} raycast={noRaycast} receiveShadow>
+          <meshStandardMaterial ref={wedgeMaterial} vertexColors emissive={highlight} emissiveIntensity={0} roughness={0.75} />
+        </mesh>
+      )}
     </mesh>
   );
 }
