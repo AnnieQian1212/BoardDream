@@ -527,10 +527,11 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
     const isLabel = cell.kind === "label";
     const width = (isLabel ? 0.95 : 0.8) * widthOf(cell) * scale;
     const height = 0.8 * span(cell.polygon.map(([, y]) => y)) * scale;
-    const cap = (isLabel ? 0.42 : 0.3) * unit * scale;
+    // Status text on the board itself grows more slowly with the cells than tile names do.
+    const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.3 * unit) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
     ctx.font = `600 100px ${FONT_DISPLAY}`;
-    let best = { lines: [cell.label], size: Math.min(cap, (width / Math.max(1, ctx.measureText(cell.label).width)) * 100) };
+    let best = { lines: [cell.label], size: Math.min(cap, height, (width / Math.max(1, ctx.measureText(cell.label).width)) * 100) };
     const words = cell.label.split(" ");
     for (let i = 1; i < words.length; i++) {
       const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
