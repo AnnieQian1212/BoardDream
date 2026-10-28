@@ -26,10 +26,12 @@ q07 0 game:hex 2
 q08 0 game:snakes-ladders 2
 q08 0 mech:shortcuts 2
 q08 0 mech:dice 1
+q08 0 mech:track 2
 q09 0 mech:face-down-claims 2
 q09 0 game:i-doubt-it 2
 q09 0 mech:deck 1
 q09 0 mech:hidden-information 1
+q09 0 mech:bidding 1
 q10 0 mech:hidden-roles 2
 q10 0 mech:hidden-information 1
 q10 0 mech:voting 1
@@ -61,7 +63,7 @@ q20 0 game:lantern-isles 2
 q21 0 mech:set-collection 2
 q21 0 mech:deck 1
 q21 0 mech:scoring 1
-q21 0 mech:effects 1
+q21 0 mech:effects 2
 q22 0 mech:card-drafting 2
 q22 0 mech:deck 1
 q23 0 mech:worker-placement 2
@@ -73,10 +75,11 @@ q25 0 mech:dice 2
 q26 0 game:snakes-ladders 2
 q26 0 mech:dice 2
 q26 0 game:race-home 1
-q26 0 mech:track 1
+q26 0 mech:track 2
 q27 0 game:reversi 2
 q27 0 mech:scoring 1
 q27 0 mech:area-control 1
+q27 0 mech:flanking 1
 q28 0 game:hex 2
 q28 0 mech:connection 2
 q28 0 mech:hex-grid 1
@@ -107,7 +110,7 @@ q36 0 mech:shortcuts 1
 q36 0 game:snakes-ladders 1
 q37 0 game:liars-dice 2
 q37 0 mech:bidding 2
-q37 0 mech:dice 1
+q37 0 mech:dice 2
 q37 0 mech:hidden-information 1
 q38 0 game:line-up 2
 q38 0 mech:gravity-drop 2
@@ -116,7 +119,6 @@ q39 0 mech:area-control 2
 q39 0 mech:square-grid 1
 q40 0 mech:deck 2
 q41 0 mech:deck 2
-q41 0 mech:market 1
 q42 0 mech:track 2
 q42 0 mech:dice 2
 q42 0 mech:capture-by-landing 2
@@ -135,6 +137,7 @@ q46 0 game:reversi 2
 q47 0 mech:dice 2
 q47 0 mech:bidding 1
 q47 0 game:liars-dice 1
+q47 0 mech:hidden-information 1
 q48 0 mech:bidding 2
 q48 0 game:liars-dice 1
 q48 0 mech:face-down-claims 1
@@ -158,7 +161,7 @@ q53 0 game:lantern-isles 2
 q53 0 mech:hex-grid 1
 q54 0 mech:production 2
 q54 0 mech:dice 2
-q54 0 mech:hex-map 1
+q54 0 mech:hex-map 2
 q54 0 mech:resources 1
 q54 0 game:lantern-isles 1
 q55 0 mech:trading 2

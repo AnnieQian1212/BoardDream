@@ -69,7 +69,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - 12:00 PM: Agents 102 (verifiable agents), directly relevant to the fuzz-repair loop.
 - **Done when:** `npm run eval:retrieval` compares all three systems.
 - **Status: done early, on Oct 27.** 13 mechanic modules, 7 reference games (Reversi, Hex, Snakes and Ladders and I Doubt It added), all passing 1,000-run fuzzing. A 39-entry catalog and a 50-query graded eval set (judgments pending author review). Expansion + rerank lifts nDCG@10 from 0.845 to 0.969 and Recall@10 from 0.851 to 0.988 over BM25, cross-checked with `ir_measures`; the designer now uses that pipeline. Details in `eval/retrieval/README.md`.
-- [ ] **Author:** review `eval/retrieval/qrels.txt` (see "For judgment review" in the eval README).
+- [x] **Author:** review `eval/retrieval/qrels.txt`. Done on Oct 27: 13 borderline judgments checked, 10 changed; on 62 queries nDCG@10 is now 0.818 for BM25, 0.894 with expansion and 0.968 with expansion plus rerank ("Author review" in the eval README).
 
 ### Tue Oct 27 (evening): new direction, engine-building family
 - Engine: player panels (resources, tableau, hand, market) next to the board, resource icons, card views; moves can target cards as well as board cells.
@@ -98,7 +98,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - **Bots:** a generic heuristic bot for any game (score lead from `outcome()` or a Score counter, resources, cards, board presence, optional playouts); balance simulation in a Web Worker with running stats.
 - **Opponents:** Muse Spark plays the social moves with the bot's move as advice and talks at the table; 70% wins against the Liar's Dice probability bot over 20 games, even with the heuristic bots in Lantern Isles (`eval/opponents/README.md`).
 - **Art:** Muse Image card art with the first card as style reference; board art over a rendered guide, checked tile by tile with SAM 3.1 (Lantern Isles 19/19 tiles aligned, mean IoU 0.87–0.89), textures mapped by tile kind so reshuffled and generated maps work.
-- **Still open:** Results page with all metrics, deploy with rate limits, optional Muse Spark Open opponents on Baseten, the author's qrels review, UI polish.
+- **Still open:** Results page with all metrics, deploy with rate limits, optional Muse Spark Open opponents on Baseten, UI polish. The author's qrels review is done (see Oct 28 above).
 
 ### Thu Oct 29: generation for the new genres
 - Spec, compose and repair prompts that produce card data in the effect language plus rules code.
