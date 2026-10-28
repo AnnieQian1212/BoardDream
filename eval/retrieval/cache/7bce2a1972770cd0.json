@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: the last player standing wins; players drop out when they lose all their tokens\n\nCandidates:\n- game:liars-dice: Liar's Dice. Everyone rolls dice in secret and players raise bids on how many of a face are on the whole table, or call liar; whoever is wrong loses a die and the last player with dice wins.\n- mech:cooperative-threat: Shared threat (cooperative). All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.\n- mech:gravity-drop: Gravity drop placement. Pieces are dropped into a column and fall to the lowest empty cell, as in drop-in-column games. Players choose a column, not a cell.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- mech:voting: Voting and elimination. Players vote on a target; tally the ballots, find the most-voted or a strict majority, and eliminate or exile them. Ties and abstentions handled.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- mech:scoring: Scoring, end conditions and ties. Decide who wins at the end: highest score, first to reach a target, or furthest along when a round limit runs out; ties share the win and a full tie is a draw.\n- game:fenlight: Fenlight (hidden roles and voting). Original social deduction game: two secret wisps hide among the keepers of a village's causeway lanterns. Each night pairs of players tend a lantern, slip away to watch someone, or (wisps only) put it out; at dawn everyone sees which lanterns looked dark, though fog hides some lit ones. By day each player accuses, vouches for someone or reports what they watched, true or not, then all vote to exile a suspect, whose role is revealed.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- mech:turn-order: Turn order. Pass the turn around the table clockwise or counterclockwise, skipping players who are out; start a round from any seat.\n- game:reversi: Reversi. Two players place discs on a square board, flipping rival lines they trap between their own discs; a player with no flipping move passes and the most discs wins.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- game:i-doubt-it: I Doubt It. Players play cards face down claiming the rank whose turn it is; the next player accepts or doubts, and whoever was wrong picks up the pile. First to empty their hand wins.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- mech:simultaneous-selection: Simultaneous action selection. Everyone secretly picks an action at the same time, then all are revealed and resolved together, as in rock-paper-scissors.\n- mech:line-win: K-in-a-row win condition. Win by forming an unbroken straight line of k of your pieces horizontally, vertically or diagonally. Connect, align, row, five in a row.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors.\n- mech:hex-grid: Hexagonal grid board. Board of hexagonal cells in axial coordinates with six neighbors per cell, laid out as a rhombus, with polygons for drawing."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "game:liars-dice",
+                "mech:cooperative-threat",
+                "mech:gravity-drop",
+                "game:line-up",
+                "mech:voting",
+                "mech:push-your-luck",
+                "mech:set-collection",
+                "mech:scoring",
+                "game:fenlight",
+                "game:glasshouse",
+                "mech:turn-order",
+                "game:reversi",
+                "mech:card-drafting",
+                "game:i-doubt-it",
+                "mech:trick-taking",
+                "mech:simultaneous-selection",
+                "mech:line-win",
+                "game:snakes-ladders",
+                "mech:connection",
+                "mech:hex-grid"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:turn-order\", \"game:liars-dice\", \"mech:scoring\"]}"
+}

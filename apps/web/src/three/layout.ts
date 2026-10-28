@@ -139,8 +139,9 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
   const showCards = cards.length > 0 || (panel.zone === "players" && panel.cards !== undefined);
   const cardGap = 0.6 * cardScale;
   const natural = 2 * PAD + pilesW + (pilesW > 0 ? 0.8 : 0) + deckW + (showCards ? Math.max(cards.length, 1) * (cw + cardGap) - cardGap : 0);
-  // Room for the title and the note badge in the header.
-  const width = Math.max(opts.width ?? natural, panel.note ? 28 : 18);
+  // Room for the title and the note badge in the header. Seat mats stay narrow: a row of rivals
+  // widened for their notes pushes the camera back, and their notes wrap or step aside instead.
+  const width = Math.max(opts.width ?? natural, panel.note && panel.zone === "shared" ? 28 : 18);
   const bodyDepth = Math.max(showCards ? ch : 0, pileRows * pile, decks.length > 0 ? ch : 0, 2);
   const depth = HEADER + bodyDepth + PAD;
 

@@ -29,4 +29,12 @@ export const TILE_COLORS: Record<string, string> = {
   heath: "#b083c2",
   slot: "#e4dcc6",
   frontier: "#efe2bd",
+  // Fenlight: lanterns as the lookout saw them at dawn, and the village's players.
+  lantern: "#e8dcc2",
+  "lit-lantern": "#f2c45a",
+  "dark-lantern": "#56607a",
+  villager: "#efe4cf",
+  "known-wisp": "#9fd0c8",
+  "exiled-keeper": "#c9c0b4",
+  "exiled-wisp": "#a99bc4",
 };

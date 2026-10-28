@@ -1,0 +1,286 @@
+[
+  {
+    "id": "glasshouse",
+    "name": "Glasshouse",
+    "family": "engine",
+    "balance": [
+      {
+        "numPlayers": 2,
+        "games": 600,
+        "winRateBySeat": [
+          0.47833333333333333,
+          0.43333333333333335
+        ],
+        "drawRate": 0.08833333333333333,
+        "medianTurns": 28
+      },
+      {
+        "numPlayers": 3,
+        "games": 600,
+        "winRateBySeat": [
+          0.38166666666666665,
+          0.345,
+          0.36666666666666664
+        ],
+        "drawRate": 0.005,
+        "medianTurns": 42
+      },
+      {
+        "numPlayers": 4,
+        "games": 600,
+        "winRateBySeat": [
+          0.295,
+          0.2733333333333333,
+          0.2916666666666667,
+          0.29
+        ],
+        "drawRate": 0,
+        "medianTurns": 56
+      }
+    ],
+    "profile": {
+      "complexity": 3.8,
+      "strategy": 4.6,
+      "luck": 1.8,
+      "interaction": 2.1,
+      "measures": {
+        "games": 20,
+        "numPlayers": 3,
+        "moveKinds": 5,
+        "choices": 8.647619047619047,
+        "choiceRate": 1,
+        "components": 35,
+        "setupChance": true,
+        "chanceRate": 0,
+        "directRate": 0,
+        "sharedRate": 0.5321428571428571,
+        "plannerWinRate": 0.9333333333333333,
+        "skillEdge": 0.9
+      }
+    }
+  },
+  {
+    "id": "lantern-isles",
+    "name": "Lantern Isles",
+    "family": "map",
+    "balance": [
+      {
+        "numPlayers": 2,
+        "games": 600,
+        "winRateBySeat": [
+          0.5033333333333333,
+          0.495
+        ],
+        "drawRate": 0.0016666666666666668,
+        "medianTurns": 63
+      },
+      {
+        "numPlayers": 3,
+        "games": 600,
+        "winRateBySeat": [
+          0.38333333333333336,
+          0.30666666666666664,
+          0.31166666666666665
+        ],
+        "drawRate": 0,
+        "medianTurns": 86
+      },
+      {
+        "numPlayers": 4,
+        "games": 600,
+        "winRateBySeat": [
+          0.26166666666666666,
+          0.24666666666666667,
+          0.25166666666666665,
+          0.24
+        ],
+        "drawRate": 0,
+        "medianTurns": 106
+      }
+    ],
+    "profile": {
+      "complexity": 4,
+      "strategy": 5,
+      "luck": 1.9,
+      "interaction": 3.9,
+      "measures": {
+        "games": 20,
+        "numPlayers": 3,
+        "moveKinds": 10,
+        "choices": 12.536021150033047,
+        "choiceRate": 0.8940846001321877,
+        "components": 15,
+        "setupChance": true,
+        "chanceRate": 0.017349636483807006,
+        "directRate": 0.5885657633840052,
+        "sharedRate": 0.29246530072703236,
+        "plannerWinRate": 1,
+        "skillEdge": 1
+      }
+    }
+  },
+  {
+    "id": "highsail",
+    "name": "Highsail",
+    "family": "engine",
+    "balance": [
+      {
+        "numPlayers": 2,
+        "games": 600,
+        "winRateBySeat": [
+          0.5033333333333333,
+          0.4666666666666667
+        ],
+        "drawRate": 0.03,
+        "medianTurns": 36
+      },
+      {
+        "numPlayers": 3,
+        "games": 600,
+        "winRateBySeat": [
+          0.3416666666666667,
+          0.38,
+          0.33166666666666667
+        ],
+        "drawRate": 0,
+        "medianTurns": 58
+      },
+      {
+        "numPlayers": 4,
+        "games": 600,
+        "winRateBySeat": [
+          0.265,
+          0.28,
+          0.265,
+          0.265
+        ],
+        "drawRate": 0,
+        "medianTurns": 76
+      }
+    ],
+    "profile": {
+      "complexity": 3.5,
+      "strategy": 4.6,
+      "luck": 1.8,
+      "interaction": 3.6,
+      "measures": {
+        "games": 20,
+        "numPlayers": 3,
+        "moveKinds": 3,
+        "choices": 9.162295081967214,
+        "choiceRate": 0.9918032786885246,
+        "components": 34,
+        "setupChance": true,
+        "chanceRate": 0,
+        "directRate": 0.14344262295081966,
+        "sharedRate": 1,
+        "plannerWinRate": 0.9333333333333333,
+        "skillEdge": 0.9
+      }
+    }
+  },
+  {
+    "id": "wildmere",
+    "name": "Wildmere",
+    "family": "grid",
+    "mode": "competitive",
+    "balance": [
+      {
+        "numPlayers": 2,
+        "games": 600,
+        "winRateBySeat": [
+          0.5416666666666666,
+          0.45666666666666667
+        ],
+        "drawRate": 0.0016666666666666668,
+        "medianTurns": 138
+      },
+      {
+        "numPlayers": 3,
+        "games": 600,
+        "winRateBySeat": [
+          0.31666666666666665,
+          0.36333333333333334,
+          0.32666666666666666
+        ],
+        "drawRate": 0,
+        "medianTurns": 142
+      },
+      {
+        "numPlayers": 4,
+        "games": 600,
+        "winRateBySeat": [
+          0.235,
+          0.23666666666666666,
+          0.2866666666666667,
+          0.25333333333333335
+        ],
+        "drawRate": 0,
+        "medianTurns": 143
+      }
+    ],
+    "profile": {
+      "complexity": 2.9,
+      "strategy": 5,
+      "luck": 1.8,
+      "interaction": 3.7,
+      "measures": {
+        "games": 20,
+        "numPlayers": 3,
+        "moveKinds": 5,
+        "choices": 7.335039817974971,
+        "choiceRate": 0.8031854379977247,
+        "components": 4,
+        "setupChance": true,
+        "chanceRate": 0,
+        "directRate": 0.19112627986348124,
+        "sharedRate": 0.9613196814562003,
+        "plannerWinRate": 1,
+        "skillEdge": 1
+      }
+    }
+  },
+  {
+    "id": "fenlight",
+    "name": "Fenlight",
+    "family": "bluff",
+    "mode": "hidden-role",
+    "balance": [
+      {
+        "numPlayers": 6,
+        "games": 600,
+        "majorityWins": 0.42
+      },
+      {
+        "numPlayers": 7,
+        "games": 600,
+        "majorityWins": 0.5883333333333334
+      },
+      {
+        "numPlayers": 8,
+        "games": 600,
+        "majorityWins": 0.6016666666666667
+      }
+    ],
+    "profile": {
+      "complexity": 3.8,
+      "strategy": 2,
+      "luck": 2,
+      "interaction": 5,
+      "measures": {
+        "games": 20,
+        "numPlayers": 6,
+        "moveKinds": 9,
+        "choices": 10.160596026490067,
+        "choiceRate": 1,
+        "components": 12,
+        "setupChance": true,
+        "chanceRate": 0.05132450331125828,
+        "directRate": 0.8791390728476821,
+        "sharedRate": 0.39072847682119205,
+        "plannerWinRate": 0.36666666666666664,
+        "skillEdge": 0.23999999999999996
+      }
+    }
+  }
+]

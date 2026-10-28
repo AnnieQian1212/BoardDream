@@ -1,6 +1,6 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
+import { BarChart3, Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -8,6 +8,7 @@ import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
+import { ResultsPage } from "./components/ResultsPage";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, loadGeneratedGame } from "./generated";
 import { decide, type Decision } from "./opponents";
@@ -71,6 +72,7 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
+  const [results, setResults] = useState(query.has("results"));
   const [profile, setProfile] = useState<{ profile?: GameProfile; pending: boolean; error?: string }>({ pending: true });
   // Muse Spark (Open, when the server hosts it) plays the social moves: offers, bids, bluffs.
   const [muse, setMuse] = useState(false);
@@ -233,6 +235,9 @@ export function App() {
         >
           <Sparkles size={15} /> {muse ? "Muse opponents" : "Bot opponents"}
         </button>
+        <button type="button" className="ghost" onClick={() => setResults(true)} title="Every benchmark and measurement on one page">
+          <BarChart3 size={15} /> Results
+        </button>
         <button type="button" className="ghost" onClick={() => setFocus(!focus)} title="Toggle the side panels (F)">
           {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />} {focus ? "Panels" : "Focus"}
         </button>
@@ -272,6 +277,7 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
+      {results && <ResultsPage onClose={() => setResults(false)} />}
     </div>
   );
 }

@@ -185,8 +185,8 @@ export const wildmere: GameModule<WildmereState, WildmereMove, WildmereParams> =
     maxPlayers: 4,
     summary: "Lay hex tiles to rewild a valley: match terrain edges for funds and win the majorities of woodland, meadow, wetland and heath as they close.",
     rules: [
-      "Take a tile from the market row: the first is free, and each later one costs 1 fund left on every tile you skip; you also collect any funds lying on your tile.",
-      "Turn the tile and lay it next to the valley. Each edge that matches the terrain it touches pays 1 fund, and matching edges join terrain into regions.",
+      "Players start with 2 funds; the third seat starts with 3 and the fourth with 4. Take a tile from the market row: the first is free, and each later one costs 1 fund left on every tile you skip; you also collect any funds lying on your tile.",
+      "Turn the tile and lay it next to the valley. Every edge after the first that matches the terrain it touches pays 1 fund, and matching edges join terrain into regions.",
       "A region is complete once none of its edges faces an empty space. It scores at once: 1 point per tile to whoever placed the most tiles in it, half (rounded down) to the runner-up with 3+ players; ties share.",
       "After laying a tile you may pay 2 funds to station a ranger on one of its unfinished terrains; it counts as 2 tiles there and comes back when that region scores.",
       "The game ends when the valley is full. Every 3 leftover funds score 1 point; highest score wins, and ties go to the most funds left.",
@@ -212,7 +212,9 @@ export const wildmere: GameModule<WildmereState, WildmereMove, WildmereParams> =
       market: tiles.slice(0, params.marketSize).map((tile) => ({ tile, funds: 0 })),
       toMove: 0,
       phase: "take",
-      funds: Array.from({ length: numPlayers }, (_, seat) => (seat === 0 ? 2 : 3)),
+      // Later seats start richer: with 2 funds for the first seat and 3 for the rest, the second seat
+      // won 37-42% of 3-player games; 2, 2, 3, 4 brings seats within a few points of the fair share.
+      funds: Array.from({ length: numPlayers }, (_, seat) => (seat < 2 ? 2 : seat + 1)),
       points: new Array(numPlayers).fill(0),
       rangers: [],
       rangersLeft: new Array(numPlayers).fill(params.rangers),

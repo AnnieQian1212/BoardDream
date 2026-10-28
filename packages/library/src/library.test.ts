@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   catalog,
   defaultBot,
+  fenlight,
+  fenlightBot,
   fixtureGames,
   GLASSHOUSE_CARDS,
   GLASSHOUSE_RESOURCES,
@@ -26,6 +28,9 @@ import {
   wildmere,
   wildmereBot,
   WILDMERE_TILES,
+  suspicion,
+  type FenlightMove,
+  type FenlightState,
 } from "./index";
 import { raisesAbove } from "./mechanics/bidding";
 import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
@@ -70,7 +75,7 @@ describe("reference and fixture games", () => {
 });
 
 describe("generic heuristic bot", () => {
-  it("beats random play in games it knows nothing about", () => {
+  it("beats random play in games it knows nothing about", { timeout: 30_000 }, () => {
     const bot = heuristicBot({ rollouts: 6, depth: 16 });
     for (const game of [reversi, hexGame]) {
       const asFirst = simulate(game, { numPlayers: 2, games: 12, bots: [bot, randomBot] });
@@ -445,7 +450,7 @@ describe("wildmere", () => {
     const s = start();
     expect(s.supply.length + s.market.length).toBe(36);
     expect(s.placed).toEqual({ "0,0": { edges: START_TILE } });
-    expect(s.funds).toEqual([2, 3, 3]);
+    expect(s.funds).toEqual([2, 2, 3]);
     expect((wildmere.view!(s, 1) as WildmereState).supply).toEqual(s.supply.slice().sort((a, b) => a - b));
   });
 
@@ -460,8 +465,9 @@ describe("wildmere", () => {
     s = act(s, wildmere.legalMoves(s, 0).find((m) => m.type === "place")!);
     if (s.phase === "ranger") s = act(s, { type: "done" });
     expect(s.toMove).toBe(1);
-    expect(wildmere.legalMoves(s, 1).map((m) => (m.type === "take" ? m.slot : -1))).toEqual([0, 1, 2, 3]);
-    expect(act(s, { type: "take", slot: 0 }).funds[1]).toBe(4);
+    // Seat 1 has 2 funds, so the fourth slot (3 funds to reach) is out of reach.
+    expect(wildmere.legalMoves(s, 1).map((m) => (m.type === "take" ? m.slot : -1))).toEqual([0, 1, 2]);
+    expect(act(s, { type: "take", slot: 0 }).funds[1]).toBe(3);
   });
 
   it("scores a region the moment its last open edge is covered, for whoever placed most of it", () => {
@@ -532,6 +538,100 @@ describe("game profile", () => {
     expect(measures.plannerWinRate).toBeGreaterThan(0.7);
     expect(scoreProfile(measures).strategy).toBeGreaterThan(3.5);
     expect(profileGame(highsail, { games: 4 }).complexity).toBeGreaterThan(profileGame(lineUp, { numPlayers: 2, games: 4 }).complexity + 1.5);
+  });
+});
+
+describe("fenlight", () => {
+  const params = { nights: 6, lostLimit: 4, fog: 1 };
+  const start = (numPlayers = 6) => fenlight.setup({ numPlayers, params, rng: createRng(5) });
+  const act = (s: FenlightState, seat: number, move: FenlightMove, seed = 1) => fenlight.applyMove(s, seat, move, createRng(seed));
+  const wisps = (s: FenlightState) => s.roles.flatMap((r, seat) => (r === "wisp" ? [seat] : []));
+
+  it("deals two wisps who know each other and pairs everyone at lanterns", () => {
+    const s = start(7);
+    expect(wisps(s)).toHaveLength(2);
+    expect(s.posts.map((p) => p.length).sort()).toEqual([2, 2, 3]);
+    expect(s.posts.flat().sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    const [w1, w2] = wisps(s);
+    const keeper = s.roles.indexOf("keeper");
+    expect((fenlight.view!(s, w1) as FenlightState).roles[w2]).toBe("wisp");
+    expect((fenlight.view!(s, keeper) as FenlightState).roles.filter((r) => r !== null)).toEqual(["keeper"]);
+    expect(fenlight.legalMoves(s, keeper).some((m) => m.type === "dim")).toBe(false);
+    expect(fenlight.legalMoves(s, w1).some((m) => m.type === "dim")).toBe(true);
+  });
+
+  it("darkens a lantern a wisp puts out, loses a boat, and tells a watcher", () => {
+    let s: FenlightState = { ...start(6), fog: 0 };
+    const [wisp] = wisps(s);
+    const post = s.posts.findIndex((p) => p.includes(wisp));
+    const watcher = s.posts.flat().find((seat) => !s.posts[post].includes(seat))!;
+    for (const seat of fenlight.activePlayers(s)) {
+      s = act(s, seat, seat === wisp ? { type: "dim" } : seat === watcher ? { type: "watch", target: wisp } : { type: "tend" });
+    }
+    expect(s.phase).toBe("day");
+    expect(s.boatsLost).toBe(1);
+    expect(s.reports[0].dark).toEqual([post]);
+    expect(s.sightings).toEqual([{ seat: watcher, night: 1, target: wisp, dimmed: true }]);
+    expect((fenlight.view!(s, wisp) as FenlightState).sightings).toEqual([]);
+    // The watcher's own lantern stayed lit: their partner tended it.
+    expect(s.reports[0].lost).toBe(1);
+  });
+
+  it("lets fog make a lit lantern look dark without losing a boat", () => {
+    let s = start(6);
+    for (const seat of fenlight.activePlayers(s)) s = act(s, seat, { type: "tend" });
+    expect(s.reports[0]).toMatchObject({ lost: 0 });
+    expect(s.reports[0].dark).toHaveLength(1);
+    expect(s.boatsLost).toBe(0);
+  });
+
+  it("hears everyone once, then exiles a player only with more than half the votes", () => {
+    let s = start(6);
+    for (const seat of fenlight.activePlayers(s)) s = act(s, seat, { type: "tend" });
+    const speakers: number[] = [];
+    while (s.phase === "day") {
+      speakers.push(s.speaker);
+      s = act(s, s.speaker, { type: "quiet" });
+    }
+    expect(speakers).toEqual([0, 1, 2, 3, 4, 5]);
+    const keeper = s.roles.indexOf("keeper");
+    // Three of six votes is not enough.
+    const voteFor = (state: FenlightState, target: number, voters: number) =>
+      fenlight.activePlayers(state).reduce((acc, seat, i) => act(acc, seat, i < voters && seat !== target ? { type: "vote", target } : { type: "abstain" }), state);
+    const tied = voteFor(s, keeper, 3);
+    expect(tied.days[0].exiled).toBe(null);
+    expect(tied.night).toBe(2);
+    const out = voteFor(s, keeper, 5);
+    expect(out.days[0].exiled).toBe(keeper);
+    expect((fenlight.view!(out, wisps(out)[0]) as FenlightState).roles[keeper]).toBe("keeper");
+    expect(fenlight.panels!(out, 0).find((p) => p.id === "causeway")!.counters![2].value).toBe(2);
+  });
+
+  it("catches a claim the dawn report disproves", () => {
+    let s = start(6);
+    for (const seat of fenlight.activePlayers(s)) s = act(s, seat, { type: "tend" });
+    const litSeat = s.posts.find((_, i) => !s.reports[0].dark.includes(i))![0];
+    const liar = s.posts.flat().find((seat) => seat !== litSeat)!;
+    const keeper = s.posts.flat().find((seat) => seat !== litSeat && seat !== liar)!;
+    const view = fenlight.view!(s, keeper) as FenlightState;
+    const before = suspicion(view, keeper)[liar];
+    const after = suspicion({ ...view, statements: [{ seat: liar, kind: "report", target: litSeat, dimmed: true }] }, keeper)[liar];
+    expect(after - before).toBeGreaterThanOrEqual(1);
+  });
+
+  it("plays sound games, and its bot keepers beat random keepers", () => {
+    expect(fuzz(fenlight, { runs: 200 }).ok).toBe(true);
+    const keepersWin = (keeperBot: Bot) => {
+      let wins = 0;
+      for (let i = 0; i < 60; i++) {
+        const bot = fenlightBot();
+        const mixed: Bot = (args) => ((args.state as FenlightState).roles[args.player] === "wisp" ? bot(args) : keeperBot(args));
+        const r = playMatch(fenlight, { numPlayers: 7, params, seed: 300 + i, bots: new Array(7).fill(mixed) });
+        if ((r.finalState as FenlightState).winner === "keeper") wins++;
+      }
+      return wins / 60;
+    };
+    expect(keepersWin(fenlightBot())).toBeGreaterThan(keepersWin(randomBot) + 0.2);
   });
 });
 

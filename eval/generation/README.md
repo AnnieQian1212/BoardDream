@@ -48,6 +48,8 @@ Each idea goes through the full pipeline: design, retrieval, rules code, then 1,
 | g23 co-op flooding sea station | Abyss Station: Four Cores Up | 1 | not measured |
 | g24 prospectors' secret claims | Fools' Lode | 0 | not measured |
 
+Since this run the compose prompt has gained one bullet, for cooperative games and the shared-threat module; it has not been benchmarked yet.
+
 ### Scores that mislead planning
 
 The first run of these ideas, with the same specs and retrieval, passed 21 of 24 first drafts and all 24 after one repair ($5.06). But in three majority games the planner did worse than random players: 0% (g06), 23% (g07) and 13% (g08) of 3-player games. Their mid-game scores left out majorities that had not been scored yet, so a planner that follows the standings never contested them. The playtest called this "decisions barely matter", and one improvement round did not fix it.

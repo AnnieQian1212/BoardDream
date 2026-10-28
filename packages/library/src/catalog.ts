@@ -524,6 +524,17 @@ export const catalog: CatalogEntry[] = [
     source: "games/wildmere.ts",
     status: "ready",
   },
+  {
+    id: "game:fenlight",
+    kind: "game",
+    title: "Fenlight (hidden roles and voting)",
+    description:
+      "Original social deduction game: two secret wisps hide among the keepers of a village's causeway lanterns. Each night pairs of players tend a lantern, slip away to watch someone, or (wisps only) put it out; at dawn everyone sees which lanterns looked dark, though fog hides some lit ones. By day each player accuses, vouches for someone or reports what they watched, true or not, then all vote to exile a suspect, whose role is revealed.",
+    tags: ["social deduction", "hidden roles", "traitors", "voting", "exile", "bluffing", "deduction", "night and day"],
+    families: ["bluff"],
+    source: "games/fenlight.ts",
+    status: "ready",
+  },
 
   // Planned mechanics: no code yet, kept as realistic near-misses for retrieval evaluation
   {

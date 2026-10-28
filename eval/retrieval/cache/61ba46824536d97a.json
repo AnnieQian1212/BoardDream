@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: flip over face-down cards two at a time trying to find matching pairs\n\nCandidates:\n- mech:memory: Memory matching. Cards lie face down; flip two per turn and keep them if they match, otherwise turn them back over.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- game:reversi: Reversi. Two players place discs on a square board, flipping rival lines they trap between their own discs; a player with no flipping move passes and the most discs wins.\n- mech:face-down-claims: Face-down claims and doubt. Play cards face down while announcing what they are; the next player accepts or doubts, and the pile goes to whoever was wrong.\n- mech:hidden-information: Hidden information. Each player holds secrets (dice under a cup, a hand of cards, a role) that others cannot see. view() redacts them per player and geometry(state, viewer) draws them face down.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- game:wildmere: Wildmere (tile placement and regions). Original tile-laying game: take hex tiles from a market row, where skipping tiles costs funds, then turn each one and lay it next to a growing valley so terrain edges match. Matching edges pay funds and join woodland, meadow, wetland and heath into regions; a region scores as soon as it is enclosed, one point per tile to whoever laid the most of it, and rangers add weight to a claim.\n- game:i-doubt-it: I Doubt It. Players play cards face down claiming the rank whose turn it is; the next player accepts or doubts, and whoever was wrong picks up the pile. First to empty their hand wins.\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors.\n- mech:market: Card market row. A face-up row of cards that players buy or take from; the row refills from the draw pile after each pick, reshuffling the discards, and players may also draw blind.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- mech:flanking: Flanking capture. Placing a piece flips every straight run of rival pieces it traps between itself and another of your own pieces; only placements that flip something are legal.\n- mech:voting: Voting and elimination. Players vote on a target; tally the ballots, find the most-voted or a strict majority, and eliminate or exile them. Ties and abstentions handled.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- game:fenlight: Fenlight (hidden roles and voting). Original social deduction game: two secret wisps hide among the keepers of a village's causeway lanterns. Each night pairs of players tend a lantern, slip away to watch someone, or (wisps only) put it out; at dawn everyone sees which lanterns looked dark, though fog hides some lit ones. By day each player accuses, vouches for someone or reports what they watched, true or not, then all vote to exile a suspect, whose role is revealed.\n- mech:jump-capture: Jump capture. Capture by jumping over an adjacent enemy piece into the empty square beyond; chained multi-jumps, forced captures.\n- mech:simultaneous-selection: Simultaneous action selection. Everyone secretly picks an action at the same time, then all are revealed and resolved together, as in rock-paper-scissors.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- mech:hex-map: Hex map corners and edges. Build on a map of hexagonal tiles: settlements on the corners where tiles meet, roads along the edges between corners. The distance rule keeps settlements apart, roads must connect to your network and stop at rival buildings, and settlements upgrade to cities."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:memory",
+                "mech:set-collection",
+                "game:reversi",
+                "mech:face-down-claims",
+                "mech:hidden-information",
+                "mech:tile-placement",
+                "game:wildmere",
+                "game:i-doubt-it",
+                "mech:connection",
+                "mech:market",
+                "game:glasshouse",
+                "mech:flanking",
+                "mech:voting",
+                "game:snakes-ladders",
+                "mech:production",
+                "game:fenlight",
+                "mech:jump-capture",
+                "mech:simultaneous-selection",
+                "mech:push-your-luck",
+                "mech:hex-map"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:memory\", \"mech:hidden-information\", \"mech:set-collection\"]}"
+}

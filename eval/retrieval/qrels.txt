@@ -13,6 +13,7 @@ q03 0 mech:dice 2
 q04 0 mech:hidden-roles 2
 q04 0 mech:voting 2
 q04 0 mech:hidden-information 1
+q04 0 game:fenlight 2
 q05 0 game:line-up 2
 q05 0 mech:line-win 2
 q05 0 mech:square-grid 1
@@ -36,6 +37,7 @@ q10 0 mech:hidden-roles 2
 q10 0 mech:hidden-information 1
 q10 0 mech:voting 1
 q10 0 mech:cooperative-threat 1
+q10 0 game:fenlight 2
 q11 0 mech:push-your-luck 2
 q11 0 mech:dice 2
 q11 0 mech:scoring 1
@@ -95,6 +97,7 @@ q29 0 mech:face-down-claims 1
 q30 0 mech:hidden-roles 2
 q30 0 mech:voting 2
 q30 0 mech:hidden-information 1
+q30 0 game:fenlight 2
 q31 0 mech:turn-order 2
 q31 0 game:liars-dice 1
 q31 0 mech:scoring 1
@@ -131,6 +134,7 @@ q42 0 mech:capture-by-landing 2
 q42 0 game:race-home 2
 q43 0 mech:hidden-roles 2
 q43 0 mech:hidden-information 1
+q43 0 game:fenlight 1
 q44 0 mech:shortcuts 2
 q44 0 game:snakes-ladders 2
 q44 0 mech:dice 1
@@ -152,6 +156,7 @@ q49 0 mech:dice 1
 q49 0 mech:scoring 1
 q50 0 mech:voting 2
 q50 0 mech:hidden-roles 1
+q50 0 game:fenlight 1
 q51 0 mech:effects 2
 q51 0 game:glasshouse 2
 q51 0 mech:resources 2

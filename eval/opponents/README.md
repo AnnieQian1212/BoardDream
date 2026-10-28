@@ -27,6 +27,8 @@ The same setup with `meta-models/muse-spark-open-1026`, the open-weight model, h
 - Reading: about even with the probability bot in Liar's Dice (50 games leave roughly ±14 points at 95%), a little behind Muse Spark 1.3 on the shared deals, and behind the bots in Lantern Isles on a small sample. It still talks in character: "Need stone, got spare grain anyone?", "Holding my wood for now, sorry!"
 - 1,286 calls in 12.5 minutes (0.92M prompt and 0.50M completion tokens), about $3.30 at Baseten's listed $1.25 / $4.25 per million tokens, paid from Baseten credits.
 
+Since these runs the opponent prompt has gained a bullet for hidden-role games (argue from the evidence; on the hidden side, steer suspicion without contradicting what everyone saw), so a rerun calls the model again.
+
 When `OPEN_MODEL_*` is set in `.env`, the app seats Muse Spark Open as the AI opponents; it answers in a few seconds, so a table of three opponents stays responsive. Without it, Muse Spark 1.3 plays them.
 
 ## Run it

@@ -5,7 +5,7 @@ import type { GameModule } from "@boarddream/engine";
  * what a seat can see, written out as plain text.
  */
 
-const SOCIAL = /offer|trade|swap|deal|accept|decline|refuse|bid|claim|call|doubt|challenge|bluff|boast|raise|liar|vote|accuse/i;
+const SOCIAL = /offer|trade|swap|deal|accept|decline|refuse|bid|claim|call|doubt|challenge|bluff|boast|raise|liar|vote|accuse|vouch|quiet|abstain/i;
 
 const kindOf = (move: unknown) => (move !== null && typeof move === "object" && "type" in move ? String((move as { type: unknown }).type) : "");
 

@@ -25,7 +25,7 @@ export interface ProfileMeasures {
   setupChance: boolean;
   /** Share of moves whose result depends on chance (a die roll, a reshuffle, a random draw). */
   chanceRate: number;
-  /** Share of moves that change what a rival holds: resources, cards, pieces or score. */
+  /** Share of moves aimed at a rival (their pieces, cards, counters or seat) or changing what they hold. */
   directRate: number;
   /** Share of moves that change what everyone shares: claiming board space, taking from a common row. */
   sharedRate: number;
@@ -80,15 +80,20 @@ interface Snapshot {
   shared: string;
   /** Board cells and pieces by id: owner and signature. */
   things: Map<string, { owner?: PlayerId; sig: string }>;
+  /** Who owns each clickable thing: board cells and pieces, and the counters and cards on seat panels. */
+  owners: Map<string, PlayerId>;
 }
 
 function snapshot(game: GameModule, state: unknown): Snapshot {
   const seats = new Map<PlayerId, string>();
   const shared: string[] = [];
+  const owners = new Map<string, PlayerId>();
   for (const panel of safely(() => game.panels?.(state, undefined) ?? [], [])) {
     const sig = JSON.stringify([panel.counters?.map((c) => [c.id, c.value]), panel.cards?.map((c) => c.id), panel.note]);
-    if (panel.zone === "players" && panel.owner !== undefined) seats.set(panel.owner, (seats.get(panel.owner) ?? "") + sig);
-    else if (panel.zone === "shared") shared.push(sig);
+    if (panel.zone === "players" && panel.owner !== undefined) {
+      seats.set(panel.owner, (seats.get(panel.owner) ?? "") + sig);
+      for (const item of [...(panel.counters ?? []), ...(panel.cards ?? [])]) owners.set(item.id, panel.owner);
+    } else if (panel.zone === "shared") shared.push(sig);
   }
   const things = new Map<string, { owner?: PlayerId; sig: string }>();
   const geometry = safely(() => game.geometry?.(state, undefined), undefined);
@@ -96,11 +101,13 @@ function snapshot(game: GameModule, state: unknown): Snapshot {
     // Text-only cells carry public state such as the standing bid; other cells' names are fixed.
     const sig = cell.kind === "label" ? cell.label : JSON.stringify([cell.owner, cell.kind, cell.segments]);
     things.set(`cell:${cell.id}`, { owner: cell.owner, sig: sig ?? "" });
+    if (cell.owner !== undefined) owners.set(cell.id, cell.owner);
   }
   for (const piece of geometry?.pieces ?? []) {
     things.set(`piece:${piece.id}`, { owner: piece.owner, sig: JSON.stringify([piece.owner, piece.x, piece.y, piece.label]) });
+    if (piece.owner !== undefined) owners.set(piece.id, piece.owner);
   }
-  return { seats, shared: shared.join("|"), things };
+  return { seats, shared: shared.join("|"), things, owners };
 }
 
 /**
@@ -159,6 +166,7 @@ export function measureProfile(game: GameModule, opts: ProfileOptions = {}): Pro
       const move = legal[pick.int(legal.length)];
       kinds.add(kindOf(move));
       const before = snapshot(game, state);
+      const target = safely(() => game.moveTarget?.(state, move), undefined);
       // The same move under two different streams of chance: if the results differ, chance decided it.
       const next = game.applyMove(state, player, move, createRng(seed * 100_003 + turn));
       const other = game.applyMove(state, player, move, createRng(seed * 100_003 + turn + 7919));
@@ -166,7 +174,9 @@ export function measureProfile(game: GameModule, opts: ProfileOptions = {}): Pro
       state = next;
       const after = snapshot(game, state);
       const touch = touched(before, after, player);
-      if (touch.direct) direct++;
+      // Accusing, voting against or trading with a rival is aimed at them even when nothing of theirs changes yet.
+      const aimed = target !== undefined && before.owners.has(target) && before.owners.get(target) !== player;
+      if (touch.direct || aimed) direct++;
       if (touch.shared) shared++;
       moves++;
       if (turn % 10 === 0) {

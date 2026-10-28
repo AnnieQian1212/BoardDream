@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: a shuffled deck of event cards decides which regions produce each round\n\nCandidates:\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- game:lantern-isles: Lantern Isles (settle and trade). Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.\n- mech:cooperative-threat: Shared threat (cooperative). All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.\n- mech:area-control: Area control. Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.\n- mech:deck: Deck, hands and discard. Build a deck of cards, shuffle with the seeded rng, deal hands round-robin, draw cards and reshuffle the discard pile when the draw pile runs out.\n- mech:deck-building: Deck building. Every player starts with a small deck of basic cards and buys stronger ones during the game. Bought cards go to the buyer's own discard pile and come back after a reshuffle; each turn a player plays from a fresh hand, discards it with the played cards and draws a new one, and trashing weak cards thins the deck.\n- game:wildmere: Wildmere (tile placement and regions). Original tile-laying game: take hex tiles from a market row, where skipping tiles costs funds, then turn each one and lay it next to a growing valley so terrain edges match. Matching edges pay funds and join woodland, meadow, wetland and heath into regions; a region scores as soon as it is enclosed, one point per tile to whoever laid the most of it, and rangers add weight to a claim.\n- game:highsail: Highsail (worker placement and majorities). Original worker-placement game: send airship crews to action spaces on a skyport, where a taken space is blocked, to gather timber, crystal, fuel and coins. Take charters from an office row and launch them for points, income every round or end-game bonuses; each launch and each surveyed outpost adds to the majorities on five sky islands, which score after the middle and last rounds.\n- mech:scoring: Scoring, end conditions and ties. Decide who wins at the end: highest score, first to reach a target, or furthest along when a round limit runs out; ties share the win and a full tie is a draw.\n- mech:effects: Card effect language. Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data.\n- mech:worker-placement: Worker placement. Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- mech:market: Card market row. A face-up row of cards that players buy or take from; the row refills from the draw pile after each pick, reshuffling the discards, and players may also draw blind.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- mech:resources: Resource pools and costs. Count resources as plain objects, check whether a player can afford a cost, pay it, gain income and see what is still missing. Wood, brick, coins, gems, energy: any named goods.\n- mech:hidden-information: Hidden information. Each player holds secrets (dice under a cup, a hand of cards, a role) that others cannot see. view() redacts them per player and geometry(state, viewer) draws them face down.\n- mech:trading: Trading: bank and player offers. Trade resources at a fixed rate with the bank, such as three or four of one kind for any one, or offer another player a swap that they accept or decline; a pending offer passes the decision to them.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- mech:turn-order: Turn order. Pass the turn around the table clockwise or counterclockwise, skipping players who are out; start a round from any seat.\n- game:i-doubt-it: I Doubt It. Players play cards face down claiming the rank whose turn it is; the next player accepts or doubts, and whoever was wrong picks up the pile. First to empty their hand wins."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:production",
+                "game:lantern-isles",
+                "mech:cooperative-threat",
+                "mech:area-control",
+                "mech:deck",
+                "mech:deck-building",
+                "game:wildmere",
+                "game:highsail",
+                "mech:scoring",
+                "mech:effects",
+                "mech:worker-placement",
+                "mech:trick-taking",
+                "mech:market",
+                "game:glasshouse",
+                "mech:resources",
+                "mech:hidden-information",
+                "mech:trading",
+                "mech:card-drafting",
+                "mech:turn-order",
+                "game:i-doubt-it"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:production\", \"game:lantern-isles\", \"mech:deck\", \"mech:resources\"]}"
+}

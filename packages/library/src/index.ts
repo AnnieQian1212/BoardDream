@@ -1,9 +1,11 @@
 import { heuristicBot, type Bot, type GameModule } from "@boarddream/engine";
+import { fenlightBot } from "./bots/fenlight";
 import { glasshouseBot } from "./bots/glasshouse";
 import { highsailBot } from "./bots/highsail";
 import { lanternIslesBot } from "./bots/lantern-isles";
 import { liarsDiceBot } from "./bots/liars-dice";
 import { wildmereBot } from "./bots/wildmere";
+import { fenlight } from "./games/fenlight";
 import { glasshouse } from "./games/glasshouse";
 import { hexGame } from "./games/hex";
 import { highsail } from "./games/highsail";
@@ -19,6 +21,8 @@ import { wildmere } from "./games/wildmere";
 export * from "./catalog";
 export * from "./table-talk";
 export * as mechanics from "./mechanics";
+export { fenlightBot, suspicion } from "./bots/fenlight";
+export { fenlightSides, type FenlightMove, type FenlightState } from "./games/fenlight";
 export { glasshouseBot } from "./bots/glasshouse";
 export { highsailBot, highsailValue } from "./bots/highsail";
 export { lanternIslesBot } from "./bots/lantern-isles";
@@ -31,10 +35,10 @@ export type { LiarsDiceMove, LiarsDiceView } from "./games/liars-dice";
 export { wildmereBot, wildmereValue } from "./bots/wildmere";
 export { TERRAINS, WILDMERE_RESOURCES, WILDMERE_TILES } from "./games/wildmere-tiles";
 export { wildmereScore, type WildmereMove, type WildmereState } from "./games/wildmere";
-export { glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders, wildmere };
+export { fenlight, glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders, wildmere };
 
 /** Original hobby games for teens and adults: what the app offers and what generated games aim for. */
-export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail, wildmere];
+export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail, wildmere, fenlight];
 
 /**
  * Small classic games that exercise engine features (grids, dice, tracks, hidden hands, bluffing,
@@ -44,6 +48,7 @@ export const fixtureGames: GameModule[] = [lineUp, reversi, hexGame, raceHome, s
 
 /** Game-specific bots; every other game, generated ones included, gets the generic heuristic bot. */
 const referenceBots: Record<string, Bot> = {
+  [fenlight.meta.id]: fenlightBot(),
   [glasshouse.meta.id]: glasshouseBot(),
   [highsail.meta.id]: highsailBot(),
   [lanternIsles.meta.id]: lanternIslesBot(),
