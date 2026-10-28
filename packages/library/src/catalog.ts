@@ -390,6 +390,17 @@ export const catalog: CatalogEntry[] = [
     source: "mechanics/deckbuilding.ts",
     status: "ready",
   },
+  {
+    id: "mech:cooperative-threat",
+    kind: "mechanic",
+    title: "Shared threat (cooperative)",
+    description: "All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.",
+    tags: ["cooperative", "team", "shared loss", "event deck", "escalation"],
+    families: [],
+    usage: mechanics("threat"),
+    source: "mechanics/threat.ts",
+    status: "ready",
+  },
 
   // Reference games
   {
@@ -575,15 +586,6 @@ export const catalog: CatalogEntry[] = [
     title: "Code-breaking deduction",
     description: "Guess a hidden code and get feedback on how close the guess is; narrow it down by logic before running out of guesses.",
     tags: ["deduction", "code", "guess", "feedback", "logic", "mastermind"],
-    families: [],
-    status: "planned",
-  },
-  {
-    id: "mech:cooperative-threat",
-    kind: "mechanic",
-    title: "Shared threat (cooperative)",
-    description: "All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.",
-    tags: ["cooperative", "team", "shared loss", "event deck", "escalation"],
     families: [],
     status: "planned",
   },

@@ -76,6 +76,9 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - Deck building: one deckbuilding.PlayerDeck per seat; bought cards go to the discard pile (gainCard), each
   turn ends with cleanup, and view hides draw piles and rival hands with hideDeck. Score collections with
   sets (countKinds, scoreByKind, scoreDistinctSets, fullSets).
+- Cooperative games: meta.mode "cooperative"; the game is the opponent. Keep threat per place with
+  threat.strike (overflow spreads to neighbors) and threat.relieve, draw events with threat.drawEvents at the
+  rate threat.rate gives, and return threat.teamOutcome (everyone wins, or winners is empty for a loss).
 - Map games: build the map once at module scope with hexmap.buildHexMap, keep only ids in state, and use
   canSettle / canRoad / settleSpots / roadSpots, production.produce and the trade helpers.
 - Worker placement: keep placements as workers.Placements and use openSpaces / place / nextToPlace; draw

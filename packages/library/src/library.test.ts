@@ -32,6 +32,7 @@ import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
 import { allCards, cleanup, gainCard, hideDeck, moveCard, newDeck, playCard, trashCard, type PlayerDeck } from "./mechanics/deckbuilding";
 import { allPicked, draftOver, hideDraft, passHands, pick, resolve, roundDirection, snakeOrder, startDraft, waiting } from "./mechanics/drafting";
 import { countKinds, distinctSets, fullSets, sameKindSets, scoreByKind, scoreDistinctSets, tablePoints } from "./mechanics/sets";
+import { drawEvents, hotspots, intensify, rate, relieve, strike, teamOutcome, totalThreat } from "./mechanics/threat";
 import { buildHexMap, canRoad, canSettle, radiusCoords, roadSpots, settleSpots } from "./mechanics/hexmap";
 import { cornerYield, flipEvent, produce } from "./mechanics/production";
 import { bankTrade, settle as settleOffer, swapOptions } from "./mechanics/trade";
@@ -604,6 +605,32 @@ describe("mechanics", () => {
     const seen: PlayerDeck<string> = hideDeck(deck, false, "?");
     expect(seen.hand).toEqual(["?", "?", "?", "?", "?"]);
     expect(hideDeck(deck, true, "?").hand).toEqual(deck.hand);
+  });
+
+  it("strikes places with threat that overflows into neighbors and escalates", () => {
+    // A ring of four rooms: a-b-c-d-a.
+    const ring: Record<string, string[]> = { a: ["b", "d"], b: ["a", "c"], c: ["b", "d"], d: ["c", "a"] };
+    const near = (place: string) => ring[place];
+    expect(strike({}, "a", 2, 3, near)).toEqual({ levels: { a: 2 }, overflows: [] });
+    // a overflows into b and d; b, already full, overflows into c; nobody overflows twice.
+    const chain = strike({ a: 3, b: 3, c: 1 }, "a", 1, 3, near);
+    expect(chain.overflows).toEqual(["a", "b"]);
+    expect(chain.levels).toEqual({ a: 3, b: 3, c: 2, d: 1 });
+    // Every place full: the chain still ends, each overflowing once.
+    expect(strike({ a: 3, b: 3, c: 3, d: 3 }, "c", 1, 3, near).overflows.sort()).toEqual(["a", "b", "c", "d"]);
+    expect(relieve({ a: 2 }, "a", 5)).toEqual({ a: 0 });
+    expect(totalThreat(chain.levels)).toBe(9);
+    expect(hotspots(chain.levels, 2)).toEqual(["a", "b", "c"]);
+    expect([0, 1, 4, 9].map((n) => rate(n, [2, 2, 3, 3, 4]))).toEqual([2, 2, 4, 4]);
+    const rng = createRng(3);
+    const drawn = drawEvents(rng, { drawPile: ["a", "b"], discard: [] }, 3);
+    expect(drawn.events.slice(0, 2)).toEqual(["a", "b"]);
+    expect(drawn.deck.drawPile.length + drawn.deck.discard.length).toBe(2);
+    const surged = intensify(rng, { drawPile: ["x"], discard: ["a", "b"] });
+    expect(surged.drawPile.slice(0, 2).sort()).toEqual(["a", "b"]);
+    expect(surged.drawPile[2]).toBe("x");
+    expect(teamOutcome(true, 3)).toEqual({ winners: [0, 1, 2] });
+    expect(teamOutcome(false, 3)).toEqual({ winners: [] });
   });
 
   it("places workers on spaces with room", () => {

@@ -18,6 +18,7 @@ export * as roles from "./roles";
 export * as scoring from "./scoring";
 export * as sets from "./sets";
 export * as shortcuts from "./shortcuts";
+export * as threat from "./threat";
 export * as tiles from "./tiles";
 export * as trade from "./trade";
 export * as track from "./track";
