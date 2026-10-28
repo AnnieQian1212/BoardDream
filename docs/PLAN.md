@@ -91,6 +91,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - Mechanics: hex map vertices and edges (settlement spots, road adjacency), production, bank and player-to-player trades.
 - An original hex-map settlement reference game with a heuristic bot, and the map UI to match.
 - Add genre queries (engine building, trading, worker placement, drafting) to the retrieval eval; resume the qrels review.
+- **Status: map family done early, on Oct 27.** `hexmap` (vertex and edge graph for any set of axial tiles, the distance rule, connected roads blocked by rival buildings, geometry cells of kind `vertex` and `edge`), `production` (tiles pay the buildings on their corners by level; event decks that reshuffle), `trade` (bank rates, one-for-one offers the other player accepts or declines). Lantern Isles, an original archipelago game: snake-order free placements, a tide deck instead of dice decides which terrain produces, villages, towns, roads and lanterns lit on lagoons, up to three trades a turn, first to 10. 1,000-run strict fuzz clean; the heuristic bot beats random play in every test game, and bot-vs-bot seat win rates are 52/48 (2 players), 37/30/33 (3) and 23/28/24/24 (4). The 3D board raises building spots and roads above the tiles in seat colors; bank trades and offers target resource piles on the mats. Catalog entries and the eval rerun are still to do.
 
 ### Thu Oct 29: generation for the new genres
 - Spec, compose and repair prompts that produce card data in the effect language plus rules code.

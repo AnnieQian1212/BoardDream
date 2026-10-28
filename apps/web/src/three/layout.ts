@@ -131,10 +131,12 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
   const pileCols = Math.ceil(piles.length / Math.max(1, pileRows));
   const deckW = decks.length > 0 ? cw + 1.2 : 0;
   const pilesW = pileCols * pile;
-  const showCards = cards.length > 0 || panel.zone === "players";
+  // Seats keep a card row once the game deals them cards at all, so mats do not resize mid-game.
+  const showCards = cards.length > 0 || (panel.zone === "players" && panel.cards !== undefined);
   const cardGap = 0.6 * cardScale;
   const natural = 2 * PAD + pilesW + (pilesW > 0 ? 0.8 : 0) + deckW + (showCards ? Math.max(cards.length, 1) * (cw + cardGap) - cardGap : 0);
-  const width = Math.max(opts.width ?? natural, 18);
+  // Room for the title and the note badge in the header.
+  const width = Math.max(opts.width ?? natural, panel.note ? 28 : 18);
   const bodyDepth = Math.max(showCards ? ch : 0, pileRows * pile, decks.length > 0 ? ch : 0, 2);
   const depth = HEADER + bodyDepth + PAD;
 

@@ -1034,6 +1034,32 @@ button.card {
   fill: #f1cfc6;
 }
 
+.cell.forest {
+  fill: #8fb47c;
+}
+
+.cell.quarry {
+  fill: #bdbcb5;
+}
+
+.cell.fields {
+  fill: #ead27f;
+}
+
+.cell.reef {
+  fill: #93c3e2;
+}
+
+.cell.lagoon {
+  fill: #b5e0da;
+}
+
+.cell.vertex,
+.cell.edge {
+  fill: #f7f0e2;
+  stroke: rgba(70, 52, 28, 0.45);
+}
+
 .cell.label {
   fill: none;
   stroke: none;

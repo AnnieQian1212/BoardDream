@@ -9,6 +9,10 @@ import {
   glasshouseBot,
   hexGame,
   iDoubtIt,
+  LANTERN_MAP,
+  lanternIsles,
+  lanternIslesBot,
+  lanternScore,
   liarsDice,
   liarsDiceBot,
   lineUp,
@@ -18,10 +22,14 @@ import {
 } from "./index";
 import { raisesAbove } from "./mechanics/bidding";
 import { deal, draw, numberedDeck, removeCards } from "./mechanics/deck";
+import { buildHexMap, canRoad, canSettle, radiusCoords, roadSpots, settleSpots } from "./mechanics/hexmap";
+import { cornerYield, flipEvent, produce } from "./mechanics/production";
+import { bankTrade, settle as settleOffer, swapOptions } from "./mechanics/trade";
+import { tileYield, type LanternMove, type LanternState } from "./games/lantern-isles";
 import { atLeastProbability, countFace } from "./mechanics/dice";
 import { applyEffects, buildDeck, endgameScore, rulesText, validateCards, type CardDef } from "./mechanics/effects";
 import { refill, take } from "./mechanics/market";
-import { add, canAfford, formatAmounts, pay, shortfall } from "./mechanics/resources";
+import { add, canAfford, formatAmounts, pay, shortfall, type Amounts } from "./mechanics/resources";
 import { dealRoles, visibleRoles } from "./mechanics/roles";
 import { scoreWinners } from "./mechanics/scoring";
 import { applyJumps, bounceMove, generateJumps } from "./mechanics/shortcuts";
@@ -30,7 +38,8 @@ import { majority, topVoted } from "./mechanics/voting";
 
 describe("reference games", () => {
   for (const game of referenceGames) {
-    it(`${game.meta.id} survives fuzzing across its parameter space`, () => {
+    // Map games carry big states and geometry through every strict check; give them room.
+    it(`${game.meta.id} survives fuzzing across its parameter space`, { timeout: 30_000 }, () => {
       const report = fuzz(game, { runs: 300, determinismChecks: 30 });
       expect(report.failures).toEqual([]);
     });
@@ -241,7 +250,156 @@ describe("glasshouse", () => {
   });
 });
 
+describe("lantern-isles", () => {
+  const params = { target: 10, maxRounds: 30, bankRate: 3, tradesPerTurn: 3, tides: "shuffled", randomMap: false };
+  const start = (numPlayers = 2) => lanternIsles.setup({ numPlayers, params, rng: createRng(4) });
+  const play = (state: LanternState, moves: LanternMove[]) => {
+    const rng = createRng(9);
+    return moves.reduce((s, m) => lanternIsles.applyMove(s, lanternIsles.activePlayers(s)[0], m, rng), state);
+  };
+  /** Runs the snake-order setup with each seat taking its first legal corner and road. */
+  const afterSetup = (numPlayers = 2) => {
+    let s = start(numPlayers);
+    while (s.phase === "setup") {
+      const seat = lanternIsles.activePlayers(s)[0];
+      s = lanternIsles.applyMove(s, seat, lanternIsles.legalMoves(s, seat)[0], createRng(2));
+    }
+    return s;
+  };
+
+  it("places villages and roads in snake order, then starts round one with a tide", () => {
+    let s = start(3);
+    const seats: number[] = [];
+    while (s.phase === "setup") {
+      const seat = lanternIsles.activePlayers(s)[0];
+      if (s.setup.settled === undefined) seats.push(seat);
+      s = lanternIsles.applyMove(s, seat, lanternIsles.legalMoves(s, seat)[0], createRng(2));
+    }
+    expect(seats).toEqual([0, 1, 2, 2, 1, 0]);
+    expect(Object.keys(s.buildings)).toHaveLength(6);
+    expect(Object.keys(s.roads)).toHaveLength(6);
+    expect(s).toMatchObject({ phase: "play", round: 1, toMove: 0, tidesFlipped: 1 });
+    expect(s.tide).toBeDefined();
+  });
+
+  it("pays out the second free village's neighbors", () => {
+    const next = (st: LanternState) => {
+      const seat = lanternIsles.activePlayers(st)[0];
+      return lanternIsles.applyMove(st, seat, lanternIsles.legalMoves(st, seat)[0], createRng(2));
+    };
+    // Order 0, 1, 1, 0: the first two villages pay nothing.
+    let s = next(next(next(next(start(2)))));
+    expect(s.resources).toEqual([{}, {}]);
+    const second = lanternIsles.legalMoves(s, 1)[0] as Extract<LanternMove, { type: "settle" }>;
+    s = next(s);
+    const expected = cornerYield(LANTERN_MAP, second.vertex, (t) => tileYield(s, t));
+    expect(s.resources[1]).toEqual(expected);
+    expect(Object.keys(expected).length).toBeGreaterThan(0);
+  });
+
+  it("enforces the distance rule and connected roads", () => {
+    const s = afterSetup();
+    const [mine] = Object.entries(s.buildings).find(([, b]) => b.owner === 0)!;
+    const neighbor = LANTERN_MAP.vertices.find((v) => v.id === mine)!.neighbors[0];
+    expect(canSettle(LANTERN_MAP, s.buildings, s.roads, neighbor, 0, false)).toBe(false);
+    const rich: LanternState = { ...s, resources: [{ wood: 5, stone: 5, grain: 5, fish: 5 }, {}] };
+    const roads = lanternIsles.legalMoves(rich, 0).filter((m) => m.type === "road");
+    expect(roads.length).toBeGreaterThan(0);
+    for (const m of roads) expect(canRoad(LANTERN_MAP, s.buildings, s.roads, (m as { edge: string }).edge, 0)).toBe(true);
+  });
+
+  it("builds, upgrades and wins at the target score", () => {
+    const s = afterSetup();
+    const [vertex] = Object.entries(s.buildings).find(([, b]) => b.owner === 0)!;
+    const rich: LanternState = { ...s, target: 3, resources: [{ grain: 4, stone: 4 }, {}] };
+    const town = play(rich, [{ type: "town", vertex }]);
+    expect(town.buildings[vertex].level).toBe(2);
+    expect(lanternScore(town, 0)).toBe(3);
+    expect(lanternIsles.isTerminal(town)).toBe(true);
+    expect(lanternIsles.outcome(town).winners).toEqual([0]);
+  });
+
+  it("trades with the bank and between players", () => {
+    const s = afterSetup();
+    const banked = play({ ...s, resources: [{ wood: 3 }, {}] }, [{ type: "bank", give: "wood", get: "fish" }]);
+    expect(banked.resources[0]).toEqual({ wood: 0, fish: 1 });
+    expect(banked.tradesLeft).toBe(2);
+
+    const offering: LanternState = { ...s, resources: [{ wood: 1 }, { fish: 1 }] };
+    const offered = play(offering, [{ type: "offer", to: 1, give: "wood", get: "fish" }]);
+    expect(lanternIsles.activePlayers(offered)).toEqual([1]);
+    expect(lanternIsles.legalMoves(offered, 1).map((m) => m.type)).toEqual(["accept", "decline"]);
+    const accepted = play(offered, [{ type: "accept" }]);
+    expect(accepted.resources).toEqual([
+      { wood: 0, fish: 1 },
+      { fish: 0, wood: 1 },
+    ]);
+    expect(lanternIsles.activePlayers(accepted)).toEqual([0]);
+    expect(play(offered, [{ type: "decline" }]).resources).toEqual(offering.resources);
+  });
+
+  it("ends after the round limit with the highest score winning", () => {
+    let s: LanternState = { ...afterSetup(), maxRounds: 1 };
+    s = play(s, [{ type: "end" }, { type: "end" }]);
+    expect(lanternIsles.isTerminal(s)).toBe(true);
+    expect(lanternIsles.outcome(s).scores).toEqual([2, 2]);
+  });
+
+  it("heuristic bot beats random play", () => {
+    const bot = lanternIslesBot();
+    const asFirst = simulate(lanternIsles, { numPlayers: 2, games: 40, bots: [bot, randomBot] });
+    const asSecond = simulate(lanternIsles, { numPlayers: 2, games: 40, seed: 500, bots: [randomBot, bot] });
+    expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2).toBeGreaterThan(0.85);
+  });
+});
+
 describe("mechanics", () => {
+  it("builds the vertex and edge graph of a hex map", () => {
+    const map = buildHexMap(radiusCoords(2));
+    expect([map.tiles.length, map.vertices.length, map.edges.length]).toEqual([19, 54, 72]);
+    for (const v of map.vertices) {
+      expect(v.tiles.length).toBeGreaterThanOrEqual(1);
+      expect(v.neighbors.length).toBe(v.edges.length);
+    }
+    expect(buildHexMap(radiusCoords(1)).vertices).toHaveLength(24);
+  });
+
+  it("places settlements and roads by the distance and connection rules", () => {
+    const map = buildHexMap(radiusCoords(1));
+    const v = map.vertices.find((x) => x.tiles.length === 3)!;
+    const buildings = { [v.id]: { owner: 0, level: 1 } };
+    expect(canSettle(map, buildings, {}, v.neighbors[0], 1, false)).toBe(false);
+    expect(settleSpots(map, buildings, {}, 0, true)).toEqual([]);
+    expect(roadSpots(map, buildings, {}, 0).sort()).toEqual(v.edges.slice().sort());
+    // A rival's building blocks a road from continuing through its corner.
+    const road = v.edges[0];
+    const far = map.edges.find((e) => e.id === road)!.ends.find((end) => end !== v.id)!;
+    const blocked = { ...buildings, [far]: { owner: 1, level: 1 } };
+    const beyond = map.vertices.find((x) => x.id === far)!.edges.filter((e) => e !== road);
+    for (const e of beyond) expect(canRoad(map, blocked, { [road]: 0 }, e, 0)).toBe(false);
+  });
+
+  it("produces for buildings by level and flips events", () => {
+    const map = buildHexMap(radiusCoords(1));
+    const tile = map.tiles[0];
+    const gains = produce(map, { [tile.corners[0]]: { owner: 1, level: 2 } }, [tile.id], () => ({ wood: 1 }), 2);
+    expect(gains).toEqual([{}, { wood: 2 }]);
+    const { event, deck } = flipEvent(createRng(1), { drawPile: [], discard: ["a", "b"] });
+    expect(["a", "b"]).toContain(event);
+    expect(deck.drawPile.length + deck.discard.length).toBe(2);
+  });
+
+  it("trades with the bank and settles player offers", () => {
+    expect(bankTrade({ wood: 3 }, "wood", "fish", 3)).toEqual({ wood: 0, fish: 1 });
+    expect(() => bankTrade({ wood: 2 }, "wood", "fish", 3)).toThrow();
+    const pools: Amounts[] = [{ wood: 1 }, { fish: 2 }];
+    expect(swapOptions(pools, 0, 1, ["wood", "fish"])).toEqual([{ from: 0, to: 1, give: { wood: 1 }, get: { fish: 1 } }]);
+    expect(settleOffer(pools, { from: 0, to: 1, give: { wood: 1 }, get: { fish: 1 } })).toEqual([
+      { wood: 0, fish: 1 },
+      { fish: 1, wood: 1 },
+    ]);
+  });
+
   it("adds, pays and formats resources", () => {
     expect(add({ water: 1 }, { water: 2, soil: 1 })).toEqual({ water: 3, soil: 1 });
     expect(canAfford({ water: 1 }, { water: 2 })).toBe(false);

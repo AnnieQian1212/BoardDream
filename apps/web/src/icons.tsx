@@ -81,6 +81,12 @@ const TAG_STYLES: Record<string, { color: string; icon: LucideIcon }> = {
   fungus: { color: "#9a7350", icon: Umbrella },
   fern: { color: "#4f8f4b", icon: Leaf },
   exotic: { color: "#8b5fc4", icon: Sparkles },
+  // Map terrains.
+  forest: { color: "#4f8a4a", icon: TreePine },
+  quarry: { color: "#7d808a", icon: Mountain },
+  fields: { color: "#c4932a", icon: Wheat },
+  reef: { color: "#3f8fc8", icon: Fish },
+  lagoon: { color: "#2f9c93", icon: Waves },
 };
 
 const FALLBACK_COLORS = ["#c9774a", "#4f8fb8", "#8b6fc0", "#4c9a7a", "#c45d6a", "#b08d3c", "#5c7ccc", "#7a9a3f"];
