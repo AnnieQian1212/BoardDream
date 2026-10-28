@@ -66,7 +66,10 @@ export interface MatItem {
 /** Live numbers drawn as HTML next to a mat's name: score, hand size, round. */
 export interface BadgeItem {
   id: string;
+  /** The right end of the badge row; it grows leftward from here. */
   position: Vec3;
+  /** How far left the row may reach before it runs into the mat's title. */
+  left: Vec3;
   counters: Counter[];
   note?: string;
   active: boolean;
@@ -157,6 +160,8 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
       out.badges.push({
         id: panel.id,
         position: [x + width / 2 - 1, MAT_TOP, top + 1.6],
+        // The title is painted 1.25 units tall from 1.4 in (matTexture), about 0.7 units per letter.
+        left: [x - width / 2 + 2.4 + 0.7 * opts.title.length, MAT_TOP, top + 1.6],
         counters: plain,
         note: panel.note,
         active,

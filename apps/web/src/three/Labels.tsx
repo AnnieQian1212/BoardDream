@@ -19,7 +19,10 @@ export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 50) 
 /** Screen anchor of every label, keyed like the label elements' data-anchor. */
 export function labelAnchors(layout: TableLayout): Map<string, Vec3> {
   const anchors = new Map<string, Vec3>();
-  for (const b of layout.badges) anchors.set(`badge:${b.id}`, b.position);
+  for (const b of layout.badges) {
+    anchors.set(`badge:${b.id}`, b.position);
+    anchors.set(`room:${b.id}`, b.left);
+  }
   for (const p of layout.piles) {
     const [x, y, z] = p.position;
     anchors.set(`pile:${p.id}`, [x + 1.55 * p.scale, y + 0.2, z + 1.55 * p.scale]);
@@ -55,10 +58,14 @@ export function Labels({ layout, resources, layer, targets, speech, onPick }: La
         const score = badge.counters.find((c) => SCORE.test(c.label));
         const rest = badge.counters.filter((c) => c !== score);
         return (
-          <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`}>
+          <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`} data-room={`room:${badge.id}`}>
             <div className="mat-badge">
               {badge.active && <span className="turn-pill">{badge.you ? "Your turn" : "Thinking…"}</span>}
-              {badge.note && <span className="badge-note">{badge.note}</span>}
+              {badge.note && (
+                <span className="badge-note" title={badge.note}>
+                  <span>{badge.note}</span>
+                </span>
+              )}
               {rest.map((c) =>
                 targets.has(c.id) ? (
                   <button key={c.id} type="button" className="badge-chip target" onClick={(e) => onPick(c.id, e.clientX, e.clientY)}>
@@ -112,7 +119,23 @@ export function Labels({ layout, resources, layer, targets, speech, onPick }: La
   );
 }
 
-/** Inside the canvas: projects each label's anchor and moves its element there. */
+/** Below this many pixels a note would show a letter or two, so it is left out (it stays in the hover title and the flat table). */
+const MIN_NOTE = 72;
+
+/** Hides a badge row's note when the chips leave it too little of `room`. */
+function fitNote(label: HTMLElement, room: number) {
+  const row = label.firstElementChild;
+  const note = row?.querySelector<HTMLElement>(".badge-note");
+  if (!row || !note) return;
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  const used = Array.from(row.children).reduce((sum, child) => (child === note ? sum : sum + (child as HTMLElement).offsetWidth + gap), 0);
+  note.style.display = room - used < MIN_NOTE ? "none" : "";
+}
+
+/**
+ * Inside the canvas: projects each label's anchor and moves its element there. A label with a
+ * `data-room` anchor also learns how wide it may get (--room), from its anchor back to that one.
+ */
 export function LabelTracker({ anchors, layer }: { anchors: Map<string, Vec3>; layer: RefObject<HTMLDivElement | null> }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
@@ -128,6 +151,17 @@ export function LabelTracker({ anchors, layer }: { anchors: Map<string, Vec3>; l
       const y = ((1 - v.y) / 2) * size.height;
       el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       el.style.visibility = v.z < 1 ? "visible" : "hidden";
+      const room = anchors.get(el.dataset.room ?? "");
+      if (room) {
+        v.fromArray(room).project(camera);
+        const width = Math.round(x - ((v.x + 1) / 2) * size.width);
+        const key = `${width}|${el.textContent}`;
+        if (el.dataset.fitted !== key) {
+          el.dataset.fitted = key;
+          el.style.setProperty("--room", `${width}px`);
+          fitNote(el, width);
+        }
+      }
     }
   });
   return null;

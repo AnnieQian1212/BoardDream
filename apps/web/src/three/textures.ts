@@ -497,6 +497,9 @@ const centroid = (polygon: [number, number][]): [number, number] => [
  * Printed over the whole board slab: a gold inlay line in the margin, then cell labels (ink on
  * tiles, cream on the board itself for text-only cells). `margin` is in geometry units.
  */
+/** Line height of two-line board labels, in font sizes. */
+const LINE = 1.1;
+
 export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
   const w = geometry.width + 2 * margin;
   const h = geometry.height + 2 * margin;
@@ -513,16 +516,34 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
   ctx.stroke();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  const span = (values: number[]) => Math.max(...values) - Math.min(...values);
+  const widthOf = (cell: Geometry["cells"][number]) => span(cell.polygon.map(([x]) => x));
+  // Text sizes are tuned for cells about one unit wide; boards drawn in bigger units scale them up.
+  const tiles = geometry.cells.filter((c) => c.kind !== "label").map(widthOf).sort((a, b) => a - b);
+  const unit = Math.max(1, tiles[Math.floor(tiles.length / 2)] ?? 1);
   for (const cell of geometry.cells) {
     if (!cell.label) continue;
     const [cx, cy] = centroid(cell.polygon);
-    const xs = cell.polygon.map(([x]) => x);
-    const width = Math.max(...xs) - Math.min(...xs);
     const isLabel = cell.kind === "label";
-    const size = Math.min(isLabel ? 0.42 : 0.3, ((isLabel ? 1.3 : 1.05) * width) / Math.max(1, cell.label.length)) * scale;
-    ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
+    const width = (isLabel ? 0.95 : 0.8) * widthOf(cell) * scale;
+    const height = 0.8 * span(cell.polygon.map(([, y]) => y)) * scale;
+    const cap = (isLabel ? 0.42 : 0.3) * unit * scale;
+    // As big as the cap allows inside the cell, on one line or split in two at a space.
+    ctx.font = `600 100px ${FONT_DISPLAY}`;
+    let best = { lines: [cell.label], size: Math.min(cap, (width / Math.max(1, ctx.measureText(cell.label).width)) * 100) };
+    const words = cell.label.split(" ");
+    for (let i = 1; i < words.length; i++) {
+      const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+      const widest = Math.max(...lines.map((line) => ctx.measureText(line).width));
+      const size = Math.min(cap, (width / Math.max(1, widest)) * 100, height / (2 * LINE));
+      if (size > best.size * 1.15) best = { lines, size };
+    }
+    ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
     ctx.fillStyle = isLabel ? CREAM : alpha(INK, 0.85);
-    ctx.fillText(cell.label, (cx + margin) * scale, (cy + margin) * scale);
+    best.lines.forEach((line, i) => {
+      const dy = (i - (best.lines.length - 1) / 2) * LINE * best.size;
+      ctx.fillText(line, (cx + margin) * scale, (cy + margin) * scale + dy);
+    });
   }
   return texture(canvas);
 }

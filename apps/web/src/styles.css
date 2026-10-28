@@ -1143,6 +1143,7 @@ button.card {
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: var(--room, none);
   transform: translate(-100%, -50%);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1195,9 +1196,29 @@ button.badge-chip {
   font-size: 14px;
 }
 
+.badge-chip,
+.turn-pill {
+  flex-shrink: 0;
+}
+
+/* Only the note gives way when the row is wider than its mat: it wraps to a second line, then clips. */
 .badge-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 300px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--muted);
+  pointer-events: auto;
+}
+
+.badge-note > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 12.5px;
 }
 
 .turn-pill {
