@@ -249,17 +249,17 @@
       {
         "numPlayers": 6,
         "games": 600,
-        "majorityWins": 0.42
+        "majorityWins": 0.49833333333333335
       },
       {
         "numPlayers": 7,
         "games": 600,
-        "majorityWins": 0.5883333333333334
+        "majorityWins": 0.6383333333333333
       },
       {
         "numPlayers": 8,
         "games": 600,
-        "majorityWins": 0.6016666666666667
+        "majorityWins": 0.6166666666666667
       }
     ],
     "profile": {

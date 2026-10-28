@@ -22,7 +22,7 @@ export * from "./catalog";
 export * from "./table-talk";
 export * as mechanics from "./mechanics";
 export { fenlightBot, suspicion } from "./bots/fenlight";
-export { fenlightSides, type FenlightMove, type FenlightState } from "./games/fenlight";
+export { fenlightSides, type FenlightMove, type FenlightParams, type FenlightState } from "./games/fenlight";
 export { glasshouseBot } from "./bots/glasshouse";
 export { highsailBot, highsailValue } from "./bots/highsail";
 export { lanternIslesBot } from "./bots/lantern-isles";

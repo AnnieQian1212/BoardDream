@@ -24,7 +24,8 @@ export function suspicion(v: FenlightState, me: PlayerId, privateInfo = true): n
     });
   }
   // Claims weigh by how trustworthy the lanterns make the speaker look. A lantern someone put out
-  // always looks dark at dawn, so saying a player at a lit lantern put one out is a lie.
+  // always looks dark and always loses a boat, so saying someone put one out is a lie when their
+  // lantern looked lit or no boat was lost that night.
   const base = sus.slice();
   const days: { night: number; statements: Statement[] }[] = [...v.days, { night: v.night, statements: v.statements }];
   for (const { night, statements } of days) {
@@ -33,7 +34,7 @@ export function suspicion(v: FenlightState, me: PlayerId, privateInfo = true): n
       if (st.kind === "quiet") continue;
       if (st.kind === "report" && st.dimmed && report) {
         const post = report.posts.findIndex((p) => p.includes(st.target));
-        if (post >= 0 && !report.dark.includes(post)) {
+        if (report.lost === 0 || (post >= 0 && !report.dark.includes(post))) {
           sus[st.seat] += 1;
           continue;
         }
@@ -130,9 +131,9 @@ function wispMove(v: FenlightState, me: PlayerId, others: PlayerId[], rng: Rng, 
   }
   if (scapegoat === undefined) return v.phase === "vote" ? { type: "abstain" } : { type: "quiet" };
   if (v.phase === "day") {
-    // A false report only holds up against a keeper whose lantern looked dark.
+    // A false report only holds up against a keeper whose lantern looked dark on a night a boat was lost.
     const last = v.reports[v.reports.length - 1];
-    const lookedDark = (seat: PlayerId) => last !== undefined && last.dark.includes(last.posts.findIndex((p) => p.includes(seat)));
+    const lookedDark = (seat: PlayerId) => last !== undefined && last.lost > 0 && last.dark.includes(last.posts.findIndex((p) => p.includes(seat)));
     const framed = argmax(keepers.filter(lookedDark), (seat) => looks[seat]);
     const roll = rng.next();
     if (framed !== undefined && roll < lieRate) return { type: "report", target: framed, dimmed: true };

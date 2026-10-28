@@ -81,11 +81,11 @@ export interface FenlightState {
   winner: FenRole | null;
 }
 
-type FenlightParams = { nights: number; lostLimit: number; fog: number };
+export type FenlightParams = { nights: number; lostLimit: number; fog: number };
 
 /**
- * Two wisps at every table size. Simulated with Fenlight's own bots, keepers win 46% of 6-player,
- * 54% of 7-player and 59% of 8-player games; three wisps at 7 or 8 players won almost every game.
+ * Two wisps at every table size. Simulated with Fenlight's own bots, keepers win 50% of 6-player,
+ * 64% of 7-player and 62% of 8-player games; three wisps at 7 or 8 players won almost every game.
  */
 export const wispCount = (_numPlayers: number) => 2;
 

@@ -40,10 +40,16 @@ function hasWebGL(): boolean {
 }
 const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames[0];
 
+/** A logged move, with the state it was made from so each seat can have it described from its own view. */
+interface MatchEntry extends LogEntry {
+  before: unknown;
+  move: unknown;
+}
+
 interface Match {
   state: unknown;
   rng: Rng;
-  log: LogEntry[];
+  log: MatchEntry[];
 }
 
 function applyMove(game: GameModule, match: Match, seat: number, move: unknown, say?: string): Match {
@@ -51,7 +57,7 @@ function applyMove(game: GameModule, match: Match, seat: number, move: unknown, 
   const text = game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move);
   const state = game.applyMove(match.state, seat, move, match.rng);
   const id = (match.log.at(-1)?.id ?? 0) + 1;
-  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text, say }] };
+  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text, say, before: match.state, move }] };
 }
 
 function startMatch(game: GameModule, numPlayers: number, params: Params): Match {
@@ -139,7 +145,11 @@ export function App() {
     const [seat] = game.activePlayers(match.state);
     if (seat === HUMAN && !WATCH) return;
     let cancelled = false;
-    const recent = match.log.map((e) => `${e.seat === seat ? "You" : `P${e.seat + 1}`} ${e.text}${e.say ? ` ("${e.say}")` : ""}`);
+    // Each opponent hears the moves as its own seat saw them, never the human's secret choices.
+    const recent = match.log.map((e) => {
+      const text = game.describeMove?.(e.before, e.move, seat) ?? e.text;
+      return `${e.seat === seat ? "You" : `P${e.seat + 1}`} ${text}${e.say ? ` ("${e.say}")` : ""}`;
+    });
     const timer = setTimeout(async () => {
       const decision: Decision = await decide(game, match.state, seat, numPlayers, recent, match.rng, muse);
       if (!cancelled) setMatch((current) => (current === match ? applyMove(game, match, seat, decision.move, decision.say) : current));

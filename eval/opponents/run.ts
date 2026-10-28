@@ -71,11 +71,13 @@ const museDecider =
 async function play(game: GameModule, numPlayers: number, seed: number, deciders: Decider[]) {
   const rng = createRng(seed);
   let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
-  const recent: string[] = [];
+  const history: { seat: number; before: unknown; move: unknown }[] = [];
+  // Each seat hears the moves as it saw them: secret choices stay secret.
+  const recentFor = (viewer: number) => history.map((h) => `P${h.seat + 1} ${game.describeMove?.(h.before, h.move, viewer) ?? JSON.stringify(h.move)}`);
   for (let turn = 0; turn < 2000 && !game.isTerminal(state); turn++) {
     const [seat] = game.activePlayers(state);
-    const move = await deciders[seat](state, seat, recent, rng);
-    recent.push(`P${seat + 1} ${game.describeMove?.(state, move) ?? JSON.stringify(move)}`);
+    const move = await deciders[seat](state, seat, recentFor(seat), rng);
+    history.push({ seat, before: state, move });
     state = game.applyMove(state, seat, move, rng);
   }
   return game.outcome(state).winners;

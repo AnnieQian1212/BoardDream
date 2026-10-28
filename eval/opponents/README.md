@@ -27,6 +27,20 @@ The same setup with `meta-models/muse-spark-open-1026`, the open-weight model, h
 - Reading: about even with the probability bot in Liar's Dice (50 games leave roughly ±14 points at 95%), a little behind Muse Spark 1.3 on the shared deals, and behind the bots in Lantern Isles on a small sample. It still talks in character: "Need stone, got spare grain anyone?", "Holding my wood for now, sorry!"
 - 1,286 calls in 12.5 minutes (0.92M prompt and 0.50M completion tokens), about $3.30 at Baseten's listed $1.25 / $4.25 per million tokens, paid from Baseten credits.
 
+## A Fenlight table played by the model (Oct 28, 2026)
+
+`fenlight-table.ts` seats seven players at Fenlight, the social deduction reference game, and hands every seat's statements and votes to the model; Fenlight's own bot plays the nights and advises. It writes the whole table as a transcript to `out/`. Four tables with Muse Spark Open: 238 decisions, none fell back to the bot.
+
+- The model argues from the evidence: "Zero boats lost means no one put it out, P1 is lying" caught a wisp's false claim on the first day, which the bot had missed, and the keepers exiled that wisp. The bot now knows that rule too.
+- Later days build on exiles: "P7 lied about P6 - P6 was a keeper, that seals it."
+- The wisps deflect without contradicting what everyone saw: "P5 dark two nights running - that's where our boat went."
+- Early transcripts leaned on one phrase ("doesn't add up", 15 times in one game); asking for specific nights, lanterns and claims cut that to 6-9 and made lines like the ones above more common.
+- Each seat now hears earlier moves as it saw them. The harness used to describe them with no viewer, which would have shown everyone's secret night choices in this game.
+
+```sh
+npx tsx eval/opponents/fenlight-table.ts 23 open   # seed 23, Muse Spark Open
+```
+
 Since these runs the opponent prompt has gained a bullet for hidden-role games (argue from the evidence; on the hidden side, steer suspicion without contradicting what everyone saw), so a rerun calls the model again.
 
 When `OPEN_MODEL_*` is set in `.env`, the app seats Muse Spark Open as the AI opponents; it answers in a few seconds, so a table of three opponents stays responsive. Without it, Muse Spark 1.3 plays them.
