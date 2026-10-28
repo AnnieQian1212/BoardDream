@@ -6,7 +6,7 @@ export interface Dials {
   minPlayers: number;
   maxPlayers: number;
   playMinutes: number;
-  /** 1 (light) to 5 (heavy). */
+  /** 1 (gateway hobby game) to 5 (heavy strategy game). */
   complexity: number;
   /** 0 = pure strategy, 1 = pure luck. */
   luck: number;
@@ -59,7 +59,8 @@ export const gameSpecSchema: JsonSchema = {
     properties: {
       title: str,
       pitch: str,
-      family: { type: "string", enum: ["grid", "race", "bluff", "engine", "map"] },
+      // No "race": roll-and-move games are not what BoardDream designs.
+      family: { type: "string", enum: ["engine", "map", "grid", "bluff"] },
       mode: { type: "string", enum: ["competitive", "cooperative", "hidden-role"] },
       minPlayers: int,
       maxPlayers: int,

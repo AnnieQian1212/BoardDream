@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   catalog,
   defaultBot,
+  fixtureGames,
   GLASSHOUSE_CARDS,
   GLASSHOUSE_RESOURCES,
   glasshouse,
@@ -36,8 +37,8 @@ import { applyJumps, bounceMove, generateJumps } from "./mechanics/shortcuts";
 import { nextSeat } from "./mechanics/turns";
 import { majority, topVoted } from "./mechanics/voting";
 
-describe("reference games", () => {
-  for (const game of referenceGames) {
+describe("reference and fixture games", () => {
+  for (const game of [...referenceGames, ...fixtureGames]) {
     // Map games carry big states and geometry through every strict check; give them room.
     it(`${game.meta.id} survives fuzzing across its parameter space`, { timeout: 30_000 }, () => {
       const report = fuzz(game, { runs: 300, determinismChecks: 30 });

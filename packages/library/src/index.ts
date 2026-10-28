@@ -23,8 +23,14 @@ export { LANTERN_MAP, LANTERN_RESOURCES, lanternScore, type LanternMove, type La
 export type { LiarsDiceMove, LiarsDiceView } from "./games/liars-dice";
 export { glasshouse, hexGame, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders };
 
-/** Genre references first: they are what the app opens with. */
-export const referenceGames: GameModule[] = [glasshouse, lanternIsles, lineUp, reversi, hexGame, raceHome, snakesLadders, liarsDice, iDoubtIt];
+/** Original hobby games for teens and adults: what the app offers and what generated games aim for. */
+export const referenceGames: GameModule[] = [glasshouse, lanternIsles];
+
+/**
+ * Small classic games that exercise engine features (grids, dice, tracks, hidden hands, bluffing,
+ * simultaneous play). Tests and the retrieval eval use them; the app does not offer them.
+ */
+export const fixtureGames: GameModule[] = [lineUp, reversi, hexGame, raceHome, snakesLadders, liarsDice, iDoubtIt];
 
 /** Game-specific bots; every other game, generated ones included, gets the generic heuristic bot. */
 const referenceBots: Record<string, Bot> = {

@@ -8,6 +8,8 @@ export interface SimOptions {
   seed?: number;
   bots?: Bot[];
   maxTurns?: number;
+  /** Called with each game's seed before it starts (heartbeats for a watchdog). */
+  onGame?(seed: number): void;
 }
 
 export interface BalanceStats {
@@ -26,7 +28,7 @@ export interface BalanceStats {
 }
 
 export function simulate(game: GameModule, opts: SimOptions): BalanceStats {
-  const { numPlayers, params, games = 200, seed = 1, bots, maxTurns = 1000 } = opts;
+  const { numPlayers, params, games = 200, seed = 1, bots, maxTurns = 1000, onGame } = opts;
   const wins = new Array<number>(numPlayers).fill(0);
   const turns: number[] = [];
   let draws = 0;
@@ -35,6 +37,7 @@ export function simulate(game: GameModule, opts: SimOptions): BalanceStats {
   let firstError: string | undefined;
 
   for (let i = 0; i < games; i++) {
+    onGame?.(seed + i);
     try {
       const result = playMatch(game, { numPlayers, params, seed: seed + i, bots, maxTurns });
       turns.push(result.turns);

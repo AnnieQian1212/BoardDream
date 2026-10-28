@@ -1,5 +1,5 @@
 import { createRng, resolveParams, type GameModule } from "@boarddream/engine";
-import { referenceGames } from "@boarddream/library";
+import { fixtureGames, referenceGames } from "@boarddream/library";
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
 import { fitCamera, FOV } from "./camera";
@@ -31,7 +31,7 @@ function* playout(game: GameModule, seed: number, steps: number): Generator<{ la
   }
 }
 
-describe.each(referenceGames.map((g) => [g.meta.id, g] as const))("%s on the 3D table", (_id, game) => {
+describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as const))("%s on the 3D table", (_id, game) => {
   test("places every card once and gives every target something to click", () => {
     for (const { layout, targets } of playout(game, 7, 80)) {
       const ids = layout.cards.map((c) => c.id);

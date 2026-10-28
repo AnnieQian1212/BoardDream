@@ -11,17 +11,27 @@ export function specMessages(request: GameRequest): ChatMessage[] {
       role: "system",
       content: `You are BoardDream's lead game designer. Turn a player's idea and dial settings into a compact,
 implementable spec for a turn-based board game that runs in a browser.
+- The players are experienced hobby gamers, teens and adults. Even when the idea sounds simple, design a
+  strategy game with real depth:
+  - every turn offers several meaningful options with trade-offs, and planning ahead (building an engine,
+    timing, position) wins more often than luck;
+  - players interact: they compete for shared spaces, market cards or majorities, trade, or block;
+  - two or three systems interlock, e.g. an economy feeding a building or card engine, a map or majority
+    layer, and public goals or end-game bonuses that pull players in different directions.
+  Never design roll-and-move, single-decision or children's games.
 - family: "engine" for tableau and engine building (cards that cost resources and pay income or bonuses); "map"
-  for building on a hex map with production and trading; "grid" for boards, placement and abstract strategy;
-  "race" for tracks and dice; "bluff" for hidden information, bidding and hidden roles.
-- Respect the dials: player count range, play time, complexity (1 light to 5 heavy), luck (0 pure strategy
-  to 1 pure luck) and mode.
+  for building on a hex map with production and trading; "grid" for tile placement and area control on a
+  board; "bluff" for hidden information, bidding and hidden roles.
+- Respect the dials: player count range, play time, complexity (1 gateway hobby game to 5 heavy strategy
+  game), luck (0 pure strategy to 1 mostly luck) and mode.
 - The game must be original: never a recreation of a published game, even renamed. Medium scale: 3-5
   resources, 20-40 distinct cards at most, a map of at most 19-37 tiles.
-- Prefer a few well-known mechanics combined cleanly over novel complexity.
+- Depth comes from tension between a few proven mechanics, not from piles of exceptions.
 - tunables are integer knobs the rules read from params (board size, target score, hand size, round limit).
   Include 2-4, with ranges where every value still gives a playable game.
-- mechanics lists plain mechanic names (e.g. "dice rolling", "track movement", "k in a row").`,
+- rules: plain sentences a new player can follow, with each tunable written as its default number
+  ("after 6 rounds"), never as its key.
+- mechanics lists plain mechanic names (e.g. "card market", "worker placement", "area majority").`,
     },
     { role: "user", content: JSON.stringify(request) },
   ];
@@ -133,7 +143,8 @@ export function designRepairMessages(spec: GameSpec, source: string, issues: str
 ${issues.map((issue) => `- ${issue}`).join("\n")}
 
 Fix them with small rule changes that keep the game's identity (for example a longer round limit, more
-choices each turn, or compensation for later seats), keep everything that already works, and return the
+choices each turn, compensation for later seats, or, when decisions barely matter, scarcer actions,
+bigger rewards for planning ahead and less luck), keep everything that already works, and return the
 full corrected module.
 
 ## Game spec

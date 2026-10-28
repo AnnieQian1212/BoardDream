@@ -46,8 +46,8 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
   const [dials, setDials] = useState<Dials>({
     minPlayers: 2,
     maxPlayers: 4,
-    playMinutes: 45,
-    complexity: 3,
+    playMinutes: 60,
+    complexity: 4,
     luck: 0.3,
     mode: "competitive",
   });
@@ -112,7 +112,7 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
         </label>
       </div>
       <Range label="Play time" display={`${dials.playMinutes} min`} min={10} max={90} step={5} value={dials.playMinutes} onChange={(v) => set("playMinutes", v)} />
-      <Range label="Complexity" display={["Light", "Easy", "Medium", "Rich", "Heavy"][dials.complexity - 1]} min={1} max={5} value={dials.complexity} onChange={(v) => set("complexity", v)} />
+      <Range label="Complexity" display={["Gateway", "Medium-light", "Medium", "Medium-heavy", "Heavy"][dials.complexity - 1]} min={1} max={5} value={dials.complexity} onChange={(v) => set("complexity", v)} />
       <Range label="Luck" display={`${Math.round(dials.luck * 100)}%`} min={0} max={1} step={0.1} value={dials.luck} onChange={(v) => set("luck", v)} />
       <div className="segmented" role="radiogroup" aria-label="Mode">
         {MODES.map((mode) => (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkRules, checkRulesIsolated } from "./agent/check";
-import { playIssues, playtest } from "./agent/playtest";
+import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
@@ -83,6 +83,27 @@ describe("playtest", () => {
     expect(stats.choiceRate).toBe(0);
     expect(playIssues(stats, "competitive").join(" ")).toMatch(/over too fast.*real choice/);
     expect(playIssues(playtest(loadGameFromSource(NIM)), "competitive")).toEqual([]);
+  });
+
+  it("flags games where choices do not change who wins", () => {
+    // Players pick a number for twelve turns, then a coin flip decides the game.
+    const coin = loadGameFromSource(`
+module.exports = {
+  meta: { id: "coin", name: "Coin", family: "grid", mode: "competitive", minPlayers: 2, maxPlayers: 2, summary: "" },
+  params: [],
+  setup: () => ({ turn: 0, winner: null }),
+  activePlayers: (s) => (s.winner === null ? [s.turn % 2] : []),
+  legalMoves: () => [1, 2, 3],
+  applyMove: (s, p, n, rng) => ({ turn: s.turn + 1, winner: s.turn === 11 ? rng.int(2) : null }),
+  isTerminal: (s) => s.winner !== null,
+  outcome: (s) => ({ winners: s.winner === null ? [] : [s.winner] }),
+};`);
+    const stats = playtest(coin, { games: 50 });
+    expect(skillEdge(stats)!).toBeLessThan(0.25);
+    expect(playIssues(stats, "competitive").join(" ")).toMatch(/decisions barely matter/);
+    // Nim rewards planning; bluffing games are not measured.
+    expect(skillEdge(playtest(loadGameFromSource(NIM)))!).toBeGreaterThan(0.25);
+    expect(playtest(loadGameFromSource(NIM.replace('family: "grid"', 'family: "bluff"'))).plannerWinRate).toBeUndefined();
   });
 });
 

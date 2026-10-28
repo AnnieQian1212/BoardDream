@@ -5,9 +5,9 @@
 - Commit daily and add a line to the "Built during the hackathon" table in the README. The rules require a clear record of what was built during the event.
 - `TODO(day N)` comments in the code map to the schedule below.
 
-## Direction (updated Oct 27)
+## Direction (updated Oct 27, night)
 
-BoardDream targets the games people actually want to make: medium-complexity, Catan- and Wingspan-style designs, built on resource production, trading and building on a map, or on an engine-building tableau of cards. Reference games are original designs in that genre, never recreations of existing titles. The simple games built on Oct 27 stay in the library as low-complexity references and engine fixtures.
+BoardDream is for teen and adult hobby players: strategy games with rich rules and real depth, the kind played on Board Game Arena and in the BoardGameGeek "Top 50 Must-Have Boardgames" geeklist, never children's games. Reference games are original designs, never recreations of existing titles. The small classic games built on Oct 26–27 (Line Up, Reversi, Snakes and Ladders, ...) are engine test fixtures and retrieval-eval documents only; the app does not offer them and generation does not aim for them.
 
 - Generated games are capped at medium scale: about 20–40 cards, 3–5 resources, 30–60 minutes.
 - The UI must look polished, because it is what the demo video shows. Every UI change is checked with screenshots before it is pushed.
@@ -29,7 +29,7 @@ All original designs or public-domain games. No trademarked names (e.g. Connect 
 | --- | --- | --- |
 | `engine` engine building | Glasshouse (original): grow a greenhouse whose plants pay income and score bonuses that chain together | Card effect language, market, tableau UI, card art from Muse Image |
 | `map` map, trade and build | Original hex-map settlement game: production, building on vertices and edges, bank and player trades | Hex map art with SAM alignment, Muse Spark trade negotiation (the CICERO angle in the proposal) |
-| light games | Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It | Low-complexity dial settings, engine fixtures, bluffing opponents |
+| test fixtures (not in the app) | Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It | Engine features (grids, dice, tracks, hidden hands, simultaneous play), retrieval eval, the Liar's Dice opponents benchmark |
 
 ### AI opponents: layered so a game never depends on the LLM
 
@@ -100,6 +100,12 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - **Art:** Muse Image card art with the first card as style reference; board art over a rendered guide, checked tile by tile with SAM 3.1 (Lantern Isles 19/19 tiles aligned, mean IoU 0.87–0.89), textures mapped by tile kind so reshuffled and generated maps work.
 - **Still open:** Results page with all metrics, deploy with rate limits, optional Muse Spark Open opponents on Baseten, UI polish. The author's qrels review is done (see Oct 28 above).
 
+### Tue Oct 27 (late night): hobby games only
+- The author does not want children's games such as Reversi: the product is for teen and adult players, with complex rules and real depth.
+- **Done:** the app offers only the original reference games and generated games; the classic games are now `fixtureGames`, used by tests and the retrieval eval. The spec prompt designs for experienced players (meaningful choices every turn, planning over luck, player interaction, two or three interlocking systems), drops the roll-and-move family, and the complexity dial runs from "Gateway" to "Heavy" (default "Medium-heavy", 60 minutes). The playtest now measures strategic depth: a planner (the heuristic bot with playouts) takes each seat against random players, and if it wins barely more than its fair share, "decisions barely matter" goes back to the designer. Glasshouse and Lantern Isles both score 77% in 3-player games (fair share 33%); a pure dice race does no better than its fair share. Bluffing games are not measured, because the planner cannot bluff.
+- **Next, from the BoardGameGeek top-50 list:** the mechanics most of those games share and the library lacks, in order: worker placement and area majority (Stone Age, Agricola, Caylus, Small World, Dominant Species, Tigris & Euphrates), tile placement (Carcassonne, Kingdom Builder, Ingenious), card drafting, deck building and set collection (7 Wonders, Dominion, Ticket to Ride), a cooperative shared threat (Pandemic, Elder Sign), and a social-deduction game whose Muse Spark players argue and vote (The Resistance, Werewolves). Each new mechanic gets a module with tests; worker placement plus area majority also gets a third original reference game. Then the generation benchmark is rebuilt on hobby-weight ideas across these families and reports the planner win rate.
+- From Board Game Arena: show each game's profile on BGA's four axes (complexity, strategy, luck, interaction), measured by simulation instead of player votes.
+
 ### Thu Oct 29: generation for the new genres
 - Spec, compose and repair prompts that produce card data in the effect language plus rules code.
 - Move fuzzing into `worker_threads` with a kill timeout so an infinite loop in generated code cannot hang the server.
@@ -157,6 +163,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 | Fuzz-repair success | Round-0 pass rate, cumulative pass rate by round k, mean repair rounds, failure-type breakdown on the benchmark prompts | `designGame().attempts` |
 | Art alignment | Mean per-cell IoU and share of cells with IoU ≥ 0.8, before vs after repair | `apps/server/src/art/alignment.ts` |
 | Balance | Absolute first-player edge and draw rate, before vs after tuning | `packages/engine/src/sim.ts` |
+| Strategic depth | Win rate of a planning bot against random players, over every seat, vs the fair share | `apps/server/src/agent/playtest.ts` |
 
 ## API budget ($150 Meta credits)
 
