@@ -14,7 +14,8 @@ import { CARD_H, CARD_W, type TableLayout, type Vec3 } from "./layout";
 
 const SCORE = /score|points|vp/i;
 
-export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 50) * 0.045);
+/** Stacks stop growing at 24 cards: taller ones hide the title of their mat in perspective. */
+export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 24) * 0.04);
 
 /** Screen anchor of every label, keyed like the label elements' data-anchor. */
 export function labelAnchors(layout: TableLayout): Map<string, Vec3> {

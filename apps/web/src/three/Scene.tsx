@@ -105,7 +105,8 @@ function useLeaving(layout: TableLayout, mover: number | undefined): CardItem[] 
     for (const c of last.current?.cards ?? []) {
       if (ids.has(c.id)) continue;
       const position: Vec3 = exit ?? [c.position[0], c.position[1] + 8, c.position[2]];
-      gone.current.set(c.id, { item: { ...c, position, scale: 0.3, target: false }, until: performance.now() + 650 });
+      // It shrinks to nothing on the way, so it never comes to rest on the mat's title.
+      gone.current.set(c.id, { item: { ...c, position, scale: 0.02, target: false }, until: performance.now() + 650 });
     }
     last.current = layout;
   }
