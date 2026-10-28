@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { ModelClient, type ChatMessage, type ChatOptions } from "./client";
+import { ModelClient, type ChatMessage, type ChatOptions, type ClientOptions } from "./client";
 
 /**
  * ModelClient that stores every reply on disk, keyed by model, messages and options. Reruns cost
@@ -12,14 +12,15 @@ export class CachedModelClient extends ModelClient {
   private readonly used = new Set<string>();
 
   constructor(
-    opts: { baseUrl: string; apiKey: string; model: string },
+    opts: ClientOptions,
     private readonly dir: URL,
   ) {
     super(opts);
     mkdirSync(dir, { recursive: true });
   }
 
-  override async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
+  override async chat(messages: ChatMessage[], callOptions: ChatOptions = {}): Promise<string> {
+    const options = this.withDefaults(callOptions);
     const model = options.model ?? this.model;
     const key = createHash("sha256").update(JSON.stringify({ model, messages, options })).digest("hex").slice(0, 16);
     const file = new URL(`${key}.json`, this.dir);
@@ -28,7 +29,7 @@ export class CachedModelClient extends ModelClient {
       this.hits++;
       return (JSON.parse(readFileSync(file, "utf8")) as { reply: string }).reply;
     }
-    if (!this.opts.apiKey) throw new Error("cache miss and MODEL_API_KEY is not set");
+    if (!this.opts.apiKey) throw new Error(`cache miss and no API key is set for ${model}`);
     const reply = await super.chat(messages, options);
     writeFileSync(file, JSON.stringify({ model, messages, options, reply }, null, 2) + "\n");
     return reply;

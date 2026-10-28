@@ -8,18 +8,23 @@ import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
 import type { GameRequest } from "./agent/spec";
-import { config } from "./config";
+import { config, hasOpenModel } from "./config";
 import { ModelClient } from "./meta/client";
 import { gameSource, listGames, saveGame } from "./store";
 
 const designer = new ModelClient({ ...config.meta, model: config.models.designer });
 const painter = new ModelClient({ ...config.meta, model: config.models.image });
+// Opponents play on Muse Spark Open when a host for it is configured: fast and cheap enough for a
+// whole table of them. Otherwise Muse Spark plays them.
+const opponent = hasOpenModel() ? new ModelClient(config.openModel) : config.meta.apiKey ? designer : undefined;
 // Only entries with code are offered to the designer; planned ones exist for retrieval evaluation.
 const index = new Bm25Index(catalog.filter((e) => e.status === "ready").map((e) => ({ id: e.id, text: catalogText(e) })));
 
 const app = new Hono();
 
-app.get("/api/health", (c) => c.json({ ok: true, hasApiKey: Boolean(config.meta.apiKey), models: config.models }));
+app.get("/api/health", (c) =>
+  c.json({ ok: true, hasApiKey: Boolean(config.meta.apiKey), models: config.models, opponentModel: opponent?.model }),
+);
 
 app.get("/api/catalog", (c) => c.json(catalog));
 
@@ -76,10 +81,10 @@ app.post("/api/art/:game", async (c) => {
 
 // One decision for a Muse Spark opponent: a legal move index and a line of table talk.
 app.post("/api/opponent", async (c) => {
-  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
+  if (!opponent) return c.json({ error: "neither MODEL_API_KEY nor OPEN_MODEL_API_KEY is set" }, 503);
   const request = await c.req.json<OpponentRequest>();
   try {
-    return c.json(await chooseMove(designer, request));
+    return c.json(await chooseMove(opponent, request));
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
   }

@@ -69,15 +69,17 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
-  // Muse Spark plays the social moves (offers, bids, bluffs) when the server has an API key.
+  // Muse Spark (Open, when the server hosts it) plays the social moves: offers, bids, bluffs.
   const [muse, setMuse] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [opponentModel, setOpponentModel] = useState<string>();
   useEffect(() => {
     fetch("/api/health")
-      .then((res) => res.json() as Promise<{ hasApiKey?: boolean }>)
+      .then((res) => res.json() as Promise<{ hasApiKey?: boolean; opponentModel?: string }>)
       .then((health) => {
         setHasApiKey(Boolean(health.hasApiKey));
-        setMuse(Boolean(health.hasApiKey) && !query.has("bots"));
+        setOpponentModel(health.opponentModel);
+        setMuse(Boolean(health.opponentModel) && !query.has("bots"));
       })
       .catch(() => {});
   }, []);
@@ -209,7 +211,8 @@ export function App() {
           type="button"
           className={["ghost", muse && "on"].filter(Boolean).join(" ")}
           onClick={() => setMuse(!muse)}
-          title="Muse Spark plays the opponents' trades, bids and bluffs"
+          disabled={!opponentModel}
+          title={opponentModel ? `${opponentModel} plays the opponents' trades, bids and bluffs` : "Needs a model API key on the server"}
         >
           <Sparkles size={15} /> {muse ? "Muse opponents" : "Bot opponents"}
         </button>

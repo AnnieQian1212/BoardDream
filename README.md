@@ -10,7 +10,7 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 2. **Find building blocks.** It picks tested mechanics from the library: card markets, drafting, deck building, worker placement, area majorities, tile placement, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
 3. **Write the rules.** Muse Spark writes the game as code on top of those blocks.
 4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks. More games check that it is worth playing, including whether a player who plans ahead beats random play. Problems go back to the model until the rules pass ([generation benchmark](eval/generation/README.md): 24 of 24 ideas pass).
-5. **Play and tune.** Play on a 3D table. Muse Spark opponents trade, bluff and talk ([opponents benchmark](eval/opponents/README.md)). Sliders change the rules and show balance as you drag.
+5. **Play and tune.** Play on a 3D table. Muse Spark opponents trade, bluff and talk, on the open-weight Muse Spark Open (Baseten) when configured ([opponents benchmark](eval/opponents/README.md)). Sliders change the rules and show balance as you drag.
 6. **Paint.** Muse Image paints every card and the board in one style, and SAM 3.1 checks that each painted tile lines up with the real board.
 
 ## Try it

@@ -13,6 +13,18 @@ export interface ChatOptions {
   temperature?: number;
   /** Constrains the reply to this JSON schema (structured output). */
   schema?: JsonSchema;
+  /** How long a reasoning model thinks before it answers. */
+  reasoningEffort?: "low" | "medium" | "high";
+  /** Cap on completion tokens, reasoning included. */
+  maxTokens?: number;
+}
+
+export interface ClientOptions {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  /** Options sent with every call unless the call overrides them. */
+  defaults?: ChatOptions;
 }
 
 /** Running token totals; reasoning tokens are counted inside completion tokens. */
@@ -29,18 +41,26 @@ export interface Usage {
 export class ModelClient {
   readonly usage: Usage = { calls: 0, promptTokens: 0, completionTokens: 0 };
 
-  constructor(protected readonly opts: { baseUrl: string; apiKey: string; model: string }) {}
+  constructor(protected readonly opts: ClientOptions) {}
 
   get model() {
     return this.opts.model;
   }
 
-  async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
+  /** A call's options on top of the client's defaults. */
+  protected withDefaults(options: ChatOptions): ChatOptions {
+    return this.opts.defaults ? { ...this.opts.defaults, ...options } : options;
+  }
+
+  async chat(messages: ChatMessage[], callOptions: ChatOptions = {}): Promise<string> {
+    const options = this.withDefaults(callOptions);
     const body = {
       model: options.model ?? this.opts.model,
       messages,
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.schema && { response_format: { type: "json_schema", json_schema: options.schema } }),
+      ...(options.reasoningEffort && { reasoning_effort: options.reasoningEffort }),
+      ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
     };
     const data = (await this.post("/chat/completions", body)) as {
       choices?: { message?: { content?: string } }[];

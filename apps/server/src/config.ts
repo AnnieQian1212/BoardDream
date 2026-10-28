@@ -19,10 +19,15 @@ export const config = {
     image: env("IMAGE_MODEL", "muse-image-1.0"),
     sam: env("SAM_MODEL", "sam-3.1"),
   },
-  /** Muse Spark Open on an OpenAI-compatible host, for high-volume bot play. */
+  /** Muse Spark Open on an OpenAI-compatible host (Baseten), for high-volume opponent play. */
   openModel: {
     baseUrl: env("OPEN_MODEL_BASE_URL"),
     apiKey: env("OPEN_MODEL_API_KEY"),
     model: env("OPEN_MODEL", "meta-models/muse-spark-open-1026"),
+    // At its default effort it can spend 3,000 tokens thinking before a one-line JSON move; low
+    // effort answers in a few seconds.
+    defaults: { reasoningEffort: "low", maxTokens: 4096 } as const,
   },
 };
+
+export const hasOpenModel = () => Boolean(config.openModel.apiKey && config.openModel.baseUrl);
