@@ -1306,6 +1306,31 @@ button.pile-count.target {
   position: relative;
 }
 
+.progress.indeterminate .progress-bar {
+  width: 40%;
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.align-report {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.align-report svg {
+  color: var(--accent);
+}
+
 /* ---------- Table talk ---------- */
 
 .speech {

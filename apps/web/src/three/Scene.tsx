@@ -6,7 +6,7 @@ import { easing } from "maath";
 import { ToneMappingMode } from "postprocessing";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Object3D, PerspectiveCamera, Vector3 } from "three";
-import { Board3D } from "./Board3D";
+import { Board3D, type BoardPaint } from "./Board3D";
 import { fitCamera, FOV, type Insets } from "./camera";
 import { Card3D, Deck3D } from "./Card3D";
 import { LabelTracker } from "./Labels";
@@ -29,6 +29,8 @@ interface Props {
   /** Seat that made the last move: cards leaving the table fly to their mat. */
   mover?: number;
   quality: Quality;
+  /** Painted board art, when the game has some. */
+  boardPaint?: BoardPaint;
   /** Called when animation runs too slowly, to step the quality down. */
   onSlow?(): void;
   onPick(id: string, x: number, y: number): void;
@@ -38,7 +40,7 @@ interface Props {
  * The table renders on demand: every animated object asks for another frame only while it is
  * still moving, so a settled table costs nothing.
  */
-export function Scene({ layout, resources, targets, insets, labels, mover, quality, onSlow, onPick }: Props) {
+export function Scene({ layout, resources, targets, insets, labels, mover, quality, boardPaint, onSlow, onPick }: Props) {
   const leaving = useLeaving(layout, mover);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [layout, quality, invalidate]);
@@ -67,7 +69,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
         <Mat3D key={mat.id} mat={mat} />
       ))}
       <LabelTracker anchors={labels.anchors} layer={labels.layer} />
-      {layout.board && <Board3D board={layout.board} targets={targets} onPick={onPick} />}
+      {layout.board && <Board3D board={layout.board} targets={targets} paint={boardPaint} onPick={onPick} />}
       {layout.decks.map((deck) => (
         <Deck3D key={deck.id} item={deck} onPick={onPick} />
       ))}

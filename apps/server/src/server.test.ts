@@ -3,6 +3,9 @@ import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest } from "./agent/playtest";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
+import { renderGuide } from "./art/board";
+import { encodePng, pngSize } from "./art/png";
+import { squareGridGeometry } from "@boarddream/engine";
 import { loadGameFromSource } from "./sandbox";
 
 // What a generated module looks like: take 1-3 stones, last stone wins.
@@ -86,6 +89,20 @@ describe("playtest", () => {
 describe("extractCode", () => {
   it("takes the first fenced block", () => {
     expect(extractCode("Here you go:\n```js\nmodule.exports = {};\n```\nDone.")).toBe("module.exports = {};");
+  });
+});
+
+describe("board art", () => {
+  it("writes PNGs whose header reports their size", () => {
+    const png = encodePng(3, 2, new Uint8Array(3 * 2 * 4).fill(200));
+    expect(pngSize(png)).toEqual({ width: 3, height: 2 });
+    expect(pngSize(new Uint8Array([1, 2, 3]))).toBeUndefined();
+  });
+
+  it("renders a guide image at the board's aspect ratio", () => {
+    const { png, size } = renderGuide(squareGridGeometry(4, 2));
+    expect(pngSize(png)).toEqual({ width: 1536, height: 768 });
+    expect(size.scale).toBe(384);
   });
 });
 

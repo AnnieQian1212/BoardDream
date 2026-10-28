@@ -10,6 +10,7 @@ import { labelAnchors, Labels } from "./Labels";
 import { layoutTable } from "./layout";
 import { FONT_DISPLAY, FONT_UI } from "./paint";
 import { initialTier, settings, stepDown } from "./quality";
+import type { BoardPaint } from "./Board3D";
 import { Scene, type Insets } from "./Scene";
 import { cardFace } from "./textures";
 
@@ -24,6 +25,8 @@ interface Props {
   speech?: Speech;
   /** Painted card art by card title. */
   art?: Map<string, string>;
+  /** Painted board art. */
+  boardPaint?: BoardPaint;
   onMove(move: unknown): void;
   onRestart(): void;
 }
@@ -76,7 +79,7 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, speech, art, onMove, onRestart }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, onMove, onRestart }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
@@ -155,6 +158,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
               labels={labels}
               mover={mover}
               quality={quality}
+              boardPaint={boardPaint}
               onSlow={START.locked ? undefined : () => setTier((t) => stepDown(t))}
               onPick={pick}
             />

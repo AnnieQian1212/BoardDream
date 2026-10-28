@@ -2,7 +2,7 @@ import { createRng, resolveParams, type BalanceStats, type GameModule, type Para
 import { referenceGames } from "@boarddream/library";
 import { Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { collectCards, useArt } from "./art";
+import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
@@ -81,8 +81,9 @@ export function App() {
       })
       .catch(() => {});
   }, []);
-  const { art, painting, paint } = useArt(game);
+  const { art, painting, paint, board, boardStep, paintBoard } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
+  const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
   // Games generated earlier on this machine join the picker; ?game=<id> can open one of them.
   useEffect(() => {
     let cancelled = false;
@@ -185,7 +186,7 @@ export function App() {
           <Table key={tableKey} {...tableProps} />
         </div>
       ) : (
-        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} art={art} />
+        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} art={art} boardPaint={board?.paint} />
       )}
 
       <header className="topbar">
@@ -238,8 +239,15 @@ export function App() {
           simGames={SIM_GAMES}
           onChange={(players, nextParams) => configure(game, players, nextParams)}
         />
-        {cardCount > 0 && (
-          <ArtPanel cards={cardCount} painted={art.size} painting={painting} available={hasApiKey} onPaint={() => void paint()} />
+        {(cardCount > 0 || hasBoard) && (
+          <ArtPanel
+            cards={cardCount}
+            painted={art.size}
+            painting={painting}
+            available={hasApiKey}
+            onPaint={() => void paint()}
+            board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
+          />
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>

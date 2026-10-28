@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { designGame } from "./agent/designer";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
+import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
 import type { GameRequest } from "./agent/spec";
 import { config } from "./config";
@@ -27,6 +28,28 @@ app.get("/api/games", (c) => c.json(listGames()));
 // Card art: the manifest (card title -> file), the image files, and painting a deck with progress
 // streamed as server-sent events ("card" per finished illustration, then "done").
 app.get("/api/art/:game", (c) => c.json(readManifest(c.req.param("game"))));
+
+// Board art: the alignment report (with painted tile sources per kind), and painting with progress.
+app.get("/api/art/:game/board", (c) => {
+  const report = boardReport(c.req.param("game"));
+  return report ? c.json(report) : c.json({ error: "no board art yet" }, 404);
+});
+
+app.post("/api/art/:game/board", async (c) => {
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
+  const game = c.req.param("game");
+  const request = await c.req.json<BoardRequest>();
+  return streamSSE(c, async (stream) => {
+    try {
+      const report = await paintBoard(painter, { image: config.models.image, sam: config.models.sam }, game, request, (step) => {
+        void stream.writeSSE({ event: "step", data: step });
+      });
+      await stream.writeSSE({ event: "done", data: JSON.stringify(report) });
+    } catch (err) {
+      await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+    }
+  });
+});
 
 app.get("/api/art/:game/:file", (c) => {
   const bytes = artFile(c.req.param("game"), c.req.param("file"));

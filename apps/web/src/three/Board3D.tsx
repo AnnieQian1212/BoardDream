@@ -3,7 +3,7 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Color, ExtrudeGeometry, LatheGeometry, Shape, Vector2, type Group, type Mesh, type MeshStandardMaterial } from "three";
+import { Color, ExtrudeGeometry, LatheGeometry, Shape, SRGBColorSpace, TextureLoader, Vector2, type Group, type Mesh, type MeshStandardMaterial, type Texture } from "three";
 import { playerColor } from "../colors";
 import { HIGHLIGHT } from "./Card3D";
 import { setCursor } from "./hover";
@@ -52,15 +52,49 @@ const centroid = (polygon: [number, number][]): [number, number] => [
   polygon.reduce((sum, [, y]) => sum + y, 0) / polygon.length,
 ];
 
+/** A painted board (Muse Image, checked by SAM 3.1): the image, and per tile kind the centers of painted tiles. */
+export interface BoardPaint {
+  url: string;
+  width: number;
+  height: number;
+  sources: Record<string, [number, number][]>;
+}
+
 interface Props {
   board: BoardItem;
   targets: Set<string>;
+  paint?: BoardPaint;
   onPick(id: string, x: number, y: number): void;
 }
 
+/** Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id. */
+function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell): [number, number] | undefined {
+  const sources = paint?.sources[cell.kind ?? "plain"];
+  return sources?.length ? sources[hash(cell.id) % sources.length] : undefined;
+}
+
 /** The engine's board geometry as raised tiles on a slab, with pieces that slide between cells. */
-export function Board3D({ board, targets, onPick }: Props) {
+export function Board3D({ board, targets, paint, onPick }: Props) {
   const { geometry, scale: k, width, depth, position } = board;
+  const invalidate = useThree((s) => s.invalidate);
+  // Plain tiles until the painting has loaded, so a large image never shows as black tiles.
+  const [texture, setTexture] = useState<Texture>();
+  useEffect(() => {
+    setTexture(undefined);
+    if (!paint) return;
+    let alive = true;
+    const t = new TextureLoader().load(paint.url, () => {
+      if (!alive) return;
+      setTexture(t);
+      invalidate();
+    });
+    t.colorSpace = SRGBColorSpace;
+    t.anisotropy = 8;
+    return () => {
+      alive = false;
+      t.dispose();
+    };
+  }, [paint, invalidate]);
   // Rebuild the printed labels only when their text changes, not on every move.
   const labelKey = geometry.cells.map((c) => (c.label ? `${c.id}:${c.label}` : "")).join("|");
   const margin = (width - geometry.width * k) / 2 / k;
@@ -76,7 +110,15 @@ export function Board3D({ board, targets, onPick }: Props) {
       {geometry.cells
         .filter((cell) => cell.kind !== "label")
         .map((cell) => (
-          <Tile key={cell.id} cell={cell} k={k} at={toWorld(...centroid(cell.polygon))} target={targets.has(cell.id)} onPick={onPick} />
+          <Tile
+            key={cell.id}
+            cell={cell}
+            k={k}
+            at={toWorld(...centroid(cell.polygon))}
+            target={targets.has(cell.id)}
+            painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
+            onPick={onPick}
+          />
         ))}
       <mesh rotation-x={-Math.PI / 2} position={[0, TILE_TOP + 0.02, 0]} raycast={noRaycast}>
         <planeGeometry args={[width, depth]} />
@@ -89,7 +131,17 @@ export function Board3D({ board, targets, onPick }: Props) {
   );
 }
 
-function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; at: [number, number]; target: boolean; onPick: Props["onPick"] }) {
+interface TileProps {
+  cell: GeometryCell;
+  k: number;
+  at: [number, number];
+  target: boolean;
+  /** The painted board and where this tile's art sits on it. */
+  painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
+  onPick: Props["onPick"];
+}
+
+function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -103,10 +155,24 @@ function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; 
     const shape = new Shape(cell.polygon.map(([x, y]) => new Vector2(shrink(x, cx), -shrink(y, cy))));
     const bevel = spot ? BEVEL * 0.5 : BEVEL;
     const g = new ExtrudeGeometry(shape, { depth: spot ? SPOT : TILE, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 1 });
-    return g.rotateX(-Math.PI / 2).translate(0, BEVEL, 0);
-  }, [cell.polygon, k]);
+    g.rotateX(-Math.PI / 2).translate(0, BEVEL, 0);
+    if (painted) {
+      // Map the tile's top onto its source tile in the painting (board units, flipped for the texture).
+      const [sx, sy] = painted.source;
+      const { width: w, height: h } = painted.paint;
+      const pos = g.attributes.position;
+      const uv = g.attributes.uv;
+      const unit = k * 0.9;
+      for (let i = 0; i < pos.count; i++) uv.setXY(i, (sx + pos.getX(i) / unit) / w, 1 - (sy + pos.getZ(i) / unit) / h);
+      uv.needsUpdate = true;
+    }
+    return g;
+    // The painted prop is rebuilt every render; only its content matters here.
+  }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   const base = useMemo(() => new Color(tileColor(cell)), [cell]);
+  // On a painted tile the art shows through; ownership tints it.
+  const tint = useMemo(() => new Color(cell.owner !== undefined ? mix(playerColor(cell.owner), "#ffffff", 0.45) : "#ffffff"), [cell.owner]);
   const highlight = useMemo(() => new Color(HIGHLIGHT), []);
 
   useFrame((state, delta) => {
@@ -139,7 +205,15 @@ function Tile({ cell, k, at, target, onPick }: { cell: GeometryCell; k: number; 
         if (target) onPick(cell.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
       }}
     >
-      <meshStandardMaterial ref={material} color={base} emissive={highlight} emissiveIntensity={0} roughness={0.68} />
+      {painted ? (
+        <>
+          {/* Extrude groups: 0 is the top and bottom caps (painted), 1 the sides. */}
+          <meshStandardMaterial ref={material} attach="material-0" map={painted.texture} color={tint} emissive={highlight} emissiveIntensity={0} roughness={0.72} />
+          <meshStandardMaterial attach="material-1" color={base} roughness={0.72} />
+        </>
+      ) : (
+        <meshStandardMaterial ref={material} color={base} emissive={highlight} emissiveIntensity={0} roughness={0.68} />
+      )}
     </mesh>
   );
 }

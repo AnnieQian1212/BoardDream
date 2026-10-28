@@ -1,6 +1,35 @@
 import { createRng, resolveParams, type CardView, type GameModule } from "@boarddream/engine";
 import { useEffect, useState } from "react";
 import { readEvents } from "./sse";
+import type { BoardPaint } from "./three/Board3D";
+
+/** The SAM 3.1 alignment check of a painted board (apps/server/src/art/board.ts). */
+export interface BoardReport {
+  width: number;
+  height: number;
+  sources: Record<string, [number, number][]>;
+  meanIoU: number;
+  alignedShare: number;
+  tiles: number;
+  firstMeanIoU: number;
+  repainted: boolean;
+}
+
+export interface BoardArt {
+  paint: BoardPaint;
+  report: BoardReport;
+}
+
+const boardArt = (gameId: string, report: BoardReport, version: string): BoardArt => ({
+  paint: { url: `/api/art/${gameId}/board.png?v=${version}`, width: report.width, height: report.height, sources: report.sources },
+  report,
+});
+
+/** The board a game starts with: what the painter paints over. */
+export function startingGeometry(game: GameModule) {
+  const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
+  return game.geometry?.(game.setup({ numPlayers: players, params: resolveParams(game.params), rng: createRng(1) }));
+}
 
 /**
  * Card art painted by Muse Image (server: apps/server/src/art/cards.ts). Art is keyed by card title,
@@ -37,11 +66,20 @@ export function collectCards(game: GameModule, games = 4): CardView[] {
 export function useArt(game: GameModule) {
   const [art, setArt] = useState<ArtMap>(new Map());
   const [painting, setPainting] = useState<{ done: number; total: number } | null>(null);
+  const [board, setBoard] = useState<BoardArt>();
+  const [boardStep, setBoardStep] = useState<string | null>(null);
   const id = game.meta.id;
 
   useEffect(() => {
     setArt(new Map());
+    setBoard(undefined);
     let cancelled = false;
+    fetch(`/api/art/${id}/board`)
+      .then((res) => (res.ok ? (res.json() as Promise<BoardReport>) : undefined))
+      .then((report) => {
+        if (!cancelled && report) setBoard(boardArt(id, report, report.meanIoU.toFixed(6)));
+      })
+      .catch(() => {});
     fetch(`/api/art/${id}`)
       .then((res) => (res.ok ? (res.json() as Promise<Record<string, string>>) : ({} as Record<string, string>)))
       .then((manifest) => {
@@ -80,5 +118,25 @@ export function useArt(game: GameModule) {
     }
   }
 
-  return { art, painting, paint };
+  async function paintBoard() {
+    const geometry = startingGeometry(game);
+    if (!geometry) return;
+    setBoardStep("Starting…");
+    try {
+      const res = await fetch(`/api/art/${id}/board`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ game: game.meta.name, summary: game.meta.summary, geometry }),
+      });
+      if (!res.ok) throw new Error(res.statusText);
+      await readEvents(res, (event, data) => {
+        if (event === "step") setBoardStep(`${data[0].toUpperCase()}${data.slice(1)}…`);
+        if (event === "done") setBoard(boardArt(id, JSON.parse(data) as BoardReport, String(Date.now())));
+      });
+    } finally {
+      setBoardStep(null);
+    }
+  }
+
+  return { art, painting, paint, board, boardStep, paintBoard };
 }
