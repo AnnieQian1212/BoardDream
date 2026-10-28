@@ -54,6 +54,9 @@ const referenceBots: Record<string, Bot> = {
 const quickBot = heuristicBot();
 const thoroughBot = heuristicBot({ rollouts: 6, depth: 16 });
 
+/** The game's own bot, if it has one. */
+export const ownBot = (game: GameModule): Bot | undefined => referenceBots[game.meta.id];
+
 /** Fast enough for balance simulations of hundreds of games. */
 export const defaultBot = (game: GameModule): Bot => referenceBots[game.meta.id] ?? quickBot;
 

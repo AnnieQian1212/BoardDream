@@ -1,4 +1,4 @@
-import { createRng, evaluate, fuzz, heuristicBot, playMatch, randomBot, simulate, type Bot } from "@boarddream/engine";
+import { createRng, evaluate, fuzz, heuristicBot, measureProfile, playMatch, profileGame, randomBot, scoreProfile, simulate, type Bot } from "@boarddream/engine";
 import { describe, expect, it } from "vitest";
 import {
   catalog,
@@ -19,6 +19,7 @@ import {
   liarsDice,
   liarsDiceBot,
   lineUp,
+  ownBot,
   raceHome,
   referenceGames,
   reversi,
@@ -509,6 +510,27 @@ describe("wildmere", () => {
     const asFirst = simulate(wildmere, { numPlayers: 2, games: 10, bots: [bot, randomBot] });
     const asSecond = simulate(wildmere, { numPlayers: 2, games: 10, seed: 500, bots: [randomBot, bot] });
     expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2).toBeGreaterThan(0.85);
+  });
+});
+
+describe("game profile", () => {
+  it("rates an abstract as luck-free and interactive, a dice race as luck-driven and solitary", () => {
+    const abstract = profileGame(reversi, { numPlayers: 2, games: 6 });
+    expect(abstract.measures.setupChance).toBe(false);
+    expect(abstract.measures.chanceRate).toBe(0);
+    expect(abstract.luck).toBe(1);
+    expect(abstract.interaction).toBeGreaterThanOrEqual(4.5);
+    const race = profileGame(raceHome, { numPlayers: 2, games: 6 });
+    expect(race.luck).toBeGreaterThanOrEqual(4);
+    expect(race.interaction).toBeLessThan(1.5);
+    expect(race.strategy).toBeUndefined();
+  });
+
+  it("measures strategy with a planner and ranks heavier games as more complex", () => {
+    const measures = measureProfile(liarsDice, { numPlayers: 2, games: 6, planner: ownBot(liarsDice), plannerGames: 10 });
+    expect(measures.plannerWinRate).toBeGreaterThan(0.7);
+    expect(scoreProfile(measures).strategy).toBeGreaterThan(3.5);
+    expect(profileGame(highsail, { games: 4 }).complexity).toBeGreaterThan(profileGame(lineUp, { numPlayers: 2, games: 4 }).complexity + 1.5);
   });
 });
 

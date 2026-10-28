@@ -1,4 +1,4 @@
-import { createRng, heuristicBot, randomBot, resolveParams, simulate, type GameModule } from "@boarddream/engine";
+import { createRng, heuristicBot, plannerWinRate, randomBot, resolveParams, simulate, type GameModule } from "@boarddream/engine";
 
 /**
  * After rules pass fuzzing (they never break), a quick playtest looks for games that work but
@@ -71,22 +71,12 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
     truncatedRate: stats.truncatedRate,
     moveKinds: [...kinds].sort(),
     choiceRate: turns ? choices / turns : 0,
-    plannerWinRate: skillMeasurable(game) && plannerGames > 0 ? plannerWinRate(game, numPlayers, plannerGames, onGame) : undefined,
+    // The planner takes each seat in turn against random players.
+    plannerWinRate:
+      skillMeasurable(game) && plannerGames > 0
+        ? plannerWinRate(game, heuristicBot({ rollouts: 6, depth: 16 }), { numPlayers, games: plannerGames, onGame })
+        : undefined,
   };
-}
-
-/** The planner takes each seat in turn against random players. */
-function plannerWinRate(game: GameModule, numPlayers: number, games: number, onGame?: (seed: number) => void): number | undefined {
-  const planner = heuristicBot({ rollouts: 6, depth: 16 });
-  let wins = 0;
-  let played = 0;
-  for (let seat = 0; seat < numPlayers; seat++) {
-    const bots = Array.from({ length: numPlayers }, (_, i) => (i === seat ? planner : randomBot));
-    const stats = simulate(game, { numPlayers, games: Math.ceil(games / numPlayers), seed: 1000 + 100 * seat, bots, onGame });
-    wins += stats.winRateBySeat[seat] * stats.games;
-    played += stats.games;
-  }
-  return played ? wins / played : undefined;
 }
 
 /**

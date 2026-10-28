@@ -1,4 +1,4 @@
-import { createRng, resolveParams, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
+import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
 import { Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -7,9 +7,11 @@ import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
+import { ProfilePanel } from "./components/ProfilePanel";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, loadGeneratedGame } from "./generated";
 import { decide, type Decision } from "./opponents";
+import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
 import { Tabletop } from "./three/Tabletop";
 
@@ -69,6 +71,7 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
+  const [profile, setProfile] = useState<{ profile?: GameProfile; pending: boolean; error?: string }>({ pending: true });
   // Muse Spark (Open, when the server hosts it) plays the social moves: offers, bids, bluffs.
   const [muse, setMuse] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -159,6 +162,20 @@ export function App() {
     };
   }, [game, numPlayers, params]);
 
+  // The profile is measured in its own worker: its planner games take longer than a balance run.
+  useEffect(() => {
+    setProfile({ pending: true });
+    const worker = new Worker(new URL("./profile.worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (event: MessageEvent<{ profile?: GameProfile; pending?: boolean; error?: string }>) =>
+      setProfile((current) => ({ profile: event.data.profile ?? current.profile, pending: event.data.pending ?? false, error: event.data.error }));
+    const request: ProfileRequest = { gameId: game.meta.id, source: generatedSource(game), numPlayers, params };
+    const timer = setTimeout(() => worker.postMessage(request), 400);
+    return () => {
+      clearTimeout(timer);
+      worker.terminate();
+    };
+  }, [game, numPlayers, params]);
+
   function configure(nextGame: GameModule, nextPlayers: number, nextParams: Params) {
     setGame(nextGame);
     setNumPlayers(nextPlayers);
@@ -242,6 +259,7 @@ export function App() {
           simGames={SIM_GAMES}
           onChange={(players, nextParams) => configure(game, players, nextParams)}
         />
+        <ProfilePanel profile={profile.profile} pending={profile.pending} error={profile.error} />
         {(cardCount > 0 || hasBoard) && (
           <ArtPanel
             cards={cardCount}
