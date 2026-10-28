@@ -37,12 +37,20 @@ interface LabelsProps {
   layer: RefObject<HTMLDivElement | null>;
   /** Ids legal moves act on; a targeted counter chip becomes a button. */
   targets: Set<string>;
+  /** Table talk to show at a seat's mat. */
+  speech?: { id: number; seat: number; text: string };
   onPick(id: string, x: number, y: number): void;
 }
 
-export function Labels({ layout, resources, layer, targets, onPick }: LabelsProps) {
+export function Labels({ layout, resources, layer, targets, speech, onPick }: LabelsProps) {
+  const speaker = speech && layout.badges.find((b) => b.seat === speech.seat);
   return (
     <div className="labels" ref={layer}>
+      {speech && speaker && (
+        <div key={`speech-${speech.id}`} className="label" data-anchor={`badge:${speaker.id}`}>
+          <div className="speech above">{speech.text}</div>
+        </div>
+      )}
       {layout.badges.map((badge) => {
         const score = badge.counters.find((c) => SCORE.test(c.label));
         const rest = badge.counters.filter((c) => c !== score);

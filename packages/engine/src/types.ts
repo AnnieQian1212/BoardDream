@@ -33,6 +33,8 @@ export interface GameMeta {
   minPlayers: number;
   maxPlayers: number;
   summary: string;
+  /** The rules in a few short sentences, for players and for AI opponents. */
+  rules?: string[];
   resources?: ResourceSpec[];
 }
 

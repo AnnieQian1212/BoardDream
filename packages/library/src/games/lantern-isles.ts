@@ -173,6 +173,13 @@ export const lanternIsles: GameModule<LanternState, LanternMove, LanternParams> 
     minPlayers: 2,
     maxPlayers: 4,
     summary: "Settle an archipelago where the tides decide what each coast yields; trade, build and light the lagoons.",
+    rules: [
+      "Villages sit on tile corners (never next to another village) and roads run along edges from your own network.",
+      "Each turn a tide card names a terrain; every village next to it gains that resource, towns gain double.",
+      "Costs: road = wood + stone; village = wood + grain + fish; town upgrade = 2 grain + 2 stone; lantern on a lagoon = 2 fish + wood + stone.",
+      "Village 1 point, town 2, lantern 2. First to the target score wins, otherwise the most points at the round limit.",
+      "Up to three trades a turn: 3 of one resource to the bank for any 1, or offer a player a one-for-one swap they may accept or decline.",
+    ],
     resources: LANTERN_RESOURCES,
   },
   params: [

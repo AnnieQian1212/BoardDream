@@ -62,6 +62,12 @@ export const glasshouse: GameModule<GlasshouseState, GlasshouseMove, GlasshouseP
     minPlayers: 2,
     maxPlayers: 4,
     summary: "Grow a greenhouse whose plants feed each other; harvest your engine and score the best collection.",
+    rules: [
+      "Each turn take one action: gather 2 of one resource, plant a card from hand by paying its cost, take a market card, draw from the deck, or harvest.",
+      "Harvest triggers the income of every plant you have planted.",
+      "Plants score their points, plus end-game bonuses per tag.",
+      "Highest score after the last turn wins.",
+    ],
     resources: GLASSHOUSE_RESOURCES,
   },
   params: [

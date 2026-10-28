@@ -4,6 +4,7 @@ import { Bm25Index } from "@boarddream/retrieval";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { designGame } from "./agent/designer";
+import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import type { GameRequest } from "./agent/spec";
 import { config } from "./config";
 import { ModelClient } from "./meta/client";
@@ -20,6 +21,17 @@ app.get("/api/health", (c) => c.json({ ok: true, hasApiKey: Boolean(config.meta.
 app.get("/api/catalog", (c) => c.json(catalog));
 
 app.get("/api/games", (c) => c.json(listGames()));
+
+// One decision for a Muse Spark opponent: a legal move index and a line of table talk.
+app.post("/api/opponent", async (c) => {
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
+  const request = await c.req.json<OpponentRequest>();
+  try {
+    return c.json(await chooseMove(designer, request));
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
+  }
+});
 
 app.get("/api/games/:id", (c) => {
   const source = gameSource(c.req.param("id"));

@@ -1,12 +1,13 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
-import { referenceGames, tableBot } from "@boarddream/library";
-import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import { referenceGames } from "@boarddream/library";
+import { Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, loadGeneratedGame } from "./generated";
+import { decide, type Decision } from "./opponents";
 import type { SimRequest } from "./sim.worker";
 import { Tabletop } from "./three/Tabletop";
 
@@ -40,18 +41,12 @@ interface Match {
   log: LogEntry[];
 }
 
-function applyMove(game: GameModule, match: Match, seat: number, move: unknown): Match {
+function applyMove(game: GameModule, match: Match, seat: number, move: unknown, say?: string): Match {
   // Described from the human's seat, so rivals' hidden cards stay hidden in the log.
   const text = game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move);
   const state = game.applyMove(match.state, seat, move, match.rng);
   const id = (match.log.at(-1)?.id ?? 0) + 1;
-  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text }] };
-}
-
-function botMove(game: GameModule, match: Match, seat: number): Match {
-  const view = game.view ? game.view(match.state, seat) : match.state;
-  const move = tableBot(game)({ game, state: view, player: seat, moves: game.legalMoves(match.state, seat), rng: match.rng });
-  return applyMove(game, match, seat, move);
+  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text, say }] };
 }
 
 function startMatch(game: GameModule, numPlayers: number, params: Params): Match {
@@ -72,6 +67,14 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
+  // Muse Spark plays the social moves (offers, bids, bluffs) when the server has an API key.
+  const [muse, setMuse] = useState(false);
+  useEffect(() => {
+    fetch("/api/health")
+      .then((res) => res.json() as Promise<{ hasApiKey?: boolean }>)
+      .then((health) => setMuse(Boolean(health.hasApiKey) && !query.has("bots")))
+      .catch(() => {});
+  }, []);
   // Games generated earlier on this machine join the picker; ?game=<id> can open one of them.
   useEffect(() => {
     let cancelled = false;
@@ -113,14 +116,23 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Bots take their turns one at a time.
+  // Bots take their turns one at a time. Muse Spark may take a few seconds on a social move; a
+  // decision for a state that has since changed (new game, undo) is dropped.
   useEffect(() => {
     if (game.isTerminal(match.state)) return;
     const [seat] = game.activePlayers(match.state);
     if (seat === HUMAN && !WATCH) return;
-    const timer = setTimeout(() => setMatch(botMove(game, match, seat)), BOT_DELAY);
-    return () => clearTimeout(timer);
-  }, [game, match]);
+    let cancelled = false;
+    const recent = match.log.map((e) => `${e.seat === seat ? "You" : `P${e.seat + 1}`} ${e.text}${e.say ? ` ("${e.say}")` : ""}`);
+    const timer = setTimeout(async () => {
+      const decision: Decision = await decide(game, match.state, seat, numPlayers, recent, match.rng, muse);
+      if (!cancelled) setMatch((current) => (current === match ? applyMove(game, match, seat, decision.move, decision.say) : current));
+    }, BOT_DELAY);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [game, match, muse, numPlayers]);
 
   // Re-simulate in a worker whenever the rules or sliders change; a new setting cancels the old run.
   useEffect(() => {
@@ -144,6 +156,10 @@ export function App() {
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
 
+  // The latest table talk among the last few moves.
+  const spoken = match.log.slice(-4).findLast((e) => e.say);
+  const speech = spoken ? { id: spoken.id, seat: spoken.seat, text: spoken.say! } : undefined;
+
   const tableProps = {
     game,
     state: match.state,
@@ -161,7 +177,7 @@ export function App() {
           <Table key={tableKey} {...tableProps} />
         </div>
       ) : (
-        <Tabletop key={tableKey} {...tableProps} insets={insets} />
+        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} />
       )}
 
       <header className="topbar">
@@ -180,6 +196,14 @@ export function App() {
           </select>
         </label>
         <span className="tagline">{game.meta.summary}</span>
+        <button
+          type="button"
+          className={["ghost", muse && "on"].filter(Boolean).join(" ")}
+          onClick={() => setMuse(!muse)}
+          title="Muse Spark plays the opponents' trades, bids and bluffs"
+        >
+          <Sparkles size={15} /> {muse ? "Muse opponents" : "Bot opponents"}
+        </button>
         <button type="button" className="ghost" onClick={() => setFocus(!focus)} title="Toggle the side panels (F)">
           {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />} {focus ? "Panels" : "Focus"}
         </button>

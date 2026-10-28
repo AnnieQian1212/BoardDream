@@ -71,6 +71,7 @@ export interface BadgeItem {
   note?: string;
   active: boolean;
   you: boolean;
+  seat?: number;
 }
 
 export interface BoardItem {
@@ -160,6 +161,7 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
         note: panel.note,
         active,
         you: opts.you,
+        seat,
       });
 
       piles.forEach((counter, i) => {

@@ -64,6 +64,12 @@ export const liarsDice: GameModule<LiarsDiceState, LiarsDiceMove, LiarsDiceParam
     mode: "competitive",
     minPlayers: 2,
     maxPlayers: 6,
+    rules: [
+      "Everyone rolls their dice in secret.",
+      "On your turn, raise the bid (more dice, or the same count of a higher face) about how many dice of a face are on the whole table, or call liar on the last bid.",
+      "On a call all dice are revealed: if the bid was true the caller loses a die, otherwise the bidder does.",
+      "The last player with dice wins.",
+    ],
     summary: "Bid on hidden dice across the table or call liar; whoever is wrong loses a die.",
   },
   params: [

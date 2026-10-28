@@ -20,8 +20,29 @@ interface Props {
   human: number;
   /** Screen space covered by floating panels; the camera frames the table inside the rest. */
   insets: Insets;
+  /** The latest line of table talk, shown as a bubble at the speaker's seat for a few seconds. */
+  speech?: Speech;
   onMove(move: unknown): void;
   onRestart(): void;
+}
+
+export interface Speech {
+  id: number;
+  seat: number;
+  text: string;
+}
+
+const SPEECH_MS = 6000;
+
+/** The speech to show now: the latest one, until it has been up for a few seconds. */
+function useSpeech(speech: Speech | undefined): Speech | undefined {
+  const [hidden, setHidden] = useState<number>();
+  useEffect(() => {
+    if (!speech) return;
+    const timer = setTimeout(() => setHidden(speech.id), SPEECH_MS);
+    return () => clearTimeout(timer);
+  }, [speech]);
+  return speech && speech.id !== hidden ? speech : undefined;
 }
 
 // ?quality=lowest|low|medium|high pins the render quality; ?lowfx is the old spelling of low.
@@ -53,8 +74,9 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, onMove, onRestart }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, onMove, onRestart }: Props) {
   const fonts = useFontsReady();
+  const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
   const quality = useMemo(() => settings(tier), [tier]);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -134,7 +156,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, onMove, onRes
         </Canvas>
       )}
 
-      {fonts && <Labels layout={layout} resources={resources} layer={labelLayer} targets={targets} onPick={pick} />}
+      {fonts && <Labels layout={layout} resources={resources} layer={labelLayer} targets={targets} speech={talking} onPick={pick} />}
 
       {!hasSeats && (
         <div className="seat-strip" style={{ ...free, top: insets.top + 10 }}>
@@ -142,6 +164,11 @@ export function Tabletop({ game, state, numPlayers, human, insets, onMove, onRes
             <span key={seat} className={["seat-chip", seat === active && "active"].filter(Boolean).join(" ")} style={{ "--seat": playerColor(seat) } as CSSProperties}>
               <span className="seat-dot" />
               {seat === human ? "You" : `Player ${seat + 1}`}
+              {talking?.seat === seat && (
+                <span key={talking.id} className="speech below">
+                  {talking.text}
+                </span>
+              )}
             </span>
           ))}
         </div>

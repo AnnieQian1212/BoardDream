@@ -6,6 +6,8 @@ export interface LogEntry {
   id: number;
   seat: number;
   text: string;
+  /** What the player said while making the move (Muse Spark opponents). */
+  say?: string;
 }
 
 export function LogPanel({ entries, human }: { entries: LogEntry[]; human: number }) {
@@ -25,6 +27,7 @@ export function LogPanel({ entries, human }: { entries: LogEntry[]; human: numbe
               <li key={entry.id} style={{ "--seat": playerColor(entry.seat) } as CSSProperties}>
                 <span className="seat-dot" />
                 <b>{entry.seat === human ? "You" : `P${entry.seat + 1}`}</b> {entry.text}
+                {entry.say && <q className="log-say">{entry.say}</q>}
               </li>
             ))}
         </ol>
