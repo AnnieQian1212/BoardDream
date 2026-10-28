@@ -223,6 +223,8 @@ function record(s: FenlightState, seat: PlayerId): string {
 
 const LANTERN_W = 2.6;
 const BOARD_W = 16;
+/** Top of the row of player spaces; chips sit above and vote figures below. */
+const SEAT_Y = 5.6;
 
 export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> = {
   meta: {
@@ -364,23 +366,52 @@ export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> =
     // The village: one space per player, the exiled shown with their revealed role.
     const seatW = Math.min(2.2, (BOARD_W - 1) / v.numPlayers - 0.3);
     const seatGap = (BOARD_W - v.numPlayers * seatW) / (v.numPlayers + 1);
+    const seatX = (seat: PlayerId) => seatGap + seat * (seatW + seatGap);
     for (let seat = 0; seat < v.numPlayers; seat++) {
-      const x = seatGap + seat * (seatW + seatGap);
       const role = v.roles[seat];
       const kind = !v.alive[seat] ? `exiled-${role}` : role === "wisp" && seat !== viewer ? "known-wisp" : "villager";
       const label = !v.alive[seat] ? `${name(seat)} ${role === "wisp" ? "wisp" : "keeper"}` : seat === viewer ? `${name(seat)} you` : name(seat);
-      cells.push({ id: `seat-${seat}`, polygon: rectPolygon(x, 5.2, seatW, 1.6), kind, label, owner: v.alive[seat] ? seat : undefined });
+      cells.push({ id: `seat-${seat}`, polygon: rectPolygon(seatX(seat), SEAT_Y, seatW, 1.6), kind, label, owner: v.alive[seat] ? seat : undefined });
+    }
+    // Who said what, as chips in the speaker's color on the seat they spoke about: discs above it
+    // for accusations (and claims it put a lantern out), squares for vouches (and claims it kept its
+    // lantern lit). Figures below a seat are the votes it drew in the last vote.
+    const rows = new Map<string, PlayerId[]>();
+    const chip = (row: string, target: PlayerId, seat: PlayerId) => rows.set(`${row}:${target}`, [...(rows.get(`${row}:${target}`) ?? []), seat]);
+    for (const st of v.statements) {
+      if (st.kind === "quiet") continue;
+      chip(st.kind === "accuse" || (st.kind === "report" && st.dimmed) ? "against" : "for", st.target, st.seat);
+    }
+    const lastDay = v.days[v.days.length - 1];
+    lastDay?.ballots.forEach((ballot, seat) => ballot !== null && chip("vote", ballot, seat));
+    const ROW_Y: Record<string, number> = { against: SEAT_Y - 0.95, for: SEAT_Y - 0.45, vote: SEAT_Y + 2.05 };
+    for (const [key, seats] of rows) {
+      const [row, target] = key.split(":");
+      const step = Math.min(0.42, (seatW - 0.3) / Math.max(1, seats.length - 1));
+      const x0 = seatX(Number(target)) + seatW / 2 - (step * (seats.length - 1)) / 2;
+      seats.forEach((seat, i) => {
+        pieces.push({
+          id: `${row}-${target}-${seat}`,
+          x: x0 + i * step,
+          y: ROW_Y[row],
+          r: row === "vote" ? 0.24 : 0.19,
+          owner: seat,
+          shape: row === "against" ? "disc" : row === "for" ? "square" : "pawn",
+          cellId: `seat-${target}`,
+        });
+      });
     }
     const status =
       v.phase === "over"
         ? `${v.winner === "wisp" ? "The wisps" : "The keepers"} win · ${v.boatsLost} boats lost`
         : `Night ${v.night} of ${v.nights} · ${v.boatsLost}/${v.lostLimit} boats lost · ${v.phase === "night" ? "night" : v.phase === "day" ? `${name(v.speaker)} speaks` : "vote"}`;
-    cells.push({ id: "status", polygon: rectPolygon(0.5, 7.4, BOARD_W - 1, 0.9), kind: "label", label: status });
+    cells.push({ id: "status", polygon: rectPolygon(0.5, 9.0, BOARD_W - 1, 0.8), kind: "label", label: status });
+    cells.push({ id: "legend", polygon: rectPolygon(0.5, 9.8, BOARD_W - 1, 0.6), kind: "label", label: "Discs: accused by · Squares: vouched for by · Figures: last vote" });
     if (last) {
       const fog = v.fog ? `, fog hid ${v.fog}` : "";
       cells.push({ id: "report", polygon: rectPolygon(0.5, 0.1, BOARD_W - 1, 0.8), kind: "label", label: `Dawn ${last.night}: ${last.dark.length} looked dark, ${last.lost} boat${last.lost === 1 ? "" : "s"} lost${fog}` });
     }
-    return { width: BOARD_W, height: 8.5, cells, pieces };
+    return { width: BOARD_W, height: 10.6, cells, pieces };
   },
 
   panels(s, viewer) {
