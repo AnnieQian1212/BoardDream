@@ -27,6 +27,7 @@ npm run dev               # http://localhost:5173
 - `F` hides the side panels.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
 - **Results** (or `?results`) shows every benchmark on one page.
+- Deploying: a free static demo with AI opponents on Cloudflare Pages, or the full server in a container ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
 ```sh
 npm test

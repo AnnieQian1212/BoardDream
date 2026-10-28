@@ -41,7 +41,8 @@ const MODES: { value: PlayMode; label: string }[] = [
   { value: "hidden-role", label: "Hidden role" },
 ];
 
-export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): void }) {
+/** `available` is false when no server can generate (e.g. the static demo); games generated earlier still play. */
+export function CreatePanel({ available, onGenerated }: { available: boolean; onGenerated(game: GameModule): void }) {
   const [prompt, setPrompt] = useState("");
   const [dials, setDials] = useState<Dials>({
     minPlayers: 2,
@@ -128,9 +129,12 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
           </button>
         ))}
       </div>
-      <button type="submit" className="action wide" disabled={busy}>
+      <button type="submit" className="action wide" disabled={busy || !available}>
         <Wand2 size={16} /> {busy ? "Dreaming…" : "Generate game"}
       </button>
+      {!available && (
+        <p className="hint">This online demo plays games BoardDream generated earlier: pick one from the game menu at the top. Generating new ones needs the full server with a model key (see the README).</p>
+      )}
       {status && <p className="hint status-line">{status}</p>}
     </form>
   );

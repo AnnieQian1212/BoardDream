@@ -10,7 +10,7 @@ import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { ResultsPage } from "./components/ResultsPage";
 import { TuningPanel } from "./components/TuningPanel";
-import { generatedSource, loadGeneratedGame } from "./generated";
+import { generatedSource, savedGames } from "./generated";
 import { decide, type Decision } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
@@ -84,11 +84,13 @@ export function App() {
   const [muse, setMuse] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [opponentModel, setOpponentModel] = useState<string>();
+  const [canGenerate, setCanGenerate] = useState(false);
   useEffect(() => {
     fetch("/api/health")
-      .then((res) => res.json() as Promise<{ hasApiKey?: boolean; opponentModel?: string }>)
+      .then((res) => res.json() as Promise<{ hasApiKey?: boolean; canGenerate?: boolean; opponentModel?: string }>)
       .then((health) => {
         setHasApiKey(Boolean(health.hasApiKey));
+        setCanGenerate(Boolean(health.canGenerate));
         setOpponentModel(health.opponentModel);
         setMuse(Boolean(health.opponentModel) && !query.has("bots"));
       })
@@ -97,25 +99,15 @@ export function App() {
   const { art, painting, paint, board, boardStep, paintBoard } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
-  // Games generated earlier on this machine join the picker; ?game=<id> can open one of them.
+  // Games generated earlier (bundled demo games, and the server's when one runs) join the picker;
+  // ?game=<id> can open one of them.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const list = (await (await fetch("/api/games")).json()) as { id: string; rules?: string[] }[];
-      const loaded: GameModule[] = [];
-      for (const saved of list) {
-        try {
-          loaded.push(loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text(), saved.id, saved.rules));
-        } catch {
-          // A game that no longer loads (e.g. after an engine change) stays out of the picker.
-        }
-      }
+    void savedGames().then((loaded) => {
       if (cancelled || loaded.length === 0) return;
       setGames((current) => [...current, ...loaded.filter((g) => !current.some((c) => c.meta.id === g.meta.id))]);
       const wanted = loaded.find((g) => g.meta.id === query.get("game"));
       if (wanted) selectGame(wanted);
-    })().catch(() => {
-      // No server running: reference games only.
     });
     return () => {
       cancelled = true;
@@ -258,6 +250,7 @@ export function App() {
 
       <aside className="sidebar left">
         <CreatePanel
+          available={canGenerate}
           onGenerated={(g) => {
             setGames([...games, g]);
             selectGame(g);

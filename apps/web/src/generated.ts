@@ -12,6 +12,43 @@ const sources = new WeakMap<GameModule, string>();
 /** The rules source a generated game was loaded from, so a worker can load it too. */
 export const generatedSource = (game: GameModule) => sources.get(game);
 
+interface SavedGame {
+  id: string;
+  rules?: string[];
+}
+
+/**
+ * Games generated earlier: those bundled with the web app (public/demo-games, so a static deploy
+ * has some) and those the server saved, when one is running. A game that no longer loads, e.g.
+ * after an engine change, is left out.
+ */
+export async function savedGames(): Promise<GameModule[]> {
+  const fetchList = async (url: string): Promise<SavedGame[]> => {
+    try {
+      const res = await fetch(url);
+      return res.ok ? ((await res.json()) as SavedGame[]) : [];
+    } catch {
+      return [];
+    }
+  };
+  const bundled = `${import.meta.env.BASE_URL}demo-games/`;
+  const sources = [
+    ...(await fetchList(`${bundled}index.json`)).map((game) => ({ ...game, url: `${bundled}${game.id}.js` })),
+    ...(await fetchList("/api/games")).map((game) => ({ ...game, url: `/api/games/${game.id}` })),
+  ];
+  const games: GameModule[] = [];
+  for (const { id, rules, url } of sources) {
+    if (games.some((g) => g.meta.id === id)) continue;
+    try {
+      const res = await fetch(url);
+      if (res.ok) games.push(loadGeneratedGame(await res.text(), id, rules));
+    } catch {
+      // Skip it; the others still load.
+    }
+  }
+  return games;
+}
+
 /**
  * Runs generated rules that already passed server-side fuzzing and playtesting. `id` replaces the
  * game's own id (the saved game's id), so two generated games never collide.

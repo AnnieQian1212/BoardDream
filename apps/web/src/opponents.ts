@@ -47,7 +47,7 @@ export async function decide(
         seat,
         numPlayers,
         table: tableText(game, state, seat),
-        recent: recent.slice(-8),
+        recent: recent.slice(-14),
         moves: social.map(describe),
         advice: social.indexOf(botMove),
       }),

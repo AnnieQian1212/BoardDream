@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest, skillEdge } from "./agent/playtest";
+import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
@@ -156,5 +157,31 @@ describe("alignment", () => {
     expect(maskIoU(a, b)).toBeCloseTo(1 / 3);
     const report = alignmentReport(new Map([["c", a]]), new Map([["c", b]]));
     expect(report.misaligned.map((m) => m.id)).toEqual(["c"]);
+  });
+});
+
+describe("guard", () => {
+  it("limits each client per window and everyone per day", () => {
+    const limiter = new RateLimiter({ perClient: 2, windowMs: 1000, perDay: 3 });
+    const t = Date.parse("2026-10-28T12:00:00Z");
+    expect(limiter.take("a", t).ok).toBe(true);
+    expect(limiter.take("a", t + 1).ok).toBe(true);
+    expect(limiter.take("a", t + 2)).toMatchObject({ ok: false, retryAfterS: 1 });
+    // Once the window has passed the client may call again; that is the day's third call.
+    expect(limiter.take("a", t + 1001).ok).toBe(true);
+    expect(limiter.take("b", t + 1002)).toMatchObject({ ok: false, reason: expect.stringMatching(/daily/) });
+    expect(limiter.take("b", Date.parse("2026-10-29T00:00:01Z")).ok).toBe(true);
+  });
+
+  it("turns away opponent requests that are malformed or too large for the prompt", () => {
+    const fine = { game: "Fenlight", rules: ["Two wisps hide."], seat: 1, numPlayers: 6, table: "P1: Votes 0", recent: [], moves: ["accuse P2", "stay quiet"], advice: 1 };
+    expect(opponentRequestProblem(fine)).toBe(null);
+    expect(opponentRequestProblem({ ...fine, seat: 6 })).toMatch(/seat/);
+    expect(opponentRequestProblem({ ...fine, table: "x".repeat(9000) })).toMatch(/table/);
+    expect(opponentRequestProblem({ ...fine, moves: [] })).toMatch(/moves/);
+    expect(opponentRequestProblem({ ...fine, advice: 2 })).toMatch(/advice/);
+    expect(opponentRequestProblem("hello")).toMatch(/object/);
+    expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
+    expect(clientAddress(new Headers(), "127.0.0.1")).toBe("127.0.0.1");
   });
 });

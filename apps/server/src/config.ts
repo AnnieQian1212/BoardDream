@@ -1,3 +1,5 @@
+import { OPEN_MODEL_ID, OPEN_MODEL_OPTIONS } from "./meta/client";
+
 // Load the repo-root .env when present; real environment variables take precedence.
 try {
   process.loadEnvFile(new URL("../../../.env", import.meta.url));
@@ -9,6 +11,10 @@ const env = (name: string, fallback = "") => process.env[name] || fallback;
 
 export const config = {
   port: Number(env("PORT", "8787")),
+  /** A public deployment: model calls are rate-limited per client and per day (see guard.ts). */
+  publicDemo: env("PUBLIC_DEMO") === "1",
+  /** Also serve the built web app (apps/web/dist), so one process hosts everything. */
+  serveWeb: env("SERVE_WEB") === "1",
   meta: {
     baseUrl: env("META_BASE_URL", "https://api.meta.ai/v1"),
     apiKey: env("MODEL_API_KEY"),
@@ -23,10 +29,8 @@ export const config = {
   openModel: {
     baseUrl: env("OPEN_MODEL_BASE_URL"),
     apiKey: env("OPEN_MODEL_API_KEY"),
-    model: env("OPEN_MODEL", "meta-models/muse-spark-open-1026"),
-    // At its default effort it can spend 3,000 tokens thinking before a one-line JSON move; low
-    // effort answers in a few seconds.
-    defaults: { reasoningEffort: "low", maxTokens: 4096 } as const,
+    model: env("OPEN_MODEL", OPEN_MODEL_ID),
+    defaults: OPEN_MODEL_OPTIONS,
   },
 };
 

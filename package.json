@@ -13,7 +13,8 @@
     "eval:retrieval": "tsx eval/retrieval/run.ts",
     "eval:generation": "tsx eval/generation/run.ts",
     "eval:opponents": "tsx eval/opponents/run.ts",
-    "eval:reference": "tsx eval/reference/run.ts"
+    "eval:reference": "tsx eval/reference/run.ts",
+    "demo:games": "tsx apps/server/src/bundle-demo.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

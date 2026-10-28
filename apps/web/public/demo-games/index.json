@@ -1,0 +1,19 @@
+[
+  {
+    "id": "abbey-of-ink-and-vine",
+    "title": "Abbey of Ink and Vine",
+    "rules": [
+      "Play over 4 seasons. Each player starts with 5 monks, 2 Ink, 1 Gold, 1 Wine, plus 1 random Commission card in hand and 2 Prestige.",
+      "Each season players take turns clockwise placing 1 monk at a time until all monks are placed; on your turn you must place to an empty circle and resolve it immediately, or send to the Chapter House.",
+      "Copy Desk: pay 1 Ink to gain 1 Manuscript. Illumination Loft: pay 1 Manuscript and 1 Gold to gain 4 Prestige and advance 1 step on Devotion.",
+      "Vineyard Terraces (2 circles per season, first-come blocked): gain 2 Wine, or 3 Wine during the fourth season. Press Cellar (1 circle): gain 1 Gold for every 2 Wine you currently store, keeping the Wine.",
+      "Sell Stall: sell any mix of Manuscripts and Wine for 2 Gold each, plus 1 bonus Gold if you sell 3 or more at once. Supply Stall: buy up to 2 Ink at 1 Gold each and gain 1 Prestige if you buy 2.",
+      "Chapel (1 circle): advance 2 Devotion and gain 1 Ink. Library (1 circle): draw 2 cards from the 32-card Commission deck, keep 1 in hand and return the other to the bottom, or discard a hand card to gain 2 Gold.",
+      "Chapter House holds up to 3 monks per player per season and never blocks; each monk placed there immediately advances you 1 Devotion.",
+      "Once per turn before or after placing you may fulfill 1 Commission either from your hand or from the 4 face-up row cards by paying its Manuscript, Wine and Gold cost; gain its printed Prestige, keep it in your tableau for its permanent engine power, and refill the row to 4.",
+      "End of each season the player with the most monks in the Chapter House becomes Abbot for next season: gain 3 Prestige, take first turn, and choose 2 Gold or 2 Ink; ties break by higher Devotion then more stored Wine; every other player with at least 1 monk there gains 1 Prestige.",
+      "Then collect monks back, place an age marker on each unsold Wine you store, refill the row to 4, and start the next season with the Abbot to act first.",
+      "Devotion thresholds pay once when reached: at 4 gain 2 Gold, at 8 gain a temporary sixth monk for one later season, at 12 gain 5 Prestige."
+    ]
+  }
+]

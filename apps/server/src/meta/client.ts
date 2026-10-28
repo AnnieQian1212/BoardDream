@@ -19,6 +19,15 @@ export interface ChatOptions {
   maxTokens?: number;
 }
 
+/** The hackathon's open-weight model on Baseten. */
+export const OPEN_MODEL_ID = "meta-models/muse-spark-open-1026";
+
+/**
+ * Muse Spark Open at its default effort can spend 3,000 tokens thinking before a one-line JSON
+ * move; at low effort it answers in a few seconds.
+ */
+export const OPEN_MODEL_OPTIONS: ChatOptions = { reasoningEffort: "low", maxTokens: 4096 };
+
 export interface ClientOptions {
   baseUrl: string;
   apiKey: string;
