@@ -91,7 +91,7 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - Mechanics: hex map vertices and edges (settlement spots, road adjacency), production, bank and player-to-player trades.
 - An original hex-map settlement reference game with a heuristic bot, and the map UI to match.
 - Add genre queries (engine building, trading, worker placement, drafting) to the retrieval eval; resume the qrels review.
-- **Status: map family done early, on Oct 27.** `hexmap` (vertex and edge graph for any set of axial tiles, the distance rule, connected roads blocked by rival buildings, geometry cells of kind `vertex` and `edge`), `production` (tiles pay the buildings on their corners by level; event decks that reshuffle), `trade` (bank rates, one-for-one offers the other player accepts or declines). Lantern Isles, an original archipelago game: snake-order free placements, a tide deck instead of dice decides which terrain produces, villages, towns, roads and lanterns lit on lagoons, up to three trades a turn, first to 10. 1,000-run strict fuzz clean; the heuristic bot beats random play in every test game, and bot-vs-bot seat win rates are 52/48 (2 players), 37/30/33 (3) and 23/28/24/24 (4). The 3D board raises building spots and roads above the tiles in seat colors; bank trades and offers target resource piles on the mats. Catalog entries and the eval rerun are still to do.
+- **Status: map family done early, on Oct 27.** `hexmap` (vertex and edge graph for any set of axial tiles, the distance rule, connected roads blocked by rival buildings, geometry cells of kind `vertex` and `edge`), `production` (tiles pay the buildings on their corners by level; event decks that reshuffle), `trade` (bank rates, one-for-one offers the other player accepts or declines). Lantern Isles, an original archipelago game: snake-order free placements, a tide deck instead of dice decides which terrain produces, villages, towns, roads and lanterns lit on lagoons, up to three trades a turn, first to 10. 1,000-run strict fuzz clean; the heuristic bot beats random play in every test game, and bot-vs-bot seat win rates are 52/48 (2 players), 37/30/33 (3) and 23/28/24/24 (4). The 3D board raises building spots and roads above the tiles in seat colors; bank trades and offers target resource piles on the mats. Seven catalog entries added (resources, market, effects, hex map, production, Glasshouse, Lantern Isles) and the planned trading entry now points at real code; 12 genre queries (q51–q62) join the eval set. On 62 queries, nDCG@10 is 0.825 for BM25, 0.893 with expansion and 0.964 with expansion plus rerank.
 
 ### Thu Oct 29: generation for the new genres
 - Spec, compose and repair prompts that produce card data in the effect language plus rules code.
@@ -198,12 +198,12 @@ Cost controls:
 
 **Working:**
 - `packages/engine`: `GameModule` interface, seeded RNG, `playMatch` (strict mode freezes state and checks JSON, termination, legal moves, outcomes and presentation functions), `fuzz` (groups failures by type with replay seeds; checks determinism), `simulate` / `sweepParam`
-- `packages/library`: 13 mechanic modules (grid, hex, flanking, connection, dice, track, shortcuts, bidding, deck, roles, voting, turns, scoring); 7 reference games (Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It); Liar's Dice probability bot; 39-entry retrievable catalog
+- `packages/library`: 19 mechanic modules (grid, hex, flanking, connection, dice, track, shortcuts, bidding, deck, roles, voting, turns, scoring, resources, market, effects, hexmap, production, trade); 9 reference games (Glasshouse, Lantern Isles, Line Up, Reversi, Hex, Race Home, Snakes and Ladders, Liar's Dice, I Doubt It); bots for Glasshouse, Lantern Isles and Liar's Dice; 46-entry retrievable catalog
 - `packages/retrieval`: BM25 with an S-stemmer and trec_eval tie-breaking, P@k, Recall@k, nDCG@k (linear gain, matching trec_eval), MRR, MAP, TREC I/O
 - `apps/server`: Hono API (`/api/health`, `/api/catalog`, `/api/generate`), Model API client (chat, structured output, token usage), reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), `designGame` pipeline with Muse Spark expansion + rerank retrieval, IoU utilities
-- `eval/retrieval`: 50 queries, graded qrels, three systems, cached Muse Spark replies
+- `eval/retrieval`: 62 queries, graded qrels, three systems, cached Muse Spark replies
 - `apps/web`: 3D tabletop (three.js) for every game: cards, mats, tokens, board tiles and pieces, playable against each game's default bot; create panel, parameter sliders, live balance stats; 2D table as a fallback
-- 90 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- 105 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - `/api/generate` has not run end to end against the real API; the prompts are first drafts

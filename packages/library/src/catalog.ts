@@ -249,6 +249,80 @@ export const catalog: CatalogEntry[] = [
     status: "ready",
   },
 
+  // Economy and map mechanics
+  {
+    id: "mech:resources",
+    kind: "mechanic",
+    title: "Resource pools and costs",
+    description:
+      "Count resources as plain objects, check whether a player can afford a cost, pay it, gain income and see what is still missing. Wood, brick, coins, gems, energy: any named goods.",
+    tags: ["resources", "cost", "pay", "afford", "income", "economy", "goods"],
+    families: ["engine", "map"],
+    usage: mechanics("resources"),
+    source: "mechanics/resources.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:market",
+    kind: "mechanic",
+    title: "Card market row",
+    description:
+      "A face-up row of cards that players buy or take from; the row refills from the draw pile after each pick, reshuffling the discards, and players may also draw blind.",
+    tags: ["market", "card row", "buy", "shop", "river", "refill", "face up"],
+    families: ["engine"],
+    usage: mechanics("market"),
+    source: "mechanics/market.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:effects",
+    kind: "mechanic",
+    title: "Card effect language",
+    description:
+      "Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data.",
+    tags: ["card effects", "engine building", "combo", "tableau", "income", "end game bonus", "tags"],
+    families: ["engine"],
+    usage: mechanics("effects"),
+    source: "mechanics/effects.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:hex-map",
+    kind: "mechanic",
+    title: "Hex map corners and edges",
+    description:
+      "Build on a map of hexagonal tiles: settlements on the corners where tiles meet, roads along the edges between corners. The distance rule keeps settlements apart, roads must connect to your network and stop at rival buildings, and settlements upgrade to cities.",
+    tags: ["hex map", "settlements", "roads", "vertices", "edges", "corners", "building", "island"],
+    families: ["map"],
+    usage: mechanics("hexmap"),
+    source: "mechanics/hexmap.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:production",
+    kind: "mechanic",
+    title: "Tile production",
+    description:
+      "Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.",
+    tags: ["production", "harvest", "yield", "income", "event deck", "dice roll", "resources"],
+    families: ["map", "engine"],
+    usage: mechanics("production"),
+    source: "mechanics/production.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:trading",
+    kind: "mechanic",
+    title: "Trading: bank and player offers",
+    description:
+      "Trade resources at a fixed rate with the bank, such as three or four of one kind for any one, or offer another player a swap that they accept or decline; a pending offer passes the decision to them.",
+    tags: ["trade", "negotiation", "deal", "resources", "bank", "exchange", "offer"],
+    families: ["map"],
+    usage: mechanics("trade"),
+    source: "mechanics/trade.ts",
+    status: "ready",
+  },
+
   // Reference games
   {
     id: "game:line-up",
@@ -325,6 +399,28 @@ export const catalog: CatalogEntry[] = [
     tags: ["bluff", "cards", "cheat", "claim", "doubt", "shedding", "hidden hand"],
     families: ["bluff"],
     source: "games/i-doubt-it.ts",
+    status: "ready",
+  },
+  {
+    id: "game:glasshouse",
+    kind: "game",
+    title: "Glasshouse (engine builder)",
+    description:
+      "Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.",
+    tags: ["engine building", "tableau", "cards", "market", "resources", "combo", "set bonus"],
+    families: ["engine"],
+    source: "games/glasshouse.ts",
+    status: "ready",
+  },
+  {
+    id: "game:lantern-isles",
+    kind: "game",
+    title: "Lantern Isles (settle and trade)",
+    description:
+      "Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.",
+    tags: ["hex map", "settlement", "trading", "roads", "production", "resources", "victory points"],
+    families: ["map"],
+    source: "games/lantern-isles.ts",
     status: "ready",
   },
 
@@ -443,15 +539,6 @@ export const catalog: CatalogEntry[] = [
     title: "Shared threat (cooperative)",
     description: "All players win or lose together against the game itself: an event deck escalates a threat each round until they complete the goal or run out of time.",
     tags: ["cooperative", "team", "shared loss", "event deck", "escalation"],
-    families: [],
-    status: "planned",
-  },
-  {
-    id: "mech:trading",
-    kind: "mechanic",
-    title: "Trading and negotiation",
-    description: "Players propose trades of resources or favors to each other; deals are binding or not, and table talk decides who helps whom.",
-    tags: ["trade", "negotiation", "deal", "resources", "diplomacy"],
     families: [],
     status: "planned",
   },

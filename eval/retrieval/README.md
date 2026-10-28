@@ -4,13 +4,13 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
 
 ## Setup
 
-- **Collection:** the 39 entries in `packages/library/src/catalog.ts`: 25 with code (18 mechanics, 7 reference games) and 14 planned mechanics without code. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, tile placement next to hex tiles); the designer itself only retrieves entries with code.
-- **Queries:** 50 game ideas in `queries.jsonl`, written the way players describe games rather than in catalog vocabulary. Several are deliberate traps: "connect four" (q38) is a k-in-a-row game, not a connection game; "bidding coins for paintings" (q13) is an auction, not a bluff; "tiles" on a hexagon board (q07) is a connection game, not tile placement.
+- **Collection:** the 46 entries in `packages/library/src/catalog.ts`: 33 with code (24 mechanics, 9 reference games) and 13 planned mechanics without code. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, tile placement next to hex tiles); the designer itself only retrieves entries with code.
+- **Queries:** 62 game ideas in `queries.jsonl`, written the way players describe games rather than in catalog vocabulary. q51–q62 cover the engine-building and map genres: card markets, card effects and end-game bonuses, settlements on hex corners, tile production, bank and player trades. Several are deliberate traps: "connect four" (q38) is a k-in-a-row game, not a connection game; "bidding coins for paintings" (q13) is an auction, not a bluff; "tiles" on a hexagon board (q07) is a connection game, not tile placement.
 - **Judgments:** `qrels.txt`, TREC format, graded 0–2:
   - **2:** the game cannot be built without this mechanic, or this reference game is a close template.
   - **1:** useful but not essential, e.g. a generic helper the idea explicitly needs, or a related reference game.
   - unlisted entries are 0.
-- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, pending review by the author. They were deliberately not drafted with Muse Spark, which is the model under test in two of the three systems.
+- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, pending review by the author. That includes q51–q62 and the judgments of the newer entries (resources, market, effects, hex map, production, trading, Glasshouse, Lantern Isles) against q01–q50, which add them to q20, q21, q35 and q41. They were deliberately not drafted with Muse Spark, which is the model under test in two of the three systems.
 - **Measures:** P@10, Recall@10, nDCG@10 (linear gain, as in trec_eval), MRR, MAP.
 
 ## Systems
@@ -27,15 +27,17 @@ Model: `muse-spark-1.3` with structured output; prompts in `apps/server/src/agen
 
 | System | P@10 | Recall@10 | nDCG@10 | MRR | MAP |
 | --- | --- | --- | --- | --- | --- |
-| `bm25` | 0.234 | 0.851 | 0.845 | 0.953 | 0.692 |
-| `bm25+expand` | 0.262 | 0.957 | 0.905 | 0.977 | 0.785 |
-| `bm25+expand+rerank` | 0.270 | 0.988 | **0.969** | 0.990 | **0.929** |
+| `bm25` | 0.250 | 0.820 | 0.825 | 0.951 | 0.667 |
+| `bm25+expand` | 0.285 | 0.930 | 0.893 | 0.973 | 0.762 |
+| `bm25+expand+rerank` | 0.300 | 0.968 | **0.964** | 0.992 | **0.917** |
 
-- Per query on nDCG@10, expansion beats BM25 on 25 queries, ties on 16 and loses on 9; expansion plus rerank beats it on 36, ties on 7 and loses on 7.
-- Most of the rerank losses are small reorderings among relevant entries, e.g. a grade-1 helper placed above a grade-2 template (q05 drops from 1.00 to 0.97).
+- Per query on nDCG@10, expansion beats BM25 on 37 queries, ties on 15 and loses on 10; expansion plus rerank beats it on 50, ties on 9 and loses on 3.
+- The three rerank losses are small reorderings among relevant entries: q05 0.98 → 0.97, q26 0.97 → 0.96, q48 0.96 → 0.95.
+- The genre queries (q51–q62) behave like the rest: BM25 0.842, expansion plus rerank 0.956 nDCG@10.
+- Before the genre additions (50 queries, 39 entries) the three systems scored 0.845, 0.905 and 0.969 nDCG@10.
 - P@10 is low for every system by construction: most queries have only 2–4 relevant entries.
 - All numbers match `ir_measures` to four decimals. BM25 breaks score ties the way trec_eval does, so the run files evaluate identically in both.
-- The full run makes 100 Muse Spark calls and cost about $0.82, almost all of it reasoning tokens.
+- The full run makes 124 Muse Spark calls (one expansion and one rerank per query) and costs about $1, almost all of it reasoning tokens. Adding the genre queries and catalog entries took 73 new calls ($0.82).
 
 ### For judgment review
 

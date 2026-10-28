@@ -7,7 +7,7 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 ## How it works
 
 1. **Spec.** Muse Spark turns the prompt and dials (players, play time, complexity, luck vs strategy, competitive / cooperative / hidden role) into a structured game spec.
-2. **Retrieve.** Muse Spark rewrites the idea into mechanic vocabulary, BM25 pulls candidates from an indexed library of verified mechanic modules and public-domain reference games, and Muse Spark reranks them by how directly the game needs each one. On a 50-query graded eval set this lifts nDCG@10 from 0.845 (BM25) to 0.969 ([details](eval/retrieval/README.md)).
+2. **Retrieve.** Muse Spark rewrites the idea into mechanic vocabulary, BM25 pulls candidates from an indexed library of verified mechanic modules and public-domain reference games, and Muse Spark reranks them by how directly the game needs each one. On a 62-query graded eval set this lifts nDCG@10 from 0.825 (BM25) to 0.964 ([details](eval/retrieval/README.md)).
 3. **Compose.** Muse Spark writes rules code against one fixed engine interface, reusing the retrieved modules instead of writing from scratch. Cards are data in a small effect language (gain, draw, points, conversions, per-tag bonuses; on play, income and end-game triggers) that the engine executes and turns into rules text.
 4. **Fuzz and repair.** Thousands of random playouts run in strict mode: states are frozen and must be plain JSON, games must terminate, every turn needs a legal move, outcomes must be valid, and the same seed must replay the same game. Failures go back to the model with replay seeds until the rules pass.
 5. **Tune.** Every tunable value becomes a slider; simulation bots report first-player win rate, draw rate and game length as you drag.

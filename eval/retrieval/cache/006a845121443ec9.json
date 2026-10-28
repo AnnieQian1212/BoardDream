@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: end-game bonus: one point for every card with a bird tag in your tableau\n\nCandidates:\n- mech:effects: Card effect language. Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- mech:scoring: Scoring, end conditions and ties. Decide who wins at the end: highest score, first to reach a target, or furthest along when a round limit runs out; ties share the win and a full tie is a draw.\n- mech:flanking: Flanking capture. Placing a piece flips every straight run of rival pieces it traps between itself and another of your own pieces; only placements that flip something are legal.\n- mech:trick-taking: Trick-taking. Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.\n- mech:hex-map: Hex map corners and edges. Build on a map of hexagonal tiles: settlements on the corners where tiles meet, roads along the edges between corners. The distance rule keeps settlements apart, roads must connect to your network and stop at rival buildings, and settlements upgrade to cities.\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors.\n- game:lantern-isles: Lantern Isles (settle and trade). Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.\n- game:race-home: Race Home (Pachisi-style race). Roll a die and race pawns once around a looping track into home; landing on a rival sends it back to base, start squares are safe, a six rolls again, and a round limit ends long games.\n- mech:dice: Dice rolling. Roll one or more dice with the seeded rng, count dice showing a face (with wild faces), and compute the binomial odds that at least k dice match. Chance, luck and push-your-luck.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- mech:area-control: Area control. Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- mech:trading: Trading: bank and player offers. Trade resources at a fixed rate with the bank, such as three or four of one kind for any one, or offer another player a swap that they accept or decline; a pending offer passes the decision to them.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- mech:deck: Deck, hands and discard. Build a deck of cards, shuffle with the seeded rng, deal hands round-robin, draw cards and reshuffle the discard pile when the draw pile runs out."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:effects",
+                "game:glasshouse",
+                "mech:set-collection",
+                "mech:card-drafting",
+                "mech:push-your-luck",
+                "mech:scoring",
+                "mech:flanking",
+                "mech:trick-taking",
+                "mech:hex-map",
+                "mech:connection",
+                "game:lantern-isles",
+                "game:race-home",
+                "mech:dice",
+                "game:snakes-ladders",
+                "mech:tile-placement",
+                "mech:area-control",
+                "mech:production",
+                "mech:trading",
+                "game:line-up",
+                "mech:deck"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:effects\", \"game:glasshouse\", \"mech:scoring\", \"mech:deck\"]}"
+}
