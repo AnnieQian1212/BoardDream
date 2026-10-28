@@ -9,6 +9,8 @@ import {
   glasshouse,
   glasshouseBot,
   hexGame,
+  highsail,
+  highsailBot,
   iDoubtIt,
   LANTERN_MAP,
   lanternIsles,
@@ -36,6 +38,9 @@ import { scoreWinners } from "./mechanics/scoring";
 import { applyJumps, bounceMove, generateJumps } from "./mechanics/shortcuts";
 import { nextSeat } from "./mechanics/turns";
 import { majority, topVoted } from "./mechanics/voting";
+import { controller, majorityAwards, presence, scoreRegions, standings } from "./mechanics/majority";
+import { nextToPlace, openSpaces, place, placedBy } from "./mechanics/workers";
+import { islandOf, outpostsLeft, workersLeft, type HighsailMove, type HighsailState } from "./games/highsail";
 
 describe("reference and fixture games", () => {
   for (const game of [...referenceGames, ...fixtureGames]) {
@@ -371,7 +376,84 @@ describe("lantern-isles", () => {
   });
 });
 
+describe("highsail", () => {
+  const params = { rounds: 6, startWorkers: 3, rowSize: 4, handLimit: 3 };
+  const start = (numPlayers = 3) => highsail.setup({ numPlayers, params, rng: createRng(4) });
+  const act = (s: HighsailState, move: HighsailMove) => highsail.applyMove(s, highsail.activePlayers(s)[0], move, createRng(9));
+
+  it("blocks a taken space and passes the turn", () => {
+    let s = start();
+    s = act(s, { type: "place", space: "mine" });
+    expect(s.resources[0].crystal).toBe(3);
+    expect(s.toMove).toBe(1);
+    expect(highsail.legalMoves(s, 1).some((m) => m.space === "mine")).toBe(false);
+    expect(() => act(s, { type: "place", space: "mine" })).toThrow(/illegal/);
+  });
+
+  it("launches a charter: pays, scores and puts an outpost on its island", () => {
+    let s = start();
+    const card = s.held[0][0];
+    s = { ...s, resources: s.resources.map((r, seat) => (seat === 0 ? { timber: 9, crystal: 9, fuel: 9, coins: 9 } : r)) };
+    s = act(s, { type: "place", space: "shipyard", card });
+    expect(s.launched[0]).toEqual([card]);
+    expect(s.held[0]).toEqual([]);
+    expect(s.points[0]).toBeGreaterThan(0);
+    expect(s.outposts[islandOf(card).id][0]).toBe(1);
+    expect(outpostsLeft(s, 0)).toBe(11);
+  });
+
+  it("ends the round when every crew is out, then scores islands in the middle and last rounds", () => {
+    let s: HighsailState = { ...start(2), outposts: { ...start(2).outposts, ironcrag: [2, 1] } };
+    while (s.round === 1) s = act(s, highsail.legalMoves(s, s.toMove).find((m) => m.space === "tavern")!);
+    expect(s.placed).toEqual({});
+    expect(workersLeft(s, 0)).toBe(3);
+    expect(s.lastScoring).toBeUndefined();
+    while (s.round <= 3) s = act(s, highsail.legalMoves(s, s.toMove).find((m) => m.space === "tavern")!);
+    // Two players: only first place scores, so Ironcrag pays seat 0 its 6.
+    expect(s.lastScoring).toEqual({ round: 3, points: [6, 0] });
+    while (!highsail.isTerminal(s)) s = act(s, highsail.legalMoves(s, s.toMove).find((m) => m.space === "tavern")!);
+    expect(s.points).toEqual([12, 0]);
+    expect(highsail.outcome(s).winners).toEqual([0]);
+  });
+
+  it("dedicated bot beats random play", () => {
+    const bot = highsailBot();
+    const asFirst = simulate(highsail, { numPlayers: 2, games: 30, bots: [bot, randomBot] });
+    const asSecond = simulate(highsail, { numPlayers: 2, games: 30, seed: 500, bots: [randomBot, bot] });
+    expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2).toBeGreaterThan(0.85);
+  });
+});
+
 describe("mechanics", () => {
+  it("places workers on spaces with room", () => {
+    const spaces = [{ id: "mine", capacity: 1 }, { id: "dock", capacity: 2 }, { id: "inn" }];
+    let placed = place({}, "mine", 0);
+    expect(openSpaces(spaces, placed, 1).map((sp) => sp.id)).toEqual(["dock", "inn"]);
+    placed = place(place(placed, "dock", 1), "dock", 1);
+    expect(openSpaces(spaces, placed, 0).map((sp) => sp.id)).toEqual(["inn"]);
+    expect(openSpaces(spaces, place({}, "dock", 0), 0, true).map((sp) => sp.id)).toEqual(["mine", "inn"]);
+    expect(placedBy(placed, 1)).toBe(2);
+    // Seat 1 is out of workers, so after seat 0 comes seat 2, then nobody.
+    expect(nextToPlace([0, 1, 2], 0, (seat) => (seat === 1 ? 0 : 1))).toBe(2);
+    expect(nextToPlace([0, 1, 2], 0, () => 0)).toBeUndefined();
+  });
+
+  it("scores area majorities with ties splitting the places they span", () => {
+    expect(standings([2, 0, 3, 2])).toEqual([[2], [0, 3]]);
+    expect(majorityAwards([3, 1, 0], [6, 3])).toEqual([6, 3, 0]);
+    expect(majorityAwards([2, 2, 1], [6, 3])).toEqual([4, 4, 0]);
+    expect(majorityAwards([0, 0, 0], [6, 3])).toEqual([0, 0, 0]);
+    expect(controller([2, 2, 1])).toBeUndefined();
+    expect(controller([0, 3, 1])).toBe(1);
+    const counts = presence(["a", "b"], 2, [
+      { region: "a", owner: 0 },
+      { region: "a", owner: 0 },
+      { region: "b", owner: 1 },
+    ]);
+    expect(counts).toEqual({ a: [2, 0], b: [0, 1] });
+    expect(scoreRegions(counts, (region) => (region === "a" ? [5, 2] : [3, 1]), 2)).toEqual([5, 3]);
+  });
+
   it("builds the vertex and edge graph of a hex map", () => {
     const map = buildHexMap(radiusCoords(2));
     expect([map.tiles.length, map.vertices.length, map.edges.length]).toEqual([19, 54, 72]);

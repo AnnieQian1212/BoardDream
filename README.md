@@ -7,7 +7,7 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 ## How it works
 
 1. **Design.** Muse Spark turns your idea and settings (players, length, complexity, luck) into a game plan.
-2. **Find building blocks.** It picks tested mechanics from the library: dice, card markets, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
+2. **Find building blocks.** It picks tested mechanics from the library: card markets, worker placement, area majorities, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
 3. **Write the rules.** Muse Spark writes the game as code on top of those blocks.
 4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks. More games check that it is worth playing, including whether a player who plans ahead beats random play. Problems go back to the model until the rules pass ([generation benchmark](eval/generation/README.md): 24 of 24 ideas pass).
 5. **Play and tune.** Play on a 3D table. Muse Spark opponents trade, bluff and talk ([opponents benchmark](eval/opponents/README.md)). Sliders change the rules and show balance as you drag.
@@ -38,7 +38,7 @@ npm run eval:generation
 | Folder | Contents |
 | --- | --- |
 | `packages/engine` | Game interface, fuzzer, balance simulator |
-| `packages/library` | Mechanics, the original reference games Glasshouse and Lantern Isles, catalog, small classic games used only as engine test fixtures |
+| `packages/library` | Mechanics, the original reference games Glasshouse, Lantern Isles and Highsail, catalog, small classic games used only as engine test fixtures |
 | `packages/retrieval` | BM25 search and IR metrics |
 | `apps/server` | Muse Spark pipeline and rules sandbox |
 | `apps/web` | React + three.js app |
@@ -49,4 +49,4 @@ npm run eval:generation
 All code was written after kickoff on Oct 26, 2026. The day-by-day plan and progress are in [docs/PLAN.md](docs/PLAN.md).
 
 - **Oct 26:** engine, fuzzer, first reference game, search, app shell.
-- **Oct 27:** 19 mechanic modules, 9 reference games, retrieval eval, 3D table, end-to-end game generation, playtesting, Muse Spark opponents, card and board art.
+- **Oct 27:** 21 mechanic modules, three original reference games (Glasshouse, Lantern Isles, Highsail) and seven small test games, retrieval eval, 3D table, end-to-end game generation, playtesting with a strategic-depth check, Muse Spark opponents, card and board art.

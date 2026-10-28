@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: build a path of your tiles from your side of a hexagon board to the opposite side before your rival does\n\nCandidates:\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors.\n- mech:hex-map: Hex map corners and edges. Build on a map of hexagonal tiles: settlements on the corners where tiles meet, roads along the edges between corners. The distance rule keeps settlements apart, roads must connect to your network and stop at rival buildings, and settlements upgrade to cities.\n- mech:hex-grid: Hexagonal grid board. Board of hexagonal cells in axial coordinates with six neighbors per cell, laid out as a rhombus, with polygons for drawing.\n- game:hex: Hex. Two players claim hexagons on a rhombus board, one linking top to bottom and the other left to right; someone always connects, and a swap rule balances the first move.\n- mech:tile-placement: Tile placement. Draw a tile and place it adjacent to existing tiles so edges match, building a shared map that scores features.\n- mech:square-grid: Square grid board. Rectangular board of square cells stored row-major. Bounds checks, orthogonal and diagonal neighbors, index and coordinate conversion.\n- game:race-home: Race Home (Pachisi-style race). Roll a die and race pawns once around a looping track into home; landing on a rival sends it back to base, start squares are safe, a six rolls again, and a round limit ends long games.\n- mech:worker-placement: Worker placement. Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.\n- mech:flanking: Flanking capture. Placing a piece flips every straight run of rival pieces it traps between itself and another of your own pieces; only placements that flip something are legal.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- mech:track: Track movement. Pawns move forward along a looping track of squares by a rolled amount, each player entering at their own start square and going once around to home.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- game:lantern-isles: Lantern Isles (settle and trade). Original hex-map settlement game: place villages on the corners of island tiles and roads along their edges, while a shuffled tide deck decides which terrain produces wood, stone, grain or fish. Trade with the bank or other players, upgrade villages to towns and light lanterns on lagoons; first to ten points wins.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- game:reversi: Reversi. Two players place discs on a square board, flipping rival lines they trap between their own discs; a player with no flipping move passes and the most discs wins.\n- game:highsail: Highsail (worker placement and majorities). Original worker-placement game: send airship crews to action spaces on a skyport, where a taken space is blocked, to gather timber, crystal, fuel and coins. Take charters from an office row and launch them for points, income every round or end-game bonuses; each launch and each surveyed outpost adds to the majorities on five sky islands, which score after the middle and last rounds.\n- mech:deduction: Code-breaking deduction. Guess a hidden code and get feedback on how close the guess is; narrow it down by logic before running out of guesses.\n- mech:gravity-drop: Gravity drop placement. Pieces are dropped into a column and fall to the lowest empty cell, as in drop-in-column games. Players choose a column, not a cell.\n- mech:effects: Card effect language. Cards as data: cost, points, tags and effects that trigger when played, at every harvest or income phase, and at game end. Gain resources, draw cards, score points, convert one resource into another, or earn per tagged card in your tableau. Rules text is generated from the data."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:connection",
+                "mech:hex-map",
+                "mech:hex-grid",
+                "game:hex",
+                "mech:tile-placement",
+                "mech:square-grid",
+                "game:race-home",
+                "mech:worker-placement",
+                "mech:flanking",
+                "mech:production",
+                "mech:track",
+                "game:snakes-ladders",
+                "mech:push-your-luck",
+                "game:lantern-isles",
+                "game:line-up",
+                "game:reversi",
+                "game:highsail",
+                "mech:deduction",
+                "mech:gravity-drop",
+                "mech:effects"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:connection\", \"mech:hex-grid\", \"game:hex\"]}"
+}

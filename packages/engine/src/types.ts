@@ -69,7 +69,8 @@ export interface GeometryPiece {
   y: number;
   r: number;
   owner?: PlayerId;
-  shape?: "disc" | "square";
+  /** "pawn" is a standing figure, e.g. a worker on an action space. */
+  shape?: "disc" | "square" | "pawn";
   kind?: string;
   label?: string;
   cellId?: string;

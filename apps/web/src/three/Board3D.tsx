@@ -33,6 +33,13 @@ const TILE_COLORS: Record<string, string> = {
   lagoon: "#9cd3cb",
   vertex: "#f3ead8",
   edge: "#e6dac2",
+  // Highsail: the skyport's action spaces and the five sky islands.
+  skyport: "#efe4cf",
+  ironcrag: "#a9a6a0",
+  mistwood: "#7fa86a",
+  emberfall: "#e39a6b",
+  saltspire: "#e6dcc4",
+  lowhaven: "#8cc9c0",
 };
 const CREAM = "#f3ead8";
 
@@ -235,11 +242,36 @@ const DISC = (() => {
   return new LatheGeometry(points, 40);
 })();
 
+/** A standing worker: wide base, waist and a round head, as tall as PAWN_HEIGHT radii. */
+const PAWN_HEIGHT = 2.4;
+const PAWN = (() => {
+  const body = [
+    [0, 0],
+    [0.95, 0],
+    [1, 0.05],
+    [0.92, 0.11],
+    [0.6, 0.18],
+    [0.42, 0.36],
+    [0.36, 0.58],
+    [0.52, 0.62],
+    [0.52, 0.66],
+    [0.3, 0.69],
+  ];
+  // The head is a sphere of radius 0.42 r; heights are in units of the pawn's full height.
+  const ry = 0.42 / PAWN_HEIGHT;
+  const head = Array.from({ length: 9 }, (_, i) => {
+    const angle = -Math.PI / 3 + (i / 8) * (Math.PI / 2 + Math.PI / 3);
+    return [0.42 * Math.cos(angle), 1 - ry + ry * Math.sin(angle)];
+  });
+  return new LatheGeometry([...body, ...head, [0, 1]].map(([x, y]) => new Vector2(x, y)), 32);
+})();
+
 function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [number, number]; base: number }) {
   const ref = useRef<Group>(null!);
   const r = piece.r * k;
   const square = piece.shape === "square";
-  const height = square ? 2 * r : 0.55 * r;
+  const pawn = piece.shape === "pawn";
+  const height = square ? 2 * r : pawn ? PAWN_HEIGHT * r : 0.55 * r;
   const color = playerColor(piece.owner);
   const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
@@ -261,7 +293,7 @@ function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [n
           <meshStandardMaterial color={color} roughness={0.35} />
         </RoundedBox>
       ) : (
-        <mesh geometry={DISC} scale={[r, height, r]} castShadow receiveShadow raycast={noRaycast}>
+        <mesh geometry={pawn ? PAWN : DISC} scale={[r, height, r]} castShadow receiveShadow raycast={noRaycast}>
           <meshStandardMaterial color={color} roughness={0.3} />
         </mesh>
       )}

@@ -19,9 +19,9 @@ implementable spec for a turn-based board game that runs in a browser.
   - two or three systems interlock, e.g. an economy feeding a building or card engine, a map or majority
     layer, and public goals or end-game bonuses that pull players in different directions.
   Never design roll-and-move, single-decision or children's games.
-- family: "engine" for tableau and engine building (cards that cost resources and pay income or bonuses); "map"
-  for building on a hex map with production and trading; "grid" for tile placement and area control on a
-  board; "bluff" for hidden information, bidding and hidden roles.
+- family: "engine" for tableau and engine building (cards that cost resources and pay income or bonuses) and
+  worker placement; "map" for building on a hex map with production and trading; "grid" for tile placement
+  and area control on a board; "bluff" for hidden information, bidding and hidden roles.
 - Respect the dials: player count range, play time, complexity (1 gateway hobby game to 5 heavy strategy
   game), luck (0 pure strategy to 1 mostly luck) and mode.
 - The game must be original: never a recreation of a published game, even renamed. Medium scale: 3-5
@@ -69,6 +69,9 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
   rulesText, and keep a card's id the same in every zone so the UI can animate it.
 - Map games: build the map once at module scope with hexmap.buildHexMap, keep only ids in state, and use
   canSettle / canRoad / settleSpots / roadSpots, production.produce and the trade helpers.
+- Worker placement: keep placements as workers.Placements and use openSpaces / place / nextToPlace; draw
+  action spaces as labelled board cells with the workers as pieces (shape "pawn") on them. Majorities: keep
+  per-region counts and score them with majority.majorityAwards or scoreRegions.
 - Keep every rules function cheap; the fuzzer plays 1,000 full games. Bound the length of a game (a round or
   turn limit param) and of a turn (a cap on actions or trades).
 - Implement describeMove(state, move, viewer) with short human-readable labels; when the viewer is not the

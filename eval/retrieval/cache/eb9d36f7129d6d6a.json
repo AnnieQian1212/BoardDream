@@ -1,0 +1,56 @@
+{
+  "model": "muse-spark-1.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You choose building blocks for a board game rules engine. Rank the candidate mechanics and reference\ngames by how directly the described game needs them: first what it cannot be built without, then a close reference\ngame, then generally useful helpers. Leave out candidates that do not fit the game at all."
+    },
+    {
+      "role": "user",
+      "content": "Game idea: estimate the odds that at least three of the hidden dice show a five\n\nCandidates:\n- mech:dice: Dice rolling. Roll one or more dice with the seeded rng, count dice showing a face (with wild faces), and compute the binomial odds that at least k dice match. Chance, luck and push-your-luck.\n- mech:push-your-luck: Push your luck. Keep rolling or drawing to build up points this turn, but one bad result busts and loses them all; stop any time to bank.\n- game:liars-dice: Liar's Dice. Everyone rolls dice in secret and players raise bids on how many of a face are on the whole table, or call liar; whoever is wrong loses a die and the last player with dice wins.\n- mech:set-collection: Set collection. Gather matching cards or tokens into sets; larger or rarer sets score more points.\n- mech:hidden-information: Hidden information. Each player holds secrets (dice under a cup, a hand of cards, a role) that others cannot see. view() redacts them per player and geometry(state, viewer) draws them face down.\n- game:snakes-ladders: Snakes and Ladders. Race up a numbered board by rolling two dice and moving by either one; ladders carry you up, snakes drag you down, and you must land exactly on the last square.\n- mech:line-win: K-in-a-row win condition. Win by forming an unbroken straight line of k of your pieces horizontally, vertically or diagonally. Connect, align, row, five in a row.\n- mech:bidding: Escalating bids and challenges. Players make ever-higher claims about hidden information; the next player raises the bid or calls liar, and the loser of the challenge is penalized.\n- game:race-home: Race Home (Pachisi-style race). Roll a die and race pawns once around a looping track into home; landing on a rival sends it back to base, start squares are safe, a six rolls again, and a round limit ends long games.\n- mech:trading: Trading: bank and player offers. Trade resources at a fixed rate with the bank, such as three or four of one kind for any one, or offer another player a swap that they accept or decline; a pending offer passes the decision to them.\n- mech:hidden-roles: Hidden roles. Secretly deal roles or teams; each player sees only their own role, and some roles know their teammates. Social deduction, traitors, werewolves, spies.\n- mech:production: Tile production. Tiles produce resources for the buildings on their corners, with bigger buildings collecting more. A dice roll, an event deck or a season decides which tiles produce; event decks reshuffle when they run out.\n- game:glasshouse: Glasshouse (engine builder). Original engine-building card game: gather water, light and soil, take plant cards from a market row, plant them by paying their costs, and harvest to trigger every plant's income. Plants chain bonuses by tag; the highest score after the last turn wins.\n- mech:deduction: Code-breaking deduction. Guess a hidden code and get feedback on how close the guess is; narrow it down by logic before running out of guesses.\n- game:reversi: Reversi. Two players place discs on a square board, flipping rival lines they trap between their own discs; a player with no flipping move passes and the most discs wins.\n- game:highsail: Highsail (worker placement and majorities). Original worker-placement game: send airship crews to action spaces on a skyport, where a taken space is blocked, to gather timber, crystal, fuel and coins. Take charters from an office row and launch them for points, income every round or end-game bonuses; each launch and each surveyed outpost adds to the majorities on five sky islands, which score after the middle and last rounds.\n- game:line-up: Line Up (m,n,k-game). Players take turns claiming cells on a grid; first to make a straight line of k wins. Tic-tac-toe, gomoku, and with gravity a drop-in-column game.\n- mech:card-drafting: Card drafting. Pick one card from a hand and pass the rest to your neighbor until all cards are taken.\n- game:i-doubt-it: I Doubt It. Players play cards face down claiming the rank whose turn it is; the next player accepts or doubts, and whoever was wrong picks up the pile. First to empty their hand wins.\n- mech:connection: Connection win condition. Win by building an unbroken chain of your pieces that links two opposite sides of the board, checked with a breadth-first search over neighbors."
+    }
+  ],
+  "options": {
+    "schema": {
+      "name": "Ranking",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranking"
+        ],
+        "properties": {
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mech:dice",
+                "mech:push-your-luck",
+                "game:liars-dice",
+                "mech:set-collection",
+                "mech:hidden-information",
+                "game:snakes-ladders",
+                "mech:line-win",
+                "mech:bidding",
+                "game:race-home",
+                "mech:trading",
+                "mech:hidden-roles",
+                "mech:production",
+                "game:glasshouse",
+                "mech:deduction",
+                "game:reversi",
+                "game:highsail",
+                "game:line-up",
+                "mech:card-drafting",
+                "game:i-doubt-it",
+                "mech:connection"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reply": "{\"ranking\": [\"mech:dice\", \"mech:hidden-information\", \"game:liars-dice\", \"mech:bidding\"]}"
+}

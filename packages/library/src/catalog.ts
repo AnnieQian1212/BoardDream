@@ -323,6 +323,29 @@ export const catalog: CatalogEntry[] = [
     status: "ready",
   },
 
+  {
+    id: "mech:worker-placement",
+    kind: "mechanic",
+    title: "Worker placement",
+    description: "Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.",
+    tags: ["workers", "action spaces", "blocking", "resources", "euro"],
+    families: [],
+    usage: mechanics("workers"),
+    source: "mechanics/workers.ts",
+    status: "ready",
+  },
+  {
+    id: "mech:area-control",
+    kind: "mechanic",
+    title: "Area control",
+    description: "Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.",
+    tags: ["territory", "majority", "regions", "control", "influence"],
+    families: ["grid"],
+    usage: mechanics("majority"),
+    source: "mechanics/majority.ts",
+    status: "ready",
+  },
+
   // Reference games
   {
     id: "game:line-up",
@@ -423,6 +446,17 @@ export const catalog: CatalogEntry[] = [
     source: "games/lantern-isles.ts",
     status: "ready",
   },
+  {
+    id: "game:highsail",
+    kind: "game",
+    title: "Highsail (worker placement and majorities)",
+    description:
+      "Original worker-placement game: send airship crews to action spaces on a skyport, where a taken space is blocked, to gather timber, crystal, fuel and coins. Take charters from an office row and launch them for points, income every round or end-game bonuses; each launch and each surveyed outpost adds to the majorities on five sky islands, which score after the middle and last rounds.",
+    tags: ["worker placement", "area majority", "contracts", "charters", "engine building", "outposts", "euro"],
+    families: ["engine"],
+    source: "games/highsail.ts",
+    status: "ready",
+  },
 
   // Planned mechanics: no code yet, kept as realistic near-misses for retrieval evaluation
   {
@@ -431,15 +465,6 @@ export const catalog: CatalogEntry[] = [
     title: "Jump capture",
     description: "Capture by jumping over an adjacent enemy piece into the empty square beyond; chained multi-jumps, forced captures.",
     tags: ["jump", "capture", "checkers", "draughts", "multi-jump"],
-    families: ["grid"],
-    status: "planned",
-  },
-  {
-    id: "mech:area-control",
-    kind: "mechanic",
-    title: "Area control",
-    description: "Players place or move units into regions; whoever has the majority in a region controls it and scores it at the end.",
-    tags: ["territory", "majority", "regions", "control", "influence"],
     families: ["grid"],
     status: "planned",
   },
@@ -485,15 +510,6 @@ export const catalog: CatalogEntry[] = [
     title: "Trick-taking",
     description: "Each player plays one card to a trick, following the led suit if they can; the highest card or trump wins the trick.",
     tags: ["tricks", "follow suit", "trump", "card play", "lead"],
-    families: [],
-    status: "planned",
-  },
-  {
-    id: "mech:worker-placement",
-    kind: "mechanic",
-    title: "Worker placement",
-    description: "Take turns sending workers to action spaces; an occupied space is blocked for everyone else this round.",
-    tags: ["workers", "action spaces", "blocking", "resources", "euro"],
     families: [],
     status: "planned",
   },

@@ -1,9 +1,11 @@
 import { heuristicBot, type Bot, type GameModule } from "@boarddream/engine";
 import { glasshouseBot } from "./bots/glasshouse";
+import { highsailBot } from "./bots/highsail";
 import { lanternIslesBot } from "./bots/lantern-isles";
 import { liarsDiceBot } from "./bots/liars-dice";
 import { glasshouse } from "./games/glasshouse";
 import { hexGame } from "./games/hex";
+import { highsail } from "./games/highsail";
 import { iDoubtIt } from "./games/i-doubt-it";
 import { lanternIsles } from "./games/lantern-isles";
 import { liarsDice } from "./games/liars-dice";
@@ -16,15 +18,18 @@ export * from "./catalog";
 export * from "./table-talk";
 export * as mechanics from "./mechanics";
 export { glasshouseBot } from "./bots/glasshouse";
+export { highsailBot, highsailValue } from "./bots/highsail";
 export { lanternIslesBot } from "./bots/lantern-isles";
 export { bidProbability, liarsDiceBot } from "./bots/liars-dice";
 export { GLASSHOUSE_CARDS, GLASSHOUSE_RESOURCES } from "./games/glasshouse-cards";
+export { HIGHSAIL_CHARTERS, HIGHSAIL_RESOURCES, ISLANDS } from "./games/highsail-cards";
+export { highsailScore, spacesFor, type HighsailMove, type HighsailState } from "./games/highsail";
 export { LANTERN_MAP, LANTERN_RESOURCES, lanternScore, type LanternMove, type LanternState } from "./games/lantern-isles";
 export type { LiarsDiceMove, LiarsDiceView } from "./games/liars-dice";
-export { glasshouse, hexGame, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders };
+export { glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsDice, lineUp, raceHome, reversi, snakesLadders };
 
 /** Original hobby games for teens and adults: what the app offers and what generated games aim for. */
-export const referenceGames: GameModule[] = [glasshouse, lanternIsles];
+export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail];
 
 /**
  * Small classic games that exercise engine features (grids, dice, tracks, hidden hands, bluffing,
@@ -35,6 +40,7 @@ export const fixtureGames: GameModule[] = [lineUp, reversi, hexGame, raceHome, s
 /** Game-specific bots; every other game, generated ones included, gets the generic heuristic bot. */
 const referenceBots: Record<string, Bot> = {
   [glasshouse.meta.id]: glasshouseBot(),
+  [highsail.meta.id]: highsailBot(),
   [lanternIsles.meta.id]: lanternIslesBot(),
   [liarsDice.meta.id]: liarsDiceBot(),
 };

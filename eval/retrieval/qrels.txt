@@ -67,8 +67,10 @@ q21 0 mech:effects 2
 q22 0 mech:card-drafting 2
 q22 0 mech:deck 1
 q23 0 mech:worker-placement 2
+q23 0 game:highsail 2
 q24 0 mech:area-control 2
 q24 0 mech:scoring 1
+q24 0 game:highsail 1
 q25 0 game:race-home 2
 q25 0 mech:track 2
 q25 0 mech:dice 2
@@ -152,6 +154,7 @@ q51 0 mech:resources 2
 q51 0 mech:market 1
 q51 0 mech:deck 1
 q51 0 mech:scoring 1
+q51 0 game:highsail 1
 q52 0 mech:market 2
 q52 0 mech:deck 1
 q52 0 mech:resources 1
