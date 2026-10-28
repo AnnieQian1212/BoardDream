@@ -1,4 +1,4 @@
-import { createRng, fuzz, playMatch, randomBot, simulate, type Bot } from "@boarddream/engine";
+import { createRng, evaluate, fuzz, heuristicBot, playMatch, randomBot, simulate, type Bot } from "@boarddream/engine";
 import { describe, expect, it } from "vitest";
 import {
   catalog,
@@ -50,6 +50,23 @@ describe("reference games", () => {
       expect(result.truncated).toBe(false);
     });
   }
+});
+
+describe("generic heuristic bot", () => {
+  it("beats random play in games it knows nothing about", () => {
+    const bot = heuristicBot({ rollouts: 6, depth: 16 });
+    for (const game of [reversi, hexGame]) {
+      const asFirst = simulate(game, { numPlayers: 2, games: 12, bots: [bot, randomBot] });
+      const asSecond = simulate(game, { numPlayers: 2, games: 12, seed: 900, bots: [randomBot, bot] });
+      expect((asFirst.winRateBySeat[0] + asSecond.winRateBySeat[1]) / 2, game.meta.id).toBeGreaterThan(0.7);
+    }
+  });
+
+  it("reads scores from outcome() and seat panels", () => {
+    const state = lanternIsles.setup({ numPlayers: 2, params: { target: 10, maxRounds: 30, bankRate: 3, tradesPerTurn: 3, tides: "cycle", randomMap: false }, rng: createRng(1) });
+    const ahead = { ...state, phase: "play" as const, buildings: { v10: { owner: 0, level: 2 } } };
+    expect(evaluate(lanternIsles, ahead, 0)).toBeGreaterThan(evaluate(lanternIsles, ahead, 1));
+  });
 });
 
 describe("line-up", () => {

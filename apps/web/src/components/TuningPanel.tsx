@@ -8,12 +8,14 @@ interface Props {
   numPlayers: number;
   params: Params;
   stats?: BalanceStats;
+  /** Games the simulation will play; stats arrive in batches until it gets there. */
+  simGames: number;
   onChange(numPlayers: number, params: Params): void;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function TuningPanel({ game, numPlayers, params, stats, onChange }: Props) {
+export function TuningPanel({ game, numPlayers, params, stats, simGames, onChange }: Props) {
   const set = (key: string, value: ParamValue) => onChange(numPlayers, resolveParams(game.params, { ...params, [key]: value }));
   return (
     <>
@@ -63,7 +65,9 @@ export function TuningPanel({ game, numPlayers, params, stats, onChange }: Props
                 </li>
               )}
             </ul>
-            <p className="hint">{stats.games} games between bots, refreshed as you tune.</p>
+            <p className="hint">
+              {stats.games < simGames ? `${stats.games} of ${simGames} games so far` : `${stats.games} games`} between bots, refreshed as you tune.
+            </p>
           </>
         ) : (
           <p className="hint">Simulating…</p>

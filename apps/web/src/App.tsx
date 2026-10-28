@@ -1,12 +1,13 @@
-import { createRng, resolveParams, simulate, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
-import { defaultBot, referenceGames } from "@boarddream/library";
+import { createRng, resolveParams, type BalanceStats, type GameModule, type Params, type Rng } from "@boarddream/engine";
+import { referenceGames, tableBot } from "@boarddream/library";
 import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CreatePanel } from "./components/CreatePanel";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { TuningPanel } from "./components/TuningPanel";
-import { loadGeneratedGame } from "./generated";
+import { generatedSource, loadGeneratedGame } from "./generated";
+import type { SimRequest } from "./sim.worker";
 import { Tabletop } from "./three/Tabletop";
 
 const HUMAN = 0;
@@ -49,7 +50,7 @@ function applyMove(game: GameModule, match: Match, seat: number, move: unknown):
 
 function botMove(game: GameModule, match: Match, seat: number): Match {
   const view = game.view ? game.view(match.state, seat) : match.state;
-  const move = defaultBot(game)({ game, state: view, player: seat, moves: game.legalMoves(match.state, seat), rng: match.rng });
+  const move = tableBot(game)({ game, state: view, player: seat, moves: game.legalMoves(match.state, seat), rng: match.rng });
   return applyMove(game, match, seat, move);
 }
 
@@ -79,8 +80,7 @@ export function App() {
       const loaded: GameModule[] = [];
       for (const saved of list) {
         try {
-          const game = loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text());
-          loaded.push({ ...game, meta: { ...game.meta, id: saved.id } });
+          loaded.push(loadGeneratedGame(await (await fetch(`/api/games/${saved.id}`)).text(), saved.id));
         } catch {
           // A game that no longer loads (e.g. after an engine change) stays out of the picker.
         }
@@ -122,12 +122,18 @@ export function App() {
     return () => clearTimeout(timer);
   }, [game, match]);
 
-  // Re-simulate whenever the rules or sliders change. TODO(Oct 31): move into a Web Worker.
+  // Re-simulate in a worker whenever the rules or sliders change; a new setting cancels the old run.
   useEffect(() => {
     setStats(undefined);
-    const bots = new Array(numPlayers).fill(defaultBot(game));
-    const timer = setTimeout(() => setStats(simulate(game, { numPlayers, params, games: SIM_GAMES, bots })), 200);
-    return () => clearTimeout(timer);
+    const worker = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (event: MessageEvent<BalanceStats>) => setStats(event.data);
+    const request: SimRequest = { gameId: game.meta.id, source: generatedSource(game), numPlayers, params, games: SIM_GAMES };
+    // Debounced, so dragging a slider starts one run when it settles.
+    const timer = setTimeout(() => worker.postMessage(request), 200);
+    return () => {
+      clearTimeout(timer);
+      worker.terminate();
+    };
   }, [game, numPlayers, params]);
 
   function configure(nextGame: GameModule, nextPlayers: number, nextParams: Params) {
@@ -197,6 +203,7 @@ export function App() {
           numPlayers={numPlayers}
           params={params}
           stats={stats}
+          simGames={SIM_GAMES}
           onChange={(players, nextParams) => configure(game, players, nextParams)}
         />
         <LogPanel entries={match.log} human={HUMAN} />

@@ -44,9 +44,11 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - The table UI is built from two optional functions; implement whichever the game needs (most need both):
   - geometry(state, viewer): the board as cell polygons in board units, plus pieces; with a viewer, draw
     hidden things face down. Cells with kind "vertex" or "edge" render as building spots and roads.
-  - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, score,
-    played cards), "shared" panels (a market row, a supply, a deck counter labelled "Deck") and a "hand"
-    panel for the viewer's own cards only. Counter ids and card ids must be unique.
+  - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
+    point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
+    labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be
+    unique.
+- outcome(state).scores should also give the current standings before the game ends; bots read them.
 - Declare meta.resources ([{ id, name, icon, color }]) when the game counts resources. Icons: droplet, sun,
   sprout, tree, trees, mountain, wheat, brick, coins, gem, fish, flame, leaf, star.
 - moveTarget(state, move) returns the id of the board cell, card or counter the move acts on, or
@@ -109,6 +111,29 @@ failure without changing the game's design, and return the full corrected module
 
 ## Failures
 ${failureText}
+
+## Game spec
+${JSON.stringify(spec, null, 2)}
+
+## Current module
+\`\`\`js
+${source}
+\`\`\``,
+    },
+  ];
+}
+
+export function designRepairMessages(spec: GameSpec, source: string, issues: string[]): ChatMessage[] {
+  return [
+    { role: "system", content: `You improve board game rules for the BoardDream engine.\n\n${CODE_RULES}` },
+    {
+      role: "user",
+      content: `These rules pass automated testing, but statistics from random play show design problems:
+${issues.map((issue) => `- ${issue}`).join("\n")}
+
+Fix them with small rule changes that keep the game's identity (for example a longer round limit, more
+choices each turn, or compensation for later seats), keep everything that already works, and return the
+full corrected module.
 
 ## Game spec
 ${JSON.stringify(spec, null, 2)}

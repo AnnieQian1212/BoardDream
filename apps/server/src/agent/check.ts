@@ -1,6 +1,7 @@
 import { Worker } from "node:worker_threads";
 import { fuzz, type FuzzFailure, type GameModule, type Params } from "@boarddream/engine";
 import { loadGameFromSource } from "../sandbox";
+import type { PlayStats } from "./playtest";
 
 export interface RulesCheck {
   ok: boolean;
@@ -10,6 +11,10 @@ export interface RulesCheck {
   stalled?: { seed: number; numPlayers: number; params: Params; afterMs: number };
   /** Set when the whole check ran out of time or memory. */
   aborted?: string;
+  /** Random-play statistics, once the rules pass fuzzing. */
+  play?: PlayStats;
+  /** Design problems the playtest found in rules that work; see playIssues. */
+  issues?: string[];
 }
 
 /** Loads generated rules and fuzzes them on this thread. Only for trusted or tiny inputs; see checkRulesIsolated. */

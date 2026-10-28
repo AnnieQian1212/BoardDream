@@ -7,11 +7,16 @@ const MODULES: Record<string, unknown> = {
   "@boarddream/mechanics": mechanics,
 };
 
+const sources = new WeakMap<GameModule, string>();
+
+/** The rules source a generated game was loaded from, so a worker can load it too. */
+export const generatedSource = (game: GameModule) => sources.get(game);
+
 /**
- * Runs generated rules that already passed server-side fuzzing.
- * TODO(day 4): load inside a Web Worker or sandboxed iframe instead of the page itself.
+ * Runs generated rules that already passed server-side fuzzing and playtesting. `id` replaces the
+ * game's own id (the saved game's id), so two generated games never collide.
  */
-export function loadGeneratedGame(source: string): GameModule {
+export function loadGeneratedGame(source: string, id?: string): GameModule {
   const module = { exports: {} as Record<string, unknown> };
   const require = (id: string) => {
     if (id in MODULES) return MODULES[id];
@@ -19,5 +24,8 @@ export function loadGeneratedGame(source: string): GameModule {
   };
   new Function("module", "exports", "require", `"use strict";\n${source}`)(module, module.exports, require);
   const exported = module.exports as { default?: unknown; game?: unknown };
-  return (exported.default ?? exported.game ?? exported) as GameModule;
+  const game = (exported.default ?? exported.game ?? exported) as GameModule;
+  const named = id ? { ...game, meta: { ...game.meta, id } } : game;
+  sources.set(named, source);
+  return named;
 }

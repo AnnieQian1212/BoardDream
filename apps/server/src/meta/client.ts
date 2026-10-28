@@ -56,13 +56,27 @@ export class ModelClient {
     return JSON.parse(await this.chat(messages, { ...options, schema })) as T;
   }
 
-  async post(path: string, body: unknown): Promise<unknown> {
-    const res = await fetch(`${this.opts.baseUrl}${path}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${this.opts.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text()}`);
-    return res.json();
+  /** POSTs JSON, retrying network errors, rate limits and server errors with backoff. */
+  async post(path: string, body: unknown, attempts = 4): Promise<unknown> {
+    for (let attempt = 1; ; attempt++) {
+      let retryable: string;
+      try {
+        const res = await fetch(`${this.opts.baseUrl}${path}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${this.opts.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) return res.json();
+        const text = await res.text();
+        if (res.status !== 429 && res.status < 500) throw new Error(`${path} failed: ${res.status} ${text}`);
+        retryable = `${path} failed: ${res.status} ${text}`;
+      } catch (err) {
+        // fetch rejects with a TypeError on network failures; anything else is final.
+        if (!(err instanceof TypeError)) throw err;
+        retryable = `${path} failed: ${err.message}`;
+      }
+      if (attempt >= attempts) throw new Error(retryable);
+      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** (attempt - 1)));
+    }
   }
 }

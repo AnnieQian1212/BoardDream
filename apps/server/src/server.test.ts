@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkRules, checkRulesIsolated } from "./agent/check";
+import { playIssues, playtest } from "./agent/playtest";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { loadGameFromSource } from "./sandbox";
@@ -46,7 +47,10 @@ describe("sandbox", () => {
 
 describe("isolated checker", () => {
   it("fuzzes in a worker thread", async () => {
-    expect(await checkRulesIsolated(NIM, { runs: 100 })).toEqual({ ok: true, failures: [] });
+    const check = await checkRulesIsolated(NIM, { runs: 100 });
+    expect(check).toMatchObject({ ok: true, failures: [], issues: [] });
+    expect(check.play).toMatchObject({ numPlayers: 2, moveKinds: ["number"] });
+    expect(check.play!.choiceRate).toBeGreaterThan(0.5);
   });
 
   it("kills a hanging game and names the run to replay", async () => {
@@ -65,6 +69,17 @@ describe("isolated checker", () => {
   it("reports load errors from the worker", async () => {
     const check = await checkRulesIsolated(`require("fs");`, { runs: 10 });
     expect(check.loadError).toMatch(/not allowed/);
+  });
+});
+
+describe("playtest", () => {
+  it("flags games that work but are not worth playing", () => {
+    // Every turn has exactly one legal move and the game ends at once.
+    const trivial = loadGameFromSource(NIM.replace("legalMoves: (s) => [1, 2, 3].filter((n) => n <= s.pile)", "legalMoves: (s) => [s.pile]"));
+    const stats = playtest(trivial);
+    expect(stats.choiceRate).toBe(0);
+    expect(playIssues(stats, "competitive").join(" ")).toMatch(/over too fast.*real choice/);
+    expect(playIssues(playtest(loadGameFromSource(NIM)), "competitive")).toEqual([]);
   });
 });
 

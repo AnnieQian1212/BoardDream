@@ -99,8 +99,7 @@ export function CreatePanel({ onGenerated }: { onGenerated(game: GameModule): vo
         setStatus(`“${result.spec.title}” still fails playtesting after ${tries}.`);
         return;
       }
-      const game = loadGeneratedGame(result.source);
-      onGenerated(result.id ? { ...game, meta: { ...game.meta, id: result.id } } : game);
+      onGenerated(loadGeneratedGame(result.source, result.id));
       setStatus(`“${result.spec.title}” passed after ${tries}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err));

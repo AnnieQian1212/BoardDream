@@ -1,7 +1,7 @@
 import type { Bm25Index } from "@boarddream/retrieval";
 import type { ModelClient } from "../meta/client";
 import { checkRulesIsolated, type RulesCheck } from "./check";
-import { composeMessages, extractCode, formatFailures, repairMessages, specMessages } from "./prompts";
+import { composeMessages, designRepairMessages, extractCode, formatFailures, repairMessages, specMessages } from "./prompts";
 import { engineInterfaceSource, loadReference, type Reference } from "./references";
 import { expandedSearch, rerank } from "./retrieve";
 import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
@@ -9,6 +9,8 @@ import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
 /** Candidates the reranker sees, and how many of its top picks go into the compose prompt. */
 const RERANK_POOL = 20;
 const REFERENCES = 6;
+/** Repair rounds spent on design problems in rules that already work. */
+const MAX_DESIGN_FIXES = 1;
 
 export interface DesignDeps {
   llm: ModelClient;
@@ -48,13 +50,27 @@ export async function designGame(request: GameRequest, deps: DesignDeps): Promis
   let source = extractCode(await llm.chat(composeMessages(spec, engineInterfaceSource(), references)));
 
   const attempts: RulesCheck[] = [];
+  // The newest rules that pass fuzzing, in case a design fix breaks them and repairs run out.
+  let passing: string | undefined;
+  let designFixes = 0;
   for (let attempt = 0; ; attempt++) {
     onProgress(`fuzzing attempt ${attempt}`);
     const check = await checkRulesIsolated(source, { runs: fuzzRuns });
     attempts.push(check);
-    if (check.ok || attempt >= maxRepairs) return { ok: check.ok, spec, retrieved, source, attempts };
-    onProgress(`repairing: ${summarize(check)}`);
-    source = extractCode(await llm.chat(repairMessages(spec, source, formatFailures(check))));
+    if (check.ok) passing = source;
+    // Working rules get one round to fix design problems the playtest found.
+    const fixDesign = check.ok && (check.issues?.length ?? 0) > 0 && designFixes < MAX_DESIGN_FIXES;
+    if ((check.ok && !fixDesign) || attempt >= maxRepairs) {
+      return { ok: passing !== undefined, spec, retrieved, source: passing ?? source, attempts };
+    }
+    if (fixDesign) {
+      designFixes++;
+      onProgress(`improving the design: ${check.issues!.join("; ")}`);
+      source = extractCode(await llm.chat(designRepairMessages(spec, source, check.issues!)));
+    } else {
+      onProgress(`repairing: ${summarize(check)}`);
+      source = extractCode(await llm.chat(repairMessages(spec, source, formatFailures(check))));
+    }
   }
 }
 
