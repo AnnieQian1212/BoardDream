@@ -1,6 +1,7 @@
 // Fuzz-repair benchmark: runs the full designer pipeline (spec -> retrieve -> compose -> isolated
-// fuzz -> repair) on every prompt in prompts.jsonl and reports how often rules pass, and after how
-// many repairs. Model replies are cached in eval/generation/cache/, so reruns are free.
+// fuzz -> repair -> playtest) on every prompt in prompts.jsonl and reports how often rules pass,
+// after how many repairs, and whether planning ahead beats random play in the games that pass.
+// Model replies are cached in eval/generation/cache/, so reruns are free.
 //
 //   npm run eval:generation                 # every prompt
 //   npm run eval:generation -- g01,g09      # a subset
@@ -8,6 +9,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { catalog, catalogText } from "@boarddream/library";
 import { Bm25Index } from "@boarddream/retrieval";
 import { designGame, type DesignResult } from "../../apps/server/src/agent/designer";
+import { skillEdge } from "../../apps/server/src/agent/playtest";
 import type { GameRequest } from "../../apps/server/src/agent/spec";
 import { config } from "../../apps/server/src/config";
 import { CachedModelClient } from "../../apps/server/src/meta/cache";
@@ -34,12 +36,21 @@ mkdirSync(outDir, { recursive: true });
 interface Row {
   id: string;
   family: string;
+  mode: string;
+  title?: string;
   ok: boolean;
   /** Repairs needed before the rules passed; undefined when they never did. */
   repairs?: number;
   error?: string;
   failureKinds: string[];
   retrieved: string[];
+  /** Playtest of the final rules: seats, the planner's win rate against random play and its skill edge. */
+  numPlayers?: number;
+  plannerWinRate?: number;
+  skillEdge?: number;
+  /** Design problems the playtest found in the first working rules, and those still in the final ones. */
+  designIssues: string[];
+  issuesLeft: string[];
 }
 
 function kinds(result: DesignResult): string[] {
@@ -56,17 +67,26 @@ async function runOne(request: GameRequest & { id: string }): Promise<Row> {
     writeFileSync(new URL(`${request.id}.json`, outDir), JSON.stringify({ ...result, source: undefined }, null, 2) + "\n");
     const passed = result.attempts.findIndex((a) => a.ok);
     log(result.ok ? `passed after ${passed} repairs` : `failed after ${MAX_REPAIRS} repairs`);
+    const working = result.attempts.filter((a) => a.ok);
+    const play = working.at(-1)?.play;
     return {
       id: request.id,
       family: result.spec.family,
+      mode: result.spec.mode,
+      title: result.spec.title,
       ok: result.ok,
       repairs: passed >= 0 ? passed : undefined,
       failureKinds: kinds(result),
       retrieved: result.retrieved,
+      numPlayers: play?.numPlayers,
+      plannerWinRate: play?.plannerWinRate,
+      skillEdge: play && skillEdge(play),
+      designIssues: working[0]?.issues ?? [],
+      issuesLeft: working.at(-1)?.issues ?? [],
     };
   } catch (err) {
     log(`error: ${String(err)}`);
-    return { id: request.id, family: "?", ok: false, error: String(err), failureKinds: [], retrieved: [] };
+    return { id: request.id, family: "?", mode: "?", ok: false, error: String(err), failureKinds: [], retrieved: [], designIssues: [], issuesLeft: [] };
   }
 }
 
@@ -88,6 +108,7 @@ const rows = await mapPool(selected, CONCURRENCY, runOne);
 writeFileSync(new URL("results.json", outDir), JSON.stringify(rows, null, 2) + "\n");
 
 const n = rows.length;
+const pct = (x: number) => `${Math.round(x * 100)}%`;
 const passedBy = (k: number) => rows.filter((r) => r.repairs !== undefined && r.repairs <= k).length;
 console.log(`\n${n} prompts`);
 for (let k = 0; k <= MAX_REPAIRS; k++) console.log(`  passing after ${k} repair${k === 1 ? "" : "s"}: ${passedBy(k)}/${n}`);
@@ -96,6 +117,21 @@ if (repaired.length) console.log(`  mean repairs among passing: ${(repaired.redu
 const tally = new Map<string, number>();
 for (const r of rows) for (const k of r.failureKinds.filter((k) => k !== "pass")) tally.set(k, (tally.get(k) ?? 0) + 1);
 console.log(`  failure kinds over all attempts: ${[...tally].map(([k, c]) => `${k} ${c}`).join(", ") || "none"}`);
-for (const r of rows) console.log(`  ${r.id} ${r.family.padEnd(6)} ${r.ok ? "pass" : "FAIL"} ${r.failureKinds.join(" > ")}${r.error ? ` (${r.error})` : ""}`);
+const measured = rows.filter((r) => r.skillEdge !== undefined);
+if (measured.length) {
+  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const deep = measured.filter((r) => r.skillEdge! >= 0.25).length;
+  console.log(
+    `  strategic depth over ${measured.length} measurable games: planner wins ${pct(mean(measured.map((r) => r.plannerWinRate!)))} (fair share ${pct(mean(measured.map((r) => 1 / r.numPlayers!)))}), mean skill edge ${mean(measured.map((r) => r.skillEdge!)).toFixed(2)}, ${deep} with an edge of 0.25 or more`,
+  );
+}
+const flagged = rows.filter((r) => r.designIssues.length > 0);
+console.log(`  design problems found by the playtest: ${flagged.length} games, ${flagged.filter((r) => r.issuesLeft.length === 0).length} fixed`);
+for (const r of rows) {
+  const depth = r.skillEdge === undefined ? "" : ` planner ${pct(r.plannerWinRate!)} of ${r.numPlayers}p (edge ${r.skillEdge.toFixed(2)})`;
+  console.log(`  ${r.id} ${r.family.padEnd(6)} ${r.ok ? "pass" : "FAIL"} ${r.failureKinds.join(" > ")}${depth}${r.error ? ` (${r.error})` : ""}`);
+  for (const issue of r.designIssues) console.log(`      ${r.issuesLeft.includes(issue) ? "left" : "fixed"}: ${issue}`);
+  for (const issue of r.issuesLeft.filter((i) => !r.designIssues.includes(i))) console.log(`      new: ${issue}`);
+}
 const cost = llm.usage.promptTokens * PRICE.prompt + llm.usage.completionTokens * PRICE.completion;
 console.log(`\nMuse Spark: ${llm.usage.calls} new calls (${llm.usage.promptTokens} prompt + ${llm.usage.completionTokens} completion tokens, ~$${cost.toFixed(2)}), ${llm.hits} cached`);

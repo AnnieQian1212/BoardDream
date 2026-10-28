@@ -53,12 +53,15 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - Hidden information: implement view(state, player) and redact everything that player cannot see.
 - The table UI is built from two optional functions; implement whichever the game needs (most need both):
   - geometry(state, viewer): the board as cell polygons in board units, plus pieces; with a viewer, draw
-    hidden things face down. Cells with kind "vertex" or "edge" render as building spots and roads.
+    hidden things face down. Give every cell a kind naming what it is (a terrain, a district, an action
+    space); each kind gets its own color. Cells with kind "vertex" or "edge" render as building spots and roads.
   - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
     point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be
-    unique.
-- outcome(state).scores should also give the current standings before the game ends; bots read them.
+    unique. A panel's note is one short status line (under 50 characters); numbers belong in counters.
+- outcome(state).scores should also give the current standings before the game ends, counting points that
+  are still to be scored as if they scored now (majorities, sets, end-game bonuses). Bots plan by them, so
+  they must track who is really winning.
 - meta.rules: 3-6 short sentences that teach the game to a new player (also read by AI opponents).
 - Declare meta.resources ([{ id, name, icon, color }]) when the game counts resources. Icons: droplet, sun,
   sprout, tree, trees, mountain, wheat, brick, coins, gem, fish, flame, leaf, star.

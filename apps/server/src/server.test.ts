@@ -105,6 +105,27 @@ module.exports = {
     expect(skillEdge(playtest(loadGameFromSource(NIM)))!).toBeGreaterThan(0.25);
     expect(playtest(loadGameFromSource(NIM.replace('family: "grid"', 'family: "bluff"'))).plannerWinRate).toBeUndefined();
   });
+
+  it("flags mid-game scores that point the wrong way", () => {
+    // The lowest total after 40 turns wins, but the scores reported mid-game make a bigger total look better.
+    const backwards = loadGameFromSource(`
+module.exports = {
+  meta: { id: "low", name: "Low", family: "grid", mode: "competitive", minPlayers: 2, maxPlayers: 2, summary: "" },
+  params: [],
+  setup: () => ({ turn: 0, totals: [0, 0] }),
+  activePlayers: (s) => (s.turn < 40 ? [s.turn % 2] : []),
+  legalMoves: () => [1, 2, 3],
+  applyMove: (s, p, n) => ({ turn: s.turn + 1, totals: s.totals.map((t, i) => (i === p ? t + n : t)) }),
+  isTerminal: (s) => s.turn >= 40,
+  outcome: (s) => ({
+    winners: s.turn < 40 || s.totals[0] === s.totals[1] ? [] : [s.totals[0] < s.totals[1] ? 0 : 1],
+    scores: s.totals,
+  }),
+};`);
+    const stats = playtest(backwards, { games: 20 });
+    expect(stats.plannerWinRate!).toBeLessThan(0.375);
+    expect(playIssues(stats, "competitive").join(" ")).toMatch(/mid-game scores mislead/);
+  });
 });
 
 describe("extractCode", () => {

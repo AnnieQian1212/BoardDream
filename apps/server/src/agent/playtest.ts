@@ -91,7 +91,7 @@ function plannerWinRate(game: GameModule, numPlayers: number, games: number, onG
 
 /**
  * How far the planner's win rate sits between the fair share (0) and always winning (1). In the
- * reference games it is 0.65; in a pure dice race it is about 0.
+ * reference games it is 0.50-0.70; in a pure dice race it is about 0.
  */
 export const skillEdge = (stats: PlayStats): number | undefined =>
   stats.plannerWinRate === undefined ? undefined : (stats.plannerWinRate - 1 / stats.numPlayers) / (1 - 1 / stats.numPlayers);
@@ -113,7 +113,13 @@ export function playIssues(stats: PlayStats, mode: GameModule["meta"]["mode"]): 
     issues.push(`players have a real choice on only ${Math.round(stats.choiceRate * 100)}% of turns; most turns offer a single legal move`);
   }
   const edge = skillEdge(stats);
-  if (edge !== undefined && edge < 0.25) {
+  const fair = 1 / stats.numPlayers;
+  if (edge !== undefined && stats.plannerWinRate! < 0.75 * fair) {
+    // Planning by the standings loses to random play: the standings point the wrong way.
+    issues.push(
+      `the mid-game scores mislead: a player who plans by the standings in outcome(state).scores wins only ${Math.round(stats.plannerWinRate! * 100)}% of ${stats.numPlayers}-player games against random opponents, below the fair share of ${Math.round(fair * 100)}%; make those scores count what decides the game, e.g. majorities, sets and end-game bonuses as if they scored now`,
+    );
+  } else if (edge !== undefined && edge < 0.25) {
     issues.push(
       `decisions barely matter: a player who plans ahead wins ${Math.round(stats.plannerWinRate! * 100)}% of ${stats.numPlayers}-player games against random opponents, close to the fair share of ${Math.round(100 / stats.numPlayers)}%`,
     );
