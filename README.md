@@ -9,10 +9,9 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 1. **Design.** Muse Spark turns your idea and settings (players, length, complexity, luck) into a game plan.
 2. **Find building blocks.** It picks tested mechanics from the library: dice, card markets, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
 3. **Write the rules.** Muse Spark writes the game as code on top of those blocks.
-4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks. Failures go back to the model until the rules pass.
-5. **Play and tune.** Play against bots on a 3D table. Sliders change the rules and show balance as you drag.
-
-Coming next: card and board art from Muse Image checked with SAM 3.1, and Muse Spark opponents that negotiate and bluff.
+4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks, and 100 more check that it is worth playing. Problems go back to the model until the rules pass ([generation benchmark](eval/generation/README.md): 24 of 24 ideas pass).
+5. **Play and tune.** Play on a 3D table. Muse Spark opponents trade, bluff and talk ([opponents benchmark](eval/opponents/README.md)). Sliders change the rules and show balance as you drag.
+6. **Paint.** Muse Image paints every card and the board in one style, and SAM 3.1 checks that each painted tile lines up with the real board.
 
 ## Try it
 
@@ -50,4 +49,4 @@ npm run eval:generation
 All code was written after kickoff on Oct 26, 2026. The day-by-day plan and progress are in [docs/PLAN.md](docs/PLAN.md).
 
 - **Oct 26:** engine, fuzzer, first reference game, search, app shell.
-- **Oct 27:** 19 mechanic modules, 9 reference games, retrieval eval, 3D table, end-to-end game generation.
+- **Oct 27:** 19 mechanic modules, 9 reference games, retrieval eval, 3D table, end-to-end game generation, playtesting, Muse Spark opponents, card and board art.
