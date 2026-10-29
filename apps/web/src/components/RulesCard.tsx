@@ -1,9 +1,10 @@
-import type { GameModule } from "@boarddream/engine";
+import type { GameModule, Params } from "@boarddream/engine";
 import { BookOpen } from "lucide-react";
+import { rulesFor } from "../rules";
 
 /** How to play: the game's rules and how the table works. Opens the first time a game is played here. */
-export function RulesCard({ game, onClose }: { game: GameModule; onClose(): void }) {
-  const rules = game.meta.rules?.length ? game.meta.rules : [game.meta.summary];
+export function RulesCard({ game, params, onClose }: { game: GameModule; params: Params; onClose(): void }) {
+  const rules = rulesFor(game, params);
   return (
     <div className="overlay rules-overlay" onClick={onClose}>
       <div className="rules-card" role="dialog" aria-label={`How to play ${game.meta.name}`} onClick={(e) => e.stopPropagation()}>

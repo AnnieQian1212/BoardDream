@@ -306,9 +306,9 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
-      {rulesOpen && !results && <RulesCard game={game} onClose={closeRules} />}
+      {rulesOpen && !results && <RulesCard game={game} params={params} onClose={closeRules} />}
       {results && <ResultsPage onClose={() => setResults(false)} />}
-      {printing && <PrintSheet game={game} art={art} onClose={() => setPrinting(false)} />}
+      {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}
     </div>
   );
 }

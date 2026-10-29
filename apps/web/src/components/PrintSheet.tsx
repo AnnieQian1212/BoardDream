@@ -1,8 +1,9 @@
-import { createRng, resolveParams, type CardView, type GameModule, type Geometry } from "@boarddream/engine";
+import { createRng, resolveParams, type CardView, type GameModule, type Geometry, type Params } from "@boarddream/engine";
 import { Printer, X } from "lucide-react";
 import { useMemo } from "react";
 import { startingGeometry } from "../art";
 import { resourceById } from "../icons";
+import { rulesFor } from "../rules";
 import { Board } from "./Board";
 import { Card } from "./Card";
 
@@ -10,8 +11,9 @@ const CARDS_PER_PAGE = 9;
 
 /**
  * Every card design with its number of copies: bots play a few games and each distinct card id
- * (copies have their own, like "fern#2") seen face up counts once. Cards nobody ever saw are
- * missing, so the sheet says the counts come from play.
+ * (copies have their own, like "fern#2") seen face up counts once. A design is the whole face, not
+ * just the title: two cards may share a name and differ (a starting oven and one for sale). Cards
+ * nobody ever saw are missing, so the sheet says the counts come from play.
  */
 function cardInventory(game: GameModule, art: Map<string, string> | undefined, games = 8): { card: CardView; copies: number }[] {
   const ids = new Map<string, Set<string>>();
@@ -25,8 +27,9 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
         for (const panel of game.panels?.(state, seat) ?? []) {
           for (const card of panel.cards ?? []) {
             if (card.faceDown) continue;
-            if (!views.has(card.title)) views.set(card.title, { ...card, art: card.art ?? art?.get(card.title) });
-            ids.set(card.title, (ids.get(card.title) ?? new Set()).add(card.id));
+            const design = JSON.stringify([card.title, card.text, card.cost, card.points, card.tags]);
+            if (!views.has(design)) views.set(design, { ...card, art: card.art ?? art?.get(card.title) });
+            ids.set(design, (ids.get(design) ?? new Set()).add(card.id));
           }
         }
       }
@@ -34,17 +37,21 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
       state = game.applyMove(state, seat, rng.pick(game.legalMoves(state, seat)), rng);
     }
   }
-  return [...views.entries()].map(([title, card]) => ({ card, copies: ids.get(title)!.size }));
+  return [...views.entries()].map(([design, card]) => ({ card, copies: ids.get(design)!.size }));
 }
 
 /** A print-and-play kit: the rules, the components, the board and every card, laid out for A4 with cut lines. */
-export function PrintSheet({ game, art, onClose }: { game: GameModule; art?: Map<string, string>; onClose(): void }) {
+export function PrintSheet({ game, params, art, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; onClose(): void }) {
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
   const inventory = useMemo(() => cardInventory(game, art), [game, art]);
-  const geometry = useMemo<Geometry | undefined>(() => startingGeometry(game), [game]);
+  // The board as printed: its spaces and labels, without the pieces of one particular opening.
+  const geometry = useMemo<Geometry | undefined>(() => {
+    const start = startingGeometry(game);
+    return start && { ...start, pieces: [] };
+  }, [game]);
   const cards = inventory.flatMap(({ card, copies }) => Array.from({ length: copies }, (_, i) => ({ card, key: `${card.title}-${i}` })));
   const pages = Array.from({ length: Math.ceil(cards.length / CARDS_PER_PAGE) }, (_, i) => cards.slice(i * CARDS_PER_PAGE, (i + 1) * CARDS_PER_PAGE));
-  const rules = game.meta.rules?.length ? game.meta.rules : [game.meta.summary];
+  const rules = rulesFor(game, params);
   const players = game.meta.minPlayers === game.meta.maxPlayers ? `${game.meta.minPlayers}` : `${game.meta.minPlayers}–${game.meta.maxPlayers}`;
 
   return (

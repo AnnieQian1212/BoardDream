@@ -235,7 +235,7 @@ Cost controls:
 - `apps/server`: Hono API, Model API client, reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), the `designGame` pipeline (spec, Muse Spark expansion + rerank retrieval, rules code, fuzz in a worker with a watchdog, repair, playtest with the strategic-depth check), Muse Spark opponents, card and board art with SAM 3.1 alignment
 - `eval/`: retrieval (63 queries, 212 graded judgments, three systems), generation (24 hobby-game ideas, 24 pass after one repair, planner win rate reported) and opponents (Muse Spark 1.3 and Muse Spark Open) benchmarks, with cached replies
 - `apps/web`: 3D tabletop (three.js) for every game, including edge-matched tiles; create panel, parameter sliders, live balance stats and the game profile from web workers; a results page; 2D table as a fallback
-- 158 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- 159 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - Sixteen drafted retrieval judgments (Highsail, Wildmere, deck building, Fenlight) await author review
