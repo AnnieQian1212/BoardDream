@@ -6,7 +6,7 @@ import { catalog, catalogText } from "@boarddream/library";
 import { Bm25Index } from "@boarddream/retrieval";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
-import { designGame } from "./agent/designer";
+import { designGame, reviseGame } from "./agent/designer";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
@@ -14,7 +14,7 @@ import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
 import { ModelClient } from "./meta/client";
-import { gameSource, listGames, saveGame } from "./store";
+import { gameSource, listGames, saveGame, saveRevision } from "./store";
 
 const designer = new ModelClient({ ...config.meta, model: config.models.designer });
 const painter = new ModelClient({ ...config.meta, model: config.models.image });
@@ -131,6 +131,32 @@ app.post("/api/generate", async (c) => {
       const result = await designGame(request, { llm: designer, index, onProgress });
       const saved = result.ok ? saveGame(result) : undefined;
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
+    } catch (err) {
+      await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+    }
+  });
+});
+
+// A designer's change to a game, in their words, streamed like generation. Saved games are read
+// from the server's copy; a game the server never saved (a bundled demo game) sends its source.
+app.post("/api/revise", async (c) => {
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
+  const body = await c.req.json<{ id?: string; source?: string; request?: string }>();
+  const source = (body.id && gameSource(body.id)) || body.source;
+  const request = body.request?.trim();
+  if (typeof source !== "string" || source.length > 300_000) return c.json({ error: "send the game's id or its rules source" }, 400);
+  if (!request || request.length > 600) return c.json({ error: "describe the change in at most 600 characters" }, 400);
+  const limited = overLimit(c, "generate");
+  if (limited) return limited;
+  return streamSSE(c, async (stream) => {
+    const onProgress = (event: string) => {
+      console.log(`[revise] ${event}`);
+      void stream.writeSSE({ event: "progress", data: event });
+    };
+    try {
+      const result = await reviseGame(source, request, { llm: designer, index, onProgress });
+      const saved = result.ok ? saveRevision(body.id, result, request) : undefined;
+      await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id, title: saved?.title }) });
     } catch (err) {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
+import { revisedTitle } from "./store";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
@@ -183,5 +184,13 @@ describe("guard", () => {
     expect(opponentRequestProblem("hello")).toMatch(/object/);
     expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
     expect(clientAddress(new Headers(), "127.0.0.1")).toBe("127.0.0.1");
+  });
+});
+
+describe("revisions", () => {
+  it("number revised versions of a game", () => {
+    expect(revisedTitle("Abbey of Ink and Vine")).toBe("Abbey of Ink and Vine (revised)");
+    expect(revisedTitle("Abbey of Ink and Vine (revised)")).toBe("Abbey of Ink and Vine (revised 2)");
+    expect(revisedTitle("Abbey of Ink and Vine (revised 2)")).toBe("Abbey of Ink and Vine (revised 3)");
   });
 });

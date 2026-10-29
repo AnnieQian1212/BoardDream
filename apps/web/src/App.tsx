@@ -10,6 +10,7 @@ import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { PrintSheet } from "./components/PrintSheet";
 import { ResultsPage } from "./components/ResultsPage";
+import { RevisePanel } from "./components/RevisePanel";
 import { RulesCard } from "./components/RulesCard";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, savedGames } from "./generated";
@@ -283,6 +284,15 @@ export function App() {
           simGames={SIM_GAMES}
           onChange={(players, nextParams) => configure(game, players, nextParams)}
         />
+        {canGenerate && generatedSource(game) && (
+          <RevisePanel
+            game={game}
+            onRevised={(revised) => {
+              setGames((current) => [...current, revised]);
+              selectGame(revised);
+            }}
+          />
+        )}
         <ProfilePanel profile={profile.profile} pending={profile.pending} error={profile.error} />
         {(cardCount > 0 || hasBoard) && (
           <ArtPanel

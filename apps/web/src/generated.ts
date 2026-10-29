@@ -14,6 +14,7 @@ export const generatedSource = (game: GameModule) => sources.get(game);
 
 interface SavedGame {
   id: string;
+  title?: string;
   rules?: string[];
 }
 
@@ -37,11 +38,11 @@ export async function savedGames(): Promise<GameModule[]> {
     ...(await fetchList("/api/games")).map((game) => ({ ...game, url: `/api/games/${game.id}` })),
   ];
   const games: GameModule[] = [];
-  for (const { id, rules, url } of sources) {
+  for (const { id, title, rules, url } of sources) {
     if (games.some((g) => g.meta.id === id)) continue;
     try {
       const res = await fetch(url);
-      if (res.ok) games.push(loadGeneratedGame(await res.text(), id, rules));
+      if (res.ok) games.push(loadGeneratedGame(await res.text(), id, rules, title));
     } catch {
       // Skip it; the others still load.
     }
@@ -51,9 +52,10 @@ export async function savedGames(): Promise<GameModule[]> {
 
 /**
  * Runs generated rules that already passed server-side fuzzing and playtesting. `id` replaces the
- * game's own id (the saved game's id), so two generated games never collide.
+ * game's own id (the saved game's id), so two generated games never collide, and `title` its
+ * name, so a revision reads "(revised)" in the picker.
  */
-export function loadGeneratedGame(source: string, id?: string, rules?: string[]): GameModule {
+export function loadGeneratedGame(source: string, id?: string, rules?: string[], title?: string): GameModule {
   const module = { exports: {} as Record<string, unknown> };
   const require = (id: string) => {
     if (id in MODULES) return MODULES[id];
@@ -63,7 +65,7 @@ export function loadGeneratedGame(source: string, id?: string, rules?: string[])
   const exported = module.exports as { default?: unknown; game?: unknown };
   const game = (exported.default ?? exported.game ?? exported) as GameModule;
   // The designer's rules fill in when the module does not state its own.
-  const named = { ...game, meta: { ...game.meta, id: id ?? game.meta.id, rules: game.meta.rules ?? rules } };
+  const named = { ...game, meta: { ...game.meta, id: id ?? game.meta.id, name: title ?? game.meta.name, rules: game.meta.rules ?? rules } };
   sources.set(named, source);
   return named;
 }

@@ -131,7 +131,35 @@ export function formatFailures(check: RulesCheck): string {
     .join("\n");
 }
 
-export function repairMessages(spec: GameSpec, source: string, failureText: string): ChatMessage[] {
+/**
+ * What the repair prompts know about the game: the designer's spec for a new game, or for a
+ * revision the game's name, pitch and the change the designer asked for.
+ */
+export type DesignBrief = GameSpec | { title: string; pitch: string; designerRequest: string };
+
+export function revisionMessages(source: string, request: string): ChatMessage[] {
+  return [
+    { role: "system", content: `You revise board game rules for the BoardDream engine.\n\n${CODE_RULES}` },
+    {
+      role: "user",
+      content: `A designer playtested this game and asks for a change:
+
+> ${request}
+
+Change the rules to do what they ask, in the spirit of the request, and keep everything else as it is
+unless the change needs it. Update meta.rules, describeMove, panels and geometry so they match the new
+rules, add a param for any new number a designer might want to tune, keep meta.id and meta.name, and
+return the full module.
+
+## Current module
+\`\`\`js
+${source}
+\`\`\``,
+    },
+  ];
+}
+
+export function repairMessages(spec: DesignBrief, source: string, failureText: string): ChatMessage[] {
   return [
     { role: "system", content: `You fix board game rules for the BoardDream engine.\n\n${CODE_RULES}` },
     {
@@ -153,7 +181,7 @@ ${source}
   ];
 }
 
-export function designRepairMessages(spec: GameSpec, source: string, issues: string[]): ChatMessage[] {
+export function designRepairMessages(spec: DesignBrief, source: string, issues: string[]): ChatMessage[] {
   return [
     { role: "system", content: `You improve board game rules for the BoardDream engine.\n\n${CODE_RULES}` },
     {

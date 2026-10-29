@@ -2032,3 +2032,50 @@ button.pile-count.target {
     page: landscape;
   }
 }
+
+/* ---------- Rule revisions ---------- */
+
+.revision {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.revision-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.revision-table th {
+  text-align: right;
+  color: var(--muted);
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+
+.revision-table td {
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.revision-table td + td {
+  text-align: right;
+  font-weight: 600;
+}
+
+.revision h3 {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.revision ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}

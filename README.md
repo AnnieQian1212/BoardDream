@@ -41,6 +41,7 @@ npm run dev               # http://localhost:5173
 
 - Each game opens with a how-to-play card (**Rules** brings it back), and **Hint** asks the game's bot for a move.
 - **Print** makes an A4 print-and-play kit (rules, board, cards with cut lines) to test a game on a real table.
+- On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
 - `?game=lantern-isles&watch` lets bots play a whole game.
 - `F` hides the side panels.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
