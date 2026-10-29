@@ -1,4 +1,4 @@
-import type { CardView, GameModule, ResourceSpec } from "@boarddream/engine";
+import { fitBounds, type CardView, type GameModule, type ResourceSpec } from "@boarddream/engine";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NeutralToneMapping } from "three";
@@ -116,10 +116,10 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     if (!art?.size) return raw;
     return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
   }, [game, state, human, art]);
-  const layout = useMemo(
-    () => layoutTable({ panels, geometry: game.geometry?.(state, human), human, active, targets, resources }),
-    [game, state, panels, human, active, targets, resources],
-  );
+  const layout = useMemo(() => {
+    const geometry = game.geometry?.(state, human);
+    return layoutTable({ panels, geometry: geometry && fitBounds(geometry), human, active, targets, resources });
+  }, [game, state, panels, human, active, targets, resources]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const labelLayer = useRef<HTMLDivElement>(null);
   const labels = useMemo(() => ({ anchors: labelAnchors(layout), layer: labelLayer }), [layout]);

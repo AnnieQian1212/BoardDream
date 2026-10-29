@@ -58,7 +58,7 @@ export function PrintSheet({ game, params, art, onClose }: { game: GameModule; p
     <div className="print-overlay">
       <div className="print-toolbar">
         <span>
-          Print and play <b>{game.meta.name}</b>: {1 + (geometry ? 1 : 0) + pages.length} A4 pages. Cut along the dashed lines.
+          Print and play <b>{game.meta.name}</b>: the rules{geometry ? ", the board" : ""} and {cards.length} cards on A4. Cut along the dashed lines.
         </span>
         <button type="button" className="action" onClick={() => window.print()}>
           <Printer size={16} /> Print or save as PDF

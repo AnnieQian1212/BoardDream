@@ -1,4 +1,4 @@
-import type { GameModule, Panel, ResourceSpec } from "@boarddream/engine";
+import { fitBounds, type GameModule, type Panel, type ResourceSpec } from "@boarddream/engine";
 import { Trophy } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { playerColor } from "../colors";
@@ -33,7 +33,8 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const active = over ? undefined : game.activePlayers(state)[0];
   const myTurn = active === human;
   const resources = resourceById(game.meta.resources);
-  const geometry = game.geometry?.(state, human);
+  const raw = game.geometry?.(state, human);
+  const geometry = raw && fitBounds(raw);
   const panels = game.panels?.(state, human) ?? [];
   const label = (move: unknown) => game.describeMove?.(state, move, human) ?? JSON.stringify(move);
 

@@ -1,4 +1,4 @@
-import { createRng, resolveParams, type CardView, type GameModule } from "@boarddream/engine";
+import { createRng, fitBounds, resolveParams, type CardView, type GameModule } from "@boarddream/engine";
 import { useEffect, useState } from "react";
 import { readEvents } from "./sse";
 import type { BoardPaint } from "./three/Board3D";
@@ -28,7 +28,8 @@ const boardArt = (gameId: string, report: BoardReport, version: string): BoardAr
 /** The board a game starts with: what the painter paints over. */
 export function startingGeometry(game: GameModule) {
   const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
-  return game.geometry?.(game.setup({ numPlayers: players, params: resolveParams(game.params), rng: createRng(1) }));
+  const geometry = game.geometry?.(game.setup({ numPlayers: players, params: resolveParams(game.params), rng: createRng(1) }));
+  return geometry && fitBounds(geometry);
 }
 
 /**

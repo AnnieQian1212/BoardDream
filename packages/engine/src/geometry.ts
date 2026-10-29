@@ -28,3 +28,29 @@ export function regularPolygon(cx: number, cy: number, radius: number, sides: nu
     return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
   });
 }
+
+/**
+ * The geometry grown, and shifted where it reaches below zero, so its size covers every cell and
+ * piece. Generated boards sometimes draw past the size they declare (a third player's area beside a
+ * board sized for two); drawn as declared, those spaces would hang off the board.
+ */
+export function fitBounds(geometry: Geometry): Geometry {
+  let [minX, minY, maxX, maxY] = [0, 0, geometry.width, geometry.height];
+  const take = (x: number, y: number, r = 0) => {
+    minX = Math.min(minX, x - r);
+    minY = Math.min(minY, y - r);
+    maxX = Math.max(maxX, x + r);
+    maxY = Math.max(maxY, y + r);
+  };
+  for (const cell of geometry.cells) for (const [x, y] of cell.polygon) take(x, y);
+  for (const piece of geometry.pieces) take(piece.x, piece.y, piece.r);
+  if (minX === 0 && minY === 0 && maxX === geometry.width && maxY === geometry.height) return geometry;
+  const [dx, dy] = [-minX, -minY];
+  return {
+    ...geometry,
+    width: maxX - minX,
+    height: maxY - minY,
+    cells: geometry.cells.map((cell) => ({ ...cell, polygon: cell.polygon.map(([x, y]) => [x + dx, y + dy] as [number, number]) })),
+    pieces: geometry.pieces.map((piece) => ({ ...piece, x: piece.x + dx, y: piece.y + dy })),
+  };
+}

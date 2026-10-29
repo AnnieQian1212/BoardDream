@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fuzz, playMatch, randomBot, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
+import { fitBounds, fuzz, playMatch, randomBot, rectPolygon, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -119,5 +119,22 @@ describe("simulate", () => {
     expect(stats.games).toBe(200);
     expect(stats.drawRate).toBe(0);
     expect(stats.winRateBySeat[0] + stats.winRateBySeat[1]).toBeCloseTo(1);
+  });
+});
+
+describe("fitBounds", () => {
+  it("grows a board to cover cells drawn past its declared size, and leaves a tidy one alone", () => {
+    const tidy = { width: 4, height: 2, cells: [{ id: "a", polygon: rectPolygon(0, 0, 4, 2) }], pieces: [] };
+    expect(fitBounds(tidy)).toBe(tidy);
+    const sloppy = {
+      width: 4,
+      height: 2,
+      cells: [{ id: "a", polygon: rectPolygon(0, 0, 4, 2) }, { id: "third-mat", polygon: rectPolygon(4.5, 0, 2, 2) }],
+      pieces: [{ id: "p", x: -1, y: 1, r: 0.5 }],
+    };
+    const fitted = fitBounds(sloppy);
+    expect([fitted.width, fitted.height]).toEqual([8, 2]);
+    expect(fitted.cells[1].polygon[1]).toEqual([8, 0]);
+    expect(fitted.pieces[0].x).toBe(0.5);
   });
 });

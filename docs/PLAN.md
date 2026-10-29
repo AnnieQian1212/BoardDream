@@ -235,9 +235,10 @@ Cost controls:
 - `apps/server`: Hono API, Model API client, reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), the `designGame` pipeline (spec, Muse Spark expansion + rerank retrieval, rules code, fuzz in a worker with a watchdog, repair, playtest with the strategic-depth check), Muse Spark opponents, card and board art with SAM 3.1 alignment
 - `eval/`: retrieval (63 queries, 212 graded judgments, three systems), generation (24 hobby-game ideas, 24 pass after one repair, planner win rate reported) and opponents (Muse Spark 1.3 and Muse Spark Open) benchmarks, with cached replies
 - `apps/web`: 3D tabletop (three.js) for every game, including edge-matched tiles; create panel, parameter sliders, live balance stats and the game profile from web workers; a results page; 2D table as a fallback
-- 159 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- 160 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - Sixteen drafted retrieval judgments (Highsail, Wildmere, deck building, Fenlight) await author review
-- The live deployment (needs the author's Cloudflare account and the model secrets; whether live generation goes on Modal depends on its credits), the demo video and the submission
-- The 3D table has been checked with scripted headless-Chrome screenshots and clicks (GPU on), not yet on a laptop GPU or at 4K
+- The live deployment (needs the author's Cloudflare account and the model secrets). Modal credits are not available (Oct 29), so the public demo is the static Cloudflare Pages version with AI opponents; live generation runs locally and is shown in the video. Then the demo video and the submission
+- The 3D table runs smoothly on the author's Intel Iris Xe laptop at 1440p (checked Oct 29); not yet tried at 4K
+- Whether the games are fun with real players: Fenlight with Muse Spark opponents is next for the author to play
