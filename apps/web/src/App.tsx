@@ -1,6 +1,6 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { BarChart3, Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -9,6 +9,7 @@ import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { ResultsPage } from "./components/ResultsPage";
+import { RulesCard } from "./components/RulesCard";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, savedGames } from "./generated";
 import { decide, type Decision } from "./opponents";
@@ -79,6 +80,13 @@ export function App() {
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
   const [results, setResults] = useState(query.has("results"));
+  // The rules card opens the first time a game is played in this browser (not while bots play alone).
+  const [rulesOpen, setRulesOpen] = useState(false);
+  useEffect(() => setRulesOpen(!WATCH && !query.has("results") && !rulesSeen(game.meta.id)), [game]);
+  const closeRules = () => {
+    markRulesSeen(game.meta.id);
+    setRulesOpen(false);
+  };
   const [profile, setProfile] = useState<{ profile?: GameProfile; pending: boolean; error?: string }>({ pending: true });
   // Muse Spark (Open, when the server hosts it) plays the social moves: offers, bids, bluffs.
   const [muse, setMuse] = useState(false);
@@ -237,6 +245,9 @@ export function App() {
         >
           <Sparkles size={15} /> {muse ? "Muse opponents" : "Bot opponents"}
         </button>
+        <button type="button" className="ghost" onClick={() => setRulesOpen(true)} title="How to play this game">
+          <BookOpen size={15} /> Rules
+        </button>
         <button type="button" className="ghost" onClick={() => setResults(true)} title="Every benchmark and measurement on one page">
           <BarChart3 size={15} /> Results
         </button>
@@ -280,9 +291,28 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
+      {rulesOpen && !results && <RulesCard game={game} onClose={closeRules} />}
       {results && <ResultsPage onClose={() => setResults(false)} />}
     </div>
   );
+}
+
+// Which games' rules this browser has seen. Storage can be unavailable (private windows, previews):
+// then the card simply opens again next time.
+const rulesKey = (id: string) => `boarddream:rules-seen:${id}`;
+function rulesSeen(id: string): boolean {
+  try {
+    return localStorage.getItem(rulesKey(id)) !== null;
+  } catch {
+    return false;
+  }
+}
+function markRulesSeen(id: string) {
+  try {
+    localStorage.setItem(rulesKey(id), "1");
+  } catch {
+    // Not remembered; nothing else depends on it.
+  }
 }
 
 function BrandMark() {

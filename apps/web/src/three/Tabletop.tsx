@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
+import { Hint } from "../components/Hint";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
 import { setCursor, setHover, useHover } from "./hover";
@@ -190,6 +191,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
         <div className="action-dock" style={free}>
           <div className="action-bar">
             <span className="status">{status}</span>
+            {myTurn && <Hint game={game} state={state} human={human} onMove={onMove} />}
             {loose.map((move, i) => (
               <button key={i} type="button" className={loose.length <= 3 ? "action" : "action secondary"} onClick={() => onMove(move)}>
                 {label(move)}
