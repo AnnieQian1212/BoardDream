@@ -238,7 +238,6 @@ Cost controls:
 - 160 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
-- Sixteen drafted retrieval judgments (Highsail, Wildmere, deck building, Fenlight) await author review
 - The live deployment (needs the author's Cloudflare account and the model secrets). Modal credits are not available (Oct 29), so the public demo is the static Cloudflare Pages version with AI opponents; live generation runs locally and is shown in the video. Then the demo video and the submission
 - The 3D table runs smoothly on the author's Intel Iris Xe laptop at 1440p (checked Oct 29); not yet tried at 4K
 - Whether the games are fun with real players: Fenlight with Muse Spark opponents is next for the author to play

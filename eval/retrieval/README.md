@@ -10,7 +10,7 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
   - **2:** the game cannot be built without this mechanic, or this reference game is a close template.
   - **1:** useful but not essential, e.g. a generic helper the idea explicitly needs, or a related reference game.
   - unlisted entries are 0.
-- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, then reviewed by the author the same day (see [Author review](#author-review)). Sixteen judgments added after the review are drafted and pending review. Highsail: 2 for q23 (worker placement with blocked spaces), 1 for q24 (region majorities) and 1 for q51 (cards that pay income). Wildmere: 2 for q15 (laying tiles into a map whose features score), 1 for q24 (region majorities) and 1 for q35 (a hex board). The deck-building module: 1 for q41 (every player refills a hand and reshuffles their discards). q63: deck building 2; deck, market and card effects 1 each. Fenlight, the social deduction reference game: 2 for q04 (a village hiding werewolves that votes someone out), q10 (a hidden saboteur among the crew) and q30 (two secret teams voting to exile suspects), 1 for q43 (spies bluffing about identity) and q50 (voting on who is lying). None were drafted with Muse Spark, which is the model under test in two of the three systems.
+- **Judgment status:** drafted on Oct 27, 2026 with Claude (Anthropic) during development, then reviewed by the author the same day (see [Author review](#author-review)). Sixteen judgments added after that review were drafted the same way and reviewed by the author on Oct 29, who kept all sixteen as drafted. Highsail: 2 for q23 (worker placement with blocked spaces), 1 for q24 (region majorities) and 1 for q51 (cards that pay income). Wildmere: 2 for q15 (laying tiles into a map whose features score), 1 for q24 (region majorities) and 1 for q35 (a hex board). The deck-building module: 1 for q41 (every player refills a hand and reshuffles their discards). q63: deck building 2; deck, market and card effects 1 each. Fenlight, the social deduction reference game: 2 for q04 (a village hiding werewolves that votes someone out), q10 (a hidden saboteur among the crew) and q30 (two secret teams voting to exile suspects), 1 for q43 (spies bluffing about identity) and q50 (voting on who is lying). None were drafted with Muse Spark, which is the model under test in two of the three systems.
 - **Measures:** P@10, Recall@10, nDCG@10 (linear gain, as in trec_eval), MRR, MAP.
 
 ## Systems
@@ -42,6 +42,10 @@ Model: `muse-spark-1.3` with structured output; prompts in `apps/server/src/agen
 - The full run makes 124 Muse Spark calls (one expansion and one rerank per query) and costs about $1, almost all of it reasoning tokens. Adding the genre queries and catalog entries took 73 new calls ($0.82); adding Highsail took 48 ($0.61); adding Wildmere and the tile-placement module took 51 ($0.66); adding the deck-building entry and q63 took 106 over two runs ($1.37), one before and one after that rewrite; adding Fenlight took 46 ($0.60).
 
 ### Author review
+
+On Oct 29 the author checked the sixteen judgments added for Highsail, Wildmere, the deck-building module, q63 and Fenlight, five of them flagged as borderline (Highsail for q51, Wildmere for q35, deck building for q41, card effects for q63, Fenlight for q50), and kept every one. The results above stand.
+
+Earlier, on Oct 27:
 
 The author checked 13 drafted judgments flagged as borderline and changed 10 (193 → 196 judgments):
 
