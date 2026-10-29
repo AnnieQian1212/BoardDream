@@ -226,6 +226,7 @@ Cost controls:
 - [ ] Video shows only features built during the hackathon
 - [ ] Present the project as retrieval → composed executable code → fuzz verification, not as a basic RAG app
 
+- **Done (night on the table), Oct 29:** a board can set `mood: "night"` and give cells a `glow` color (both in `Geometry`). At night the table's lights and background ease to a cool dusk (still light, never black), glowing cells burn warm with a point light over each, and low fog banks fade in along the board's edges, kept off the seats and text so everything stays readable. Fenlight uses it: every lantern glows at night, and by day only the lanterns that looked lit. The point lights come from a fixed pool of four, so a lantern going out never makes three recompile shaders mid-game, and the lowest quality tier skips them (the cells still glow). The designer prompt tells generated games with nights about both fields. On the way: the end-of-game banner now speaks of the whole table in cooperative games and of sides in hidden-role games, instead of "Shared victory" for a winning team or "Player 3 wins" for a losing one.
 ## Status (Oct 28)
 
 **Working:**
@@ -235,7 +236,7 @@ Cost controls:
 - `apps/server`: Hono API, Model API client, reply cache, `vm` sandbox (allowlisted `require`, no `Math.random`), the `designGame` pipeline (spec, Muse Spark expansion + rerank retrieval, rules code, fuzz in a worker with a watchdog, repair, playtest with the strategic-depth check), Muse Spark opponents, card and board art with SAM 3.1 alignment
 - `eval/`: retrieval (63 queries, 212 graded judgments, three systems), generation (24 hobby-game ideas, 24 pass after one repair, planner win rate reported) and opponents (Muse Spark 1.3 and Muse Spark Open) benchmarks, with cached replies
 - `apps/web`: 3D tabletop (three.js) for every game, including edge-matched tiles; create panel, parameter sliders, live balance stats and the game profile from web workers; a results page; 2D table as a fallback
-- 160 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
+- 163 tests pass; `npm run typecheck` and `npm run build -w @boarddream/web` pass
 
 **Not done or unverified:**
 - The live deployment (needs the author's Cloudflare account and the model secrets). Modal credits are not available (Oct 29), so the public demo is the static Cloudflare Pages version with AI opponents; live generation runs locally and is shown in the video. Then the demo video and the submission

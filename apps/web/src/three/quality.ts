@@ -2,7 +2,7 @@
  * Render quality tiers. The table renders on demand (nothing is drawn while nothing moves), so
  * these mostly decide how expensive each animated frame is.
  *
- * - lowest: 1x pixels, no shadow maps
+ * - lowest: 1x pixels, no shadow maps, glowing cells cast no light
  * - low: up to 1.25x pixels, no shadow maps (integrated and mobile GPUs start here)
  * - medium: up to 1.5x pixels, soft shadow maps (discrete GPUs start here)
  * - high: up to 2x pixels, shadow maps and ambient occlusion (opt in with ?quality=high)
@@ -19,6 +19,8 @@ export interface Quality {
   shadows: boolean;
   shadowMapSize: number;
   ambientOcclusion: boolean;
+  /** Point lights over glowing cells (lanterns, fires). Each one costs every lit pixel a little. */
+  glowLights: number;
 }
 
 const STORAGE_KEY = "boarddream:quality";
@@ -32,6 +34,7 @@ export function settings(tier: Tier): Quality {
     shadows: tier === "medium" || tier === "high",
     shadowMapSize: tier === "high" ? 2048 : 1024,
     ambientOcclusion: tier === "high",
+    glowLights: tier === "lowest" ? 0 : 4,
   };
 }
 

@@ -66,6 +66,8 @@ export interface GeometryCell {
    * polygon[i + 1]). Each is painted as a wedge from the cell's center to that edge.
    */
   segments?: string[];
+  /** The cell gives off light of this color, e.g. a lit lantern or a fire. */
+  glow?: string;
 }
 
 export interface GeometryPiece {
@@ -87,6 +89,8 @@ export interface Geometry {
   height: number;
   cells: GeometryCell[];
   pieces: GeometryPiece[];
+  /** The light over the table: "night" dims it to a cool dusk, where glowing cells stand out. */
+  mood?: "day" | "night";
 }
 
 /** A card as the UI draws it. */

@@ -5,7 +5,7 @@ import { EffectComposer, N8AO, ToneMapping } from "@react-three/postprocessing";
 import { easing } from "maath";
 import { ToneMappingMode } from "postprocessing";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Object3D, PerspectiveCamera, Vector3 } from "three";
+import { Color, Object3D, PerspectiveCamera, Vector3, type DirectionalLight, type HemisphereLight } from "three";
 import { Board3D, type BoardPaint } from "./Board3D";
 import { fitCamera, FOV, type Insets } from "./camera";
 import { Card3D, Deck3D } from "./Card3D";
@@ -57,7 +57,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
       <color attach="background" args={["#e6dac8"]} />
       <CameraRig layout={layout} insets={insets} />
       <FrameMonitor onSlow={onSlow} />
-      <Lights center={center} extent={extent} quality={quality} />
+      <Lights center={center} extent={extent} quality={quality} night={layout.board?.geometry.mood === "night"} />
       <Environment resolution={128} environmentIntensity={0.5}>
         <Lightformer form="rect" intensity={2} color="#fffaf0" position={[-20, 60, 10]} rotation-x={Math.PI / 2} scale={[80, 50, 1]} />
         <Lightformer form="rect" intensity={1} color="#dfe8ff" position={[70, 25, -20]} rotation-y={-Math.PI / 2} scale={[60, 20, 1]} />
@@ -69,7 +69,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
         <Mat3D key={mat.id} mat={mat} />
       ))}
       <LabelTracker anchors={labels.anchors} layer={labels.layer} />
-      {layout.board && <Board3D board={layout.board} targets={targets} paint={boardPaint} onPick={onPick} />}
+      {layout.board && <Board3D board={layout.board} targets={targets} paint={boardPaint} glowLights={quality.glowLights} onPick={onPick} />}
       {layout.decks.map((deck) => (
         <Deck3D key={deck.id} item={deck} onPick={onPick} />
       ))}
@@ -141,14 +141,60 @@ function FrameMonitor({ onSlow }: { onSlow?(): void }) {
   return null;
 }
 
-function Lights({ center, extent, quality }: { center: Vec3; extent: number; quality: Quality }) {
+/** The light over the table by day, and the cool dusk a game's night brings (Geometry.mood). */
+const DAY = {
+  sky: new Color("#fffaf0"),
+  ground: new Color("#c9ae8c"),
+  hemi: 1.15,
+  key: new Color("#fff3e0"),
+  keyIntensity: 1.9,
+  fill: 0.4,
+  environment: 0.5,
+  background: new Color("#e6dac8"),
+};
+const NIGHT = {
+  sky: new Color("#aebee6"),
+  ground: new Color("#4d4766"),
+  hemi: 0.5,
+  key: new Color("#a9b9ff"),
+  keyIntensity: 0.55,
+  fill: 0.25,
+  environment: 0.2,
+  background: new Color("#b4bccd"),
+};
+
+/**
+ * Sky light, a key light that casts the shadows, and a cool fill. Day and night blend over about
+ * a second, drawing frames only while they do.
+ */
+function Lights({ center, extent, quality, night }: { center: Vec3; extent: number; quality: Quality; night: boolean }) {
   const target = useMemo(() => new Object3D(), []);
   const [x, , z] = center;
+  const hemi = useRef<HemisphereLight>(null!);
+  const key = useRef<DirectionalLight>(null!);
+  const fill = useRef<DirectionalLight>(null!);
+  const scene = useThree((s) => s.scene);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => invalidate(), [night, invalidate]);
+  useFrame((_, delta) => {
+    const dt = step(delta);
+    const look = night ? NIGHT : DAY;
+    let moving = easing.damp(hemi.current, "intensity", look.hemi, 0.35, dt);
+    moving = easing.dampC(hemi.current.color, look.sky, 0.35, dt) || moving;
+    moving = easing.dampC(hemi.current.groundColor, look.ground, 0.35, dt) || moving;
+    moving = easing.damp(key.current, "intensity", look.keyIntensity, 0.35, dt) || moving;
+    moving = easing.dampC(key.current.color, look.key, 0.35, dt) || moving;
+    moving = easing.damp(fill.current, "intensity", look.fill, 0.35, dt) || moving;
+    moving = easing.damp(scene, "environmentIntensity", look.environment, 0.35, dt) || moving;
+    if (scene.background instanceof Color) moving = easing.dampC(scene.background, look.background, 0.35, dt) || moving;
+    if (moving) invalidate();
+  });
   return (
     <>
       <primitive object={target} position={center} />
-      <hemisphereLight args={["#fffaf0", "#c9ae8c", 1.15]} />
+      <hemisphereLight ref={hemi} args={["#fffaf0", "#c9ae8c", 1.15]} />
       <directionalLight
+        ref={key}
         target={target}
         position={[x - 45, 90, z + 35]}
         intensity={1.9}
@@ -165,7 +211,7 @@ function Lights({ center, extent, quality }: { center: Vec3; extent: number; qua
         shadow-camera-near={20}
         shadow-camera-far={260}
       />
-      <directionalLight position={[x + 60, 40, z - 40]} intensity={0.4} color="#dce6ff" />
+      <directionalLight ref={fill} position={[x + 60, 40, z - 40]} intensity={0.4} color="#dce6ff" />
     </>
   );
 }

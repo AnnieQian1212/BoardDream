@@ -3,6 +3,7 @@ import { Trophy } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { playerColor } from "../colors";
 import { resourceById } from "../icons";
+import { resultHeadline } from "../outcome";
 import { Board } from "./Board";
 import { Hint } from "./Hint";
 import { Card } from "./Card";
@@ -172,9 +173,9 @@ function SharedPanel(props: { panel: Panel; resources: Map<string, ResourceSpec>
 }
 
 export function Result({ game, state, human, onRestart }: { game: GameModule; state: unknown; human: number; onRestart(): void }) {
-  const { winners, scores } = game.outcome(state);
-  const headline =
-    winners.length === 0 ? "It's a draw" : winners.includes(human) ? (winners.length > 1 ? "Shared victory" : "You win!") : `Player ${winners[0] + 1} wins`;
+  const outcome = game.outcome(state);
+  const { scores } = outcome;
+  const headline = resultHeadline(game.meta.mode, outcome, human);
   return (
     <div className="overlay">
       <div className="result">

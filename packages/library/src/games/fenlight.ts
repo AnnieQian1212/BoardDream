@@ -225,6 +225,7 @@ const LANTERN_W = 2.6;
 const BOARD_W = 16;
 /** Top of the row of player spaces; chips sit above and vote figures below. */
 const SEAT_Y = 5.6;
+const LANTERN_LIGHT = "#ffc35a";
 
 export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> = {
   meta: {
@@ -358,7 +359,9 @@ export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> =
     posts.forEach((post, i) => {
       const x = gap + i * (LANTERN_W + gap);
       const kind = shown ? (shown.dark.includes(i) ? "dark-lantern" : "lit-lantern") : "lantern";
-      cells.push({ id: `post-${i}`, polygon: rectPolygon(x, 1.2, LANTERN_W, 2.2), kind, label: `Lantern ${i + 1}` });
+      // At night every lantern burns while its keepers decide; by day only those the lookout saw lit.
+      const glow = kind === "dark-lantern" ? undefined : LANTERN_LIGHT;
+      cells.push({ id: `post-${i}`, polygon: rectPolygon(x, 1.2, LANTERN_W, 2.2), kind, label: `Lantern ${i + 1}`, glow });
       post.forEach((seat, k) => {
         pieces.push({ id: `keeper-${seat}`, x: x + ((k + 1) * LANTERN_W) / (post.length + 1), y: 3.0, r: 0.32, owner: seat, shape: "pawn", cellId: `post-${i}` });
       });
@@ -411,7 +414,7 @@ export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> =
       const fog = v.fog ? `, fog hid ${v.fog}` : "";
       cells.push({ id: "report", polygon: rectPolygon(0.5, 0.1, BOARD_W - 1, 0.8), kind: "label", label: `Dawn ${last.night}: ${last.dark.length} looked dark, ${last.lost} boat${last.lost === 1 ? "" : "s"} lost${fog}` });
     }
-    return { width: BOARD_W, height: 10.6, cells, pieces };
+    return { width: BOARD_W, height: 10.6, cells, pieces, mood: v.phase === "night" ? "night" : "day" };
   },
 
   panels(s, viewer) {
