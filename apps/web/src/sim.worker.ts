@@ -45,7 +45,8 @@ self.onmessage = (event: MessageEvent<SimRequest>) => {
         games: turns.length,
         winRateBySeat: wins.map((w) => w / played),
         drawRate: draws / played,
-        firstPlayerEdge: wins[0] / played - 1 / numPlayers,
+        // Against the seats' average, so draws, shared wins and team games do not skew it.
+        firstPlayerEdge: wins[0] / played - wins.reduce((a, b) => a + b, 0) / played / numPlayers,
         avgTurns: turns.reduce((a, b) => a + b, 0) / played,
         medianTurns: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
         truncatedRate: truncated / played,

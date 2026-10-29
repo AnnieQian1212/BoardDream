@@ -10,6 +10,7 @@ import {
   Float32BufferAttribute,
   LatheGeometry,
   Shape,
+  ShapeGeometry,
   SRGBColorSpace,
   TextureLoader,
   Vector2,
@@ -177,6 +178,16 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
     // The painted prop is rebuilt every render; only its content matters here.
   }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // A legal tile sits on a halo the full size of its cell: the gap around the tile shows a teal
+  // ring whatever the tile's own color, which a glow alone does not on pale tiles.
+  const halo = useMemo(() => {
+    if (!target) return undefined;
+    const [cx, cy] = centroid(cell.polygon);
+    const grow = SPOTS.has(cell.kind ?? "") ? 1.15 : 1.0;
+    const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * grow, -(y - cy) * k * grow))));
+    return g.rotateX(-Math.PI / 2);
+  }, [target, cell.polygon, cell.kind, k]);
+  useEffect(() => () => halo?.dispose(), [halo]);
   // Edge-matched tiles: a wedge per edge on top, inset so a rim of the tile (its owner's tint) shows.
   const segmentKey = cell.segments?.join(",");
   const wedges = useMemo(() => {
@@ -210,8 +221,9 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
 
   useFrame((state, delta) => {
     const dt = step(delta);
-    // Small spots need a stronger glow than whole tiles to be noticed.
-    const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.22) : 0;
+    // Pale tiles under a bright light hide a faint glow, so legal tiles glow clearly; small spots
+    // glow a bit more. Only the hovered one lifts: the printed labels lie at the tiles' height.
+    const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.42) : 0;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
@@ -250,6 +262,11 @@ function Tile({ cell, k, at, target, painted, onPick }: TileProps) {
         emissiveIntensity={0}
         roughness={painted ? 0.72 : 0.68}
       />
+      {halo && (
+        <mesh geometry={halo} position={[0, 0.004, 0]} raycast={noRaycast}>
+          <meshBasicMaterial color={HIGHLIGHT} transparent opacity={0.85} />
+        </mesh>
+      )}
       {wedges && (
         <mesh geometry={wedges} position={[0, TILE_TOP - SLAB + 0.004, 0]} raycast={noRaycast} receiveShadow>
           <meshStandardMaterial ref={wedgeMaterial} vertexColors emissive={highlight} emissiveIntensity={0} roughness={0.75} />

@@ -8,7 +8,7 @@ import { tally } from "../mechanics/voting";
  * lanterns and choose in secret: tend, slip away to watch another player, or (wisps only) put the
  * lantern out. At dawn the lookout reports which lanterns looked dark and how many boats were
  * lost; fog makes some lit lanterns look dark too. By day everyone speaks once (accuse, vouch,
- * report what they watched, true or not), then all vote; a player with at least half the votes of
+ * report what they watched, true or not), then all vote; a player with more than half the votes of
  * the living is exiled and their role revealed. Wisps win when enough boats are lost or they
  * outnumber the keepers; keepers win by exiling every wisp or seeing the last night through.
  */
@@ -154,7 +154,7 @@ function dawn(s: FenlightState, rng: Rng): FenlightState {
   return { ...next, phase: "day", speaker, firstSpeaker: speaker, statements: [] };
 }
 
-/** The vote: whoever alone has the most votes, at least half of the living, is exiled. */
+/** The vote: whoever alone has the most votes, more than half of the living, is exiled. */
 function resolveVote(s: FenlightState, rng: Rng): FenlightState {
   const ballots = s.ballots.map((b, seat) => (!s.alive[seat] || b === "abstain" ? null : (b as PlayerId)));
   const counts = tally(ballots, s.numPlayers);
@@ -239,7 +239,7 @@ export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> =
       "Two players are secret wisps who know each other; everyone else is a keeper.",
       "Each night players are paired at lanterns and choose in secret: tend it, slip away to watch another player, or (wisps only) put it out. A lantern goes dark if anyone puts it out or nobody tends it, and every dark lantern loses a boat.",
       "At dawn everyone learns which lanterns looked dark and how many boats were lost, but fog can make a lit lantern look dark. Watchers privately learn whether their target put a lantern out.",
-      "By day each player speaks once: accuse, vouch for someone, report what they watched (truthfully or not) or stay quiet. Then everyone votes; a player with at least half the votes of the living is exiled and their role revealed.",
+      "By day each player speaks once: accuse, vouch for someone, report what they watched (truthfully or not) or stay quiet. Then everyone votes; a player with more than half the votes of the living is exiled and their role revealed.",
       "Wisps win when 4 boats are lost or they outnumber the keepers; keepers win by exiling both wisps or seeing the 6th night through.",
     ],
   },

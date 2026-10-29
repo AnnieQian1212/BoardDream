@@ -17,7 +17,10 @@ export interface BalanceStats {
   /** Share of games each seat won; shared and team wins count for every winner. */
   winRateBySeat: number[];
   drawRate: number;
-  /** Seat 0 win rate minus the fair share 1/numPlayers. Positive means a first-player advantage. */
+  /**
+   * Seat 0 win rate minus the seats' average, which is 1/numPlayers when every game has one winner
+   * and differs with draws, shared wins or team games. Positive means a first-player advantage.
+   */
   firstPlayerEdge: number;
   avgTurns: number;
   medianTurns: number;
@@ -56,7 +59,7 @@ export function simulate(game: GameModule, opts: SimOptions): BalanceStats {
     games: turns.length,
     winRateBySeat: wins.map((w) => w / played),
     drawRate: draws / played,
-    firstPlayerEdge: wins[0] / played - 1 / numPlayers,
+    firstPlayerEdge: wins[0] / played - wins.reduce((a, b) => a + b, 0) / played / numPlayers,
     avgTurns: turns.reduce((a, b) => a + b, 0) / played,
     medianTurns: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
     truncatedRate: truncated / played,
