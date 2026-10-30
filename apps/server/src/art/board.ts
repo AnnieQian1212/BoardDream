@@ -4,13 +4,15 @@ import { parseImageStream, recordsOfKind, decodeMaskToRaster, type ResponsesEven
 import type { ModelClient } from "../meta/client";
 import { boxPrompt, segment, type PixelBox } from "../meta/media";
 import { HOUSE_STYLE } from "./cards";
-import { encodePng, pngSize } from "./png";
+import { relabelSources, type Relabel } from "./content";
+import { decodePng, encodePng, pngSize } from "./png";
 
 /**
  * Board art with an alignment check. The engine's geometry is rendered as a flat guide image,
  * Muse Image repaints it as an illustrated board, and SAM 3.1 segments every tile from a box
  * prompt. Each tile's mask is compared with where the tile should be (IoU); misaligned tiles get
- * one targeted repaint, and the better-aligned painting is kept.
+ * one targeted repaint, and the better-aligned painting is kept. Last, a content check moves any
+ * tile painted as another terrain to the kind it shows (content.ts).
  */
 
 const ROOT = new URL("../../../../data/art/", import.meta.url);
@@ -161,6 +163,8 @@ export interface BoardReport {
   /** Mean IoU of the first painting, before any targeted repaint. */
   firstMeanIoU: number;
   repainted: boolean;
+  /** Tiles painted as another terrain than the guide asked for, moved to the kind they show. */
+  relabeled?: Relabel[];
 }
 
 /** Feeds a finished SAM output text to the parser as if it had streamed. */
@@ -309,10 +313,13 @@ export async function paintBoard(
     const chosen = aligned.length > 0 ? aligned : [ofKind.reduce((a, b) => ((iouOf.get(b.id) ?? 0) > (iouOf.get(a.id) ?? 0) ? b : a))];
     sources[kind] = chosen.map((c) => centroid(c.polygon));
   }
+  onStep("checking what every tile shows");
+  const content = relabelSources(decodePng(painted), req.geometry.width, req.geometry.height, sources);
   const report: BoardReport = {
     width: req.geometry.width,
     height: req.geometry.height,
-    sources,
+    sources: content.sources,
+    relabeled: content.moved,
     ...summarize(scores),
     firstMeanIoU: first.meanIoU,
     repainted,
