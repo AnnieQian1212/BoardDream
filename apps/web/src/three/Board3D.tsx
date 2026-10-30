@@ -2,7 +2,7 @@ import type { GeometryCell, GeometryPiece } from "@boarddream/engine";
 import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BufferGeometry,
   Color,
@@ -26,9 +26,11 @@ import { playerColor, TILE_COLORS } from "../colors";
 import { HIGHLIGHT } from "./Card3D";
 import { setCursor } from "./hover";
 import type { BoardItem } from "./layout";
-import { step } from "./motion";
+import { reducedMotion, step } from "./motion";
 import { hash, mix } from "./paint";
 import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
+import { isWaterKind, STEP_RATE, WaterGrid } from "./water";
+import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
 const SLAB = 0.6;
 const TILE = 0.32;
@@ -39,6 +41,9 @@ const SPOT = 0.55;
 const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
 const SPOTS = new Set(["vertex", "edge"]);
 const noRaycast = () => null;
+/** Tiles shrink to this share of their cell; water fills a little less, leaving a rim of shore. */
+const TILE_SHARE = 0.9;
+const WATER_SHARE = 0.86;
 
 const CREAM = "#f3ead8";
 
@@ -76,6 +81,96 @@ interface Props {
   /** How many glowing cells cast light (Quality.glowLights); 0 leaves them glowing on their own. */
   glowLights: number;
   onPick(id: string, x: number, y: number): void;
+}
+
+/** Maps a tile's top onto its source tile in the painting (board units, flipped for the texture). */
+function paintUvs(g: BufferGeometry, painted: { paint: BoardPaint; source: [number, number] }, k: number) {
+  const [sx, sy] = painted.source;
+  const { width: w, height: h } = painted.paint;
+  const pos = g.attributes.position;
+  const uv = g.attributes.uv;
+  const unit = k * TILE_SHARE;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (sx + pos.getX(i) / unit) / w, 1 - (sy + pos.getZ(i) / unit) / h);
+  uv.needsUpdate = true;
+}
+
+/** The board's water: one rippling grid under every water tile, and how the pointer stirs it. */
+interface Water {
+  uniforms: WaterUniforms;
+  /** The pointer passing over the water at a world point: a trail of small dips. */
+  wake(x: number, z: number): void;
+  /** A click on the water: one deeper dip. */
+  splash(x: number, z: number): void;
+}
+
+function useWater(geometry: BoardItem["geometry"], k: number, position: BoardItem["position"]): Water | undefined {
+  const invalidate = useThree((s) => s.invalidate);
+  const [ox, , oz] = position;
+  // Rebuilt only when the water itself changes, not on every move.
+  const cells = geometry.cells.filter((c) => isWaterKind(c.kind) && !c.segments && c.kind !== "label");
+  const key = cells.map((c) => `${c.id}:${c.polygon.flat().join(",")}`).join("|");
+  const surface = useMemo(() => {
+    if (cells.length === 0) return undefined;
+    const polygons = cells.map((c) => {
+      const [cx, cy] = centroid(c.polygon);
+      const [wx, wz] = [(cx - geometry.width / 2) * k, (cy - geometry.height / 2) * k];
+      return c.polygon.map(([x, y]) => [wx + (x - cx) * k * WATER_SHARE, wz + (y - cy) * k * WATER_SHARE] as [number, number]);
+    });
+    const grid = new WaterGrid(polygons, k / 20);
+    return { grid, uniforms: waterUniforms(grid, [ox, oz], k) };
+  }, [key, geometry.width, geometry.height, k, ox, oz]);
+  useEffect(() => () => surface?.uniforms.uWave.value.dispose(), [surface]);
+
+  const last = useRef<{ x: number; z: number; t: number }>(undefined);
+  const wake = useCallback(
+    (x: number, z: number) => {
+      if (!surface || reducedMotion) return;
+      const { grid } = surface;
+      const [lx, lz] = [x - ox, z - oz];
+      const now = performance.now();
+      const gap = grid.spacing * 1.5;
+      const from = last.current && now - last.current.t < 150 ? last.current : undefined;
+      if (!from) grid.disturb(lx, lz, 0.25);
+      else {
+        // Dips evenly spaced along the path, however often the pointer reports.
+        const d = Math.hypot(lx - from.x, lz - from.z);
+        if (d < gap) return void (from.t = now);
+        const n = Math.min(16, Math.floor(d / gap));
+        for (let i = 1; i <= n; i++) grid.disturb(from.x + ((lx - from.x) * i) / n, from.z + ((lz - from.z) * i) / n, 0.25);
+      }
+      last.current = { x: lx, z: lz, t: now };
+      invalidate();
+    },
+    [surface, ox, oz, invalidate],
+  );
+  const splash = useCallback(
+    (x: number, z: number) => {
+      if (!surface || reducedMotion) return;
+      surface.grid.disturb(x - ox, z - oz, 0.9, 4);
+      invalidate();
+    },
+    [surface, ox, oz, invalidate],
+  );
+
+  // Fixed steps while the water moves; nothing at all once it is still.
+  const clock = useRef(0);
+  useFrame((_, delta) => {
+    if (!surface || surface.grid.still) return;
+    clock.current += Math.min(delta, 0.05);
+    let steps = 0;
+    for (; clock.current >= 1 / STEP_RATE && steps < 4; steps++) {
+      surface.grid.step();
+      clock.current -= 1 / STEP_RATE;
+    }
+    if (steps > 0) {
+      surface.grid.encode();
+      surface.uniforms.uWave.value.needsUpdate = true;
+    }
+    if (surface.grid.still) clock.current = 0;
+    else invalidate();
+  });
+
+  return useMemo(() => surface && { uniforms: surface.uniforms, wake, splash }, [surface, wake, splash]);
 }
 
 /** Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id. */
@@ -116,6 +211,10 @@ export function Board3D({ board, targets, paint, glowLights, onPick }: Props) {
   const toWorld = (x: number, y: number): [number, number] => [(x - geometry.width / 2) * k, (y - geometry.height / 2) * k];
   const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "")).map((c) => c.id)), [geometry]);
   const night = geometry.mood === "night";
+  const water = useWater(geometry, k, position);
+  useEffect(() => {
+    if (water && paint) water.uniforms.uMapScale.value.set(1 / (k * TILE_SHARE * paint.width), -1 / (k * TILE_SHARE * paint.height));
+  }, [water, paint, k]);
   const glowing = useMemo(
     () => geometry.cells.filter((c) => c.glow && c.kind !== "label").map((c) => ({ at: toWorld(...centroid(c.polygon)), color: c.glow! })),
     [geometry, k],
@@ -136,6 +235,7 @@ export function Board3D({ board, targets, paint, glowLights, onPick }: Props) {
             target={targets.has(cell.id)}
             night={night}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
+            water={water && isWaterKind(cell.kind) && !cell.segments ? water : undefined}
             onPick={onPick}
           />
         ))}
@@ -161,10 +261,12 @@ interface TileProps {
   night: boolean;
   /** The painted board and where this tile's art sits on it. */
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
+  /** The board's water, when this tile is water. */
+  water?: Water;
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, onPick }: TileProps) {
+function Tile({ cell, k, at, target, night, painted, water, onPick }: TileProps) {
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -174,25 +276,28 @@ function Tile({ cell, k, at, target, night, painted, onPick }: TileProps) {
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel. Spots are already small.
     const spot = SPOTS.has(cell.kind ?? "");
-    const shrink = (p: number, c: number) => (p - c) * k * (spot ? 0.85 : 0.9);
+    const shrink = (p: number, c: number) => (p - c) * k * (spot ? 0.85 : TILE_SHARE);
     const shape = new Shape(cell.polygon.map(([x, y]) => new Vector2(shrink(x, cx), -shrink(y, cy))));
     const bevel = spot ? BEVEL * 0.5 : BEVEL;
     const g = new ExtrudeGeometry(shape, { depth: spot ? SPOT : TILE, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 1 });
     g.rotateX(-Math.PI / 2).translate(0, BEVEL, 0);
-    if (painted) {
-      // Map the tile's top onto its source tile in the painting (board units, flipped for the texture).
-      const [sx, sy] = painted.source;
-      const { width: w, height: h } = painted.paint;
-      const pos = g.attributes.position;
-      const uv = g.attributes.uv;
-      const unit = k * 0.9;
-      for (let i = 0; i < pos.count; i++) uv.setXY(i, (sx + pos.getX(i) / unit) / w, 1 - (sy + pos.getZ(i) / unit) / h);
-      uv.needsUpdate = true;
-    }
+    if (painted) paintUvs(g, painted, k);
     return g;
     // The painted prop is rebuilt every render; only its content matters here.
   }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // A water tile's top is a moving surface, a little inside the tile so a rim of shore shows.
+  const surface = useMemo(() => {
+    if (!water) return undefined;
+    const [cx, cy] = centroid(cell.polygon);
+    const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * WATER_SHARE, -(y - cy) * k * WATER_SHARE))));
+    g.rotateX(-Math.PI / 2);
+    if (painted) paintUvs(g, painted, k);
+    return g;
+  }, [water, cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
+  useEffect(() => () => surface?.dispose(), [surface]);
+  const surfaceMaterial = useRef<MeshStandardMaterial>(null);
+  const compile = useMemo(() => water && waterCompiler(water.uniforms), [water]);
   // A legal tile sits on a halo the full size of its cell: the gap around the tile shows a teal
   // ring whatever the tile's own color, which a glow alone does not on pale tiles.
   const halo = useMemo(() => {
@@ -244,6 +349,7 @@ function Tile({ cell, k, at, target, night, painted, onPick }: TileProps) {
     const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.42) : burn;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
+    if (surfaceMaterial.current) surfaceMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
     if (moving) state.invalidate();
   });
@@ -264,8 +370,10 @@ function Tile({ cell, k, at, target, night, painted, onPick }: TileProps) {
         setHovered(false);
         setCursor(false);
       }}
+      onPointerMove={water && ((e: ThreeEvent<PointerEvent>) => water.wake(e.point.x, e.point.z))}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
+        water?.splash(e.point.x, e.point.z);
         if (target) onPick(cell.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
       }}
     >
@@ -283,6 +391,20 @@ function Tile({ cell, k, at, target, night, painted, onPick }: TileProps) {
       {halo && (
         <mesh geometry={halo} position={[0, 0.004, 0]} raycast={noRaycast}>
           <meshBasicMaterial color={HIGHLIGHT} transparent opacity={0.85} />
+        </mesh>
+      )}
+      {surface && water && (
+        <mesh geometry={surface} position={[0, TILE_TOP - SLAB + 0.006, 0]} raycast={noRaycast} receiveShadow>
+          <meshStandardMaterial
+            key={painted ? "painted" : "plain"}
+            ref={surfaceMaterial}
+            map={painted?.texture ?? null}
+            color={painted ? tint : base}
+            emissive={highlight}
+            emissiveIntensity={0}
+            roughness={0.1}
+            onBeforeCompile={compile}
+          />
         </mesh>
       )}
       {wedges && (

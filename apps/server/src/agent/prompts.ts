@@ -56,7 +56,8 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     hidden things face down. Give every cell a kind naming what it is (a terrain, a district, an action
     space); each kind gets its own color. Cells with kind "vertex" or "edge" render as building spots and roads.
     A game with nights can set mood "night" while it is dark and give light sources (lanterns, fires) a
-    glow color; the table dims and those cells shine.
+    glow color; the table dims and those cells shine. Name water cells with a plain word (sea, lake,
+    river, lagoon, reef) and the table draws them as water.
   - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
     point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be
