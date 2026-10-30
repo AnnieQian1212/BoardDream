@@ -29,6 +29,8 @@ import type { BoardItem } from "./layout";
 import { reducedMotion, step } from "./motion";
 import { hash, mix } from "./paint";
 import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
+import { GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
+import { cellSize, clearing, grassSpacing, growthField, plant, printUnit, sow } from "./growth";
 import { isWaterKind, STEP_RATE, WaterGrid } from "./water";
 import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
@@ -80,6 +82,8 @@ interface Props {
   paint?: BoardPaint;
   /** How many glowing cells cast light (Quality.glowLights); 0 leaves them glowing on their own. */
   glowLights: number;
+  /** How thickly grass grows (Quality.grass). */
+  grass: number;
   onPick(id: string, x: number, y: number): void;
 }
 
@@ -182,7 +186,7 @@ function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell): [number, 
 }
 
 /** The engine's board geometry as raised tiles on a slab, with pieces that slide between cells. */
-export function Board3D({ board, targets, paint, glowLights, onPick }: Props) {
+export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Props) {
   const { geometry, scale: k, width, depth, position } = board;
   const invalidate = useThree((s) => s.invalidate);
   // Plain tiles until the painting has loaded, so a large image never shows as black tiles.
@@ -212,6 +216,15 @@ export function Board3D({ board, targets, paint, glowLights, onPick }: Props) {
   const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "")).map((c) => c.id)), [geometry]);
   const night = geometry.mood === "night";
   const water = useWater(geometry, k, position);
+  // Grass: sized from a typical cell, thinned on boards with a lot of green.
+  const greenKey = geometry.cells.map((c) => `${c.kind}${c.segments?.join("")}`).join("|");
+  const size = useMemo(() => cellSize(geometry.cells), [greenKey]);
+  const unit = useMemo(() => printUnit(geometry.cells), [geometry.cells.length, geometry.width, geometry.height]);
+  const spacing = useMemo(() => grassSpacing(geometry.cells, size, grass), [greenKey, size, grass]);
+  const growing = useMemo(() => geometry.cells.some((c) => growthField(c, TILE_SHARE)), [greenKey]);
+  // A gust after each move: what is on the board changed, not merely the object describing it.
+  const stir = geometry.pieces.map((p) => `${p.id}@${p.x},${p.y}`).join("|") + geometry.cells.map((c) => `${c.owner ?? ""}${c.label ?? ""}`).join("|");
+  const field = useGrassField(k, size, stir, growing);
   useEffect(() => {
     if (water && paint) water.uniforms.uMapScale.value.set(1 / (k * TILE_SHARE * paint.width), -1 / (k * TILE_SHARE * paint.height));
   }, [water, paint, k]);
@@ -236,6 +249,7 @@ export function Board3D({ board, targets, paint, glowLights, onPick }: Props) {
             night={night}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water && isWaterKind(cell.kind) && !cell.segments ? water : undefined}
+            grass={growing ? { field, spacing, size, unit } : undefined}
             onPick={onPick}
           />
         ))}
@@ -263,10 +277,12 @@ interface TileProps {
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
   /** The board's water, when this tile is water. */
   water?: Water;
+  /** The board's grass, when any cell grows it. */
+  grass?: { field: GrassField; spacing: number; size: number; unit: number };
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, water, onPick }: TileProps) {
+function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: TileProps) {
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -297,6 +313,16 @@ function Tile({ cell, k, at, target, night, painted, water, onPick }: TileProps)
   }, [water, cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => surface?.dispose(), [surface]);
   const surfaceMaterial = useRef<MeshStandardMaterial>(null);
+  // Grass on a green cell (or on an edge-matched tile's green wedges), with a bare patch for its name.
+  const segmentsKey = cell.segments?.join(",");
+  const growth = useMemo(() => {
+    if (!grass) return undefined;
+    const field = growthField(cell, cell.segments ? TILE_SHARE * 0.84 : TILE_SHARE * 0.97);
+    if (!field) return undefined;
+    const bare = clearing(cell, grass.unit, grass.size * GRASS_HEIGHT);
+    const sprouts = sow(cell, field, grass.spacing, bare);
+    return { sprouts, trees: plant(sprouts, field, bare, grass.spacing, cell.segments ? 0 : 4) };
+  }, [grass?.spacing, grass?.unit, cell.id, cell.polygon, cell.kind, cell.label, segmentsKey]);
   const compile = useMemo(() => water && waterCompiler(water.uniforms), [water]);
   // A legal tile sits on a halo the full size of its cell: the gap around the tile shows a teal
   // ring whatever the tile's own color, which a glow alone does not on pale tiles.
@@ -369,8 +395,15 @@ function Tile({ cell, k, at, target, night, painted, water, onPick }: TileProps)
       onPointerOut={() => {
         setHovered(false);
         setCursor(false);
+        if (growth) grass?.field.release();
       }}
-      onPointerMove={water && ((e: ThreeEvent<PointerEvent>) => water.wake(e.point.x, e.point.z))}
+      onPointerMove={
+        (water || growth) &&
+        ((e: ThreeEvent<PointerEvent>) => {
+          water?.wake(e.point.x, e.point.z);
+          if (growth) grass?.field.push(e.point.x, e.point.z);
+        })
+      }
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         water?.splash(e.point.x, e.point.z);
@@ -406,6 +439,18 @@ function Tile({ cell, k, at, target, night, painted, water, onPick }: TileProps)
             onBeforeCompile={compile}
           />
         </mesh>
+      )}
+      {growth && grass && (
+        <GrassPatch
+          sprouts={growth.sprouts}
+          trees={growth.trees}
+          k={k}
+          spacing={grass.spacing}
+          cellSize={grass.size}
+          top={TILE_TOP - SLAB}
+          field={grass.field}
+          glow={material}
+        />
       )}
       {wedges && (
         <mesh geometry={wedges} position={[0, TILE_TOP - SLAB + 0.004, 0]} raycast={noRaycast} receiveShadow>

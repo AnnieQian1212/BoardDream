@@ -69,7 +69,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
         <Mat3D key={mat.id} mat={mat} />
       ))}
       <LabelTracker anchors={labels.anchors} layer={labels.layer} />
-      {layout.board && <Board3D board={layout.board} targets={targets} paint={boardPaint} glowLights={quality.glowLights} onPick={onPick} />}
+      {layout.board && <Board3D board={layout.board} targets={targets} paint={boardPaint} glowLights={quality.glowLights} grass={quality.grass} onPick={onPick} />}
       {layout.decks.map((deck) => (
         <Deck3D key={deck.id} item={deck} onPick={onPick} />
       ))}
