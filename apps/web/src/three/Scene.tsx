@@ -12,7 +12,7 @@ import { Card3D, Deck3D } from "./Card3D";
 import { LabelTracker } from "./Labels";
 import type { CardItem, TableLayout, Vec3 } from "./layout";
 import { Mat3D } from "./Mat3D";
-import { step } from "./motion";
+import { reducedMotion, step } from "./motion";
 import { Pile3D } from "./Pile3D";
 import type { Quality } from "./quality";
 import { textureUpdates, woodTextures } from "./textures";
@@ -44,6 +44,8 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
   const leaving = useLeaving(layout, mover);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [layout, quality, invalidate]);
+  // Tokens fall with real physics, except at the lowest quality or when less motion is asked for.
+  const physics = quality.tier !== "lowest" && !reducedMotion;
   useEffect(() => {
     const redraw = () => invalidate();
     textureUpdates.addEventListener("update", redraw);
@@ -74,7 +76,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
         <Deck3D key={deck.id} item={deck} onPick={onPick} />
       ))}
       {layout.piles.map((pile) => (
-        <Pile3D key={pile.id} pile={pile} onPick={onPick} />
+        <Pile3D key={pile.id} pile={pile} physics={physics} onPick={onPick} />
       ))}
       {[...layout.cards, ...leaving].map((card) => (
         <Card3D key={card.id} item={card} resources={resources} onPick={onPick} />
