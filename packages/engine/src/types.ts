@@ -68,7 +68,15 @@ export interface GeometryCell {
   segments?: string[];
   /** The cell gives off light of this color, e.g. a lit lantern or a fire. */
   glow?: string;
+  /**
+   * What the ground is, when the kind's name does not say (an island called "Emberfall"): the
+   * table draws water, grass, forest, grain or stone on it. Plain kinds (lake, meadow, quarry)
+   * need no hint.
+   */
+  terrain?: CellTerrain;
 }
+
+export type CellTerrain = "water" | "grass" | "forest" | "grain" | "stone";
 
 export interface GeometryPiece {
   id: string;

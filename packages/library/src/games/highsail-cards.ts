@@ -1,4 +1,4 @@
-import type { ResourceSpec } from "@boarddream/engine";
+import type { CellTerrain, ResourceSpec } from "@boarddream/engine";
 import type { CardDef } from "../mechanics/effects";
 
 export const HIGHSAIL_RESOURCES: ResourceSpec[] = [
@@ -13,14 +13,16 @@ export interface Island {
   name: string;
   /** Points for the most outposts and the second most (second place needs 3+ players). */
   awards: [number, number];
+  /** What the table draws on the island: crystal crags, a misty forest, vents, salt spires, a harbor. */
+  terrain: CellTerrain;
 }
 
 export const ISLANDS: Island[] = [
-  { id: "ironcrag", name: "Ironcrag", awards: [6, 3] },
-  { id: "mistwood", name: "Mistwood", awards: [5, 2] },
-  { id: "emberfall", name: "Emberfall", awards: [5, 2] },
-  { id: "saltspire", name: "Saltspire", awards: [4, 2] },
-  { id: "lowhaven", name: "Lowhaven", awards: [3, 1] },
+  { id: "ironcrag", name: "Ironcrag", awards: [6, 3], terrain: "stone" },
+  { id: "mistwood", name: "Mistwood", awards: [5, 2], terrain: "forest" },
+  { id: "emberfall", name: "Emberfall", awards: [5, 2], terrain: "stone" },
+  { id: "saltspire", name: "Saltspire", awards: [4, 2], terrain: "stone" },
+  { id: "lowhaven", name: "Lowhaven", awards: [3, 1], terrain: "water" },
 ];
 
 /**

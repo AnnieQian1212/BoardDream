@@ -10,11 +10,19 @@ const hex = (id: string, cx: number, cy: number, extra: Partial<GeometryCell> = 
 
 describe("growthOf", () => {
   it("knows grassland, forest, grain fields and stony ground by the words in a kind", () => {
-    for (const kind of ["meadow", "grassland", "high-pasture", "plains", "Village_Green"]) expect(growthOf(kind)).toBe("meadow");
+    for (const kind of ["meadow", "grassland", "high-pasture", "plains", "Village_Green", "heath", "garden", "highland", "hollow"]) expect(growthOf(kind)).toBe("meadow");
     for (const kind of ["forest", "woodland", "mistwood", "pine-grove", "deep_woods"]) expect(growthOf(kind)).toBe("forest");
     for (const kind of ["fields", "wheat", "grain-farm", "farmland", "rye"]) expect(growthOf(kind)).toBe("field");
-    for (const kind of ["quarry", "stone", "rocky-shore", "ironcrag", "mountains", "iron_mine"]) expect(growthOf(kind)).toBe("rock");
-    for (const kind of ["battlefield", "greenhouse", "woodcutter", "lagoon", "acorn", undefined]) expect(growthOf(kind)).toBeUndefined();
+    for (const kind of ["quarry", "stone", "rocky-shore", "ironcrag", "mountains", "iron_mine", "ashfield", "caldera", "volcano", "regolith", "clay"]) expect(growthOf(kind)).toBe("rock");
+    // A color is not a meadow, and a word inside another word does not count.
+    for (const kind of ["battlefield", "greenhouse", "woodcutter", "lagoon", "acorn", "green", "cash", "lavatory", "orchestra", undefined]) expect(growthOf(kind)).toBeUndefined();
+  });
+
+  it("follows a cell's terrain hint over its kind's name", () => {
+    expect(growthOf("emberfall", "stone")).toBe("rock");
+    expect(growthOf("meadow", "water")).toBeUndefined();
+    expect(growthsOf(hex("e", 0, 0, { kind: "saltspire", terrain: "stone" }))).toEqual(["rock"]);
+    expect(growthField(hex("l", 0, 0, { kind: "lowhaven", terrain: "water" }), 0.9)).toBeUndefined();
   });
 
   it("lists the growths of a cell or of an edge-matched tile's wedges", () => {

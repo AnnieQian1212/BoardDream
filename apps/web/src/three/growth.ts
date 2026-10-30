@@ -1,4 +1,4 @@
-import type { GeometryCell } from "@boarddream/engine";
+import type { CellTerrain, GeometryCell } from "@boarddream/engine";
 import { hash, seeded } from "./paint";
 
 /**
@@ -11,10 +11,17 @@ export type Growth = "meadow" | "forest" | "field" | "rock";
 
 const FOREST = /(forest|woodland|grove|jungle|thicket|mistwood|(^|[-_ ])woods?($|[-_ ]))/;
 const FIELD = /(wheat|grain|barley|farmland|cropland|(^|[-_ ])(fields?|farms?|crops?|corn|rye|oats|millet|paddy|paddies)($|[-_ ]))/;
-const ROCK = /(quarr(y|ies)|stone|rock|boulder|crag|cliff|scree|mountain|granite|marble|basalt|rubble|(^|[-_ ])(peaks?|mines?|ore|mesa)($|[-_ ]))/;
-const MEADOW = /(grass|meadow|pasture|prairie|steppe|savann|lawn|glade|(^|[-_ ])(plains?|green)($|[-_ ]))/;
+const ROCK =
+  /(quarr(y|ies)|stone|rock|boulder|crag|cliff|scree|mountain|granite|marble|basalt|rubble|volcan|caldera|crater|obsidian|regolith|coal|canyon|badlands|desert|(^|[-_ ])(ash|clay)|(^|[-_ ])(lava|peaks?|mines?|ore|mesa)($|[-_ ]))/;
+// "green" alone is as often a color (a metro line, a player) as a village green.
+const MEADOW = /(grass|meadow|pasture|prairie|steppe|savann|lawn|glade|heath|moorland|village[-_ ]?green|(^|[-_ ])(plains?|moors?|gardens?|hollows?|highlands?|hills?|valleys?)($|[-_ ]))/;
 
-export function growthOf(kind: string | undefined): Growth | undefined {
+/** What a cell's terrain hint (GeometryCell.terrain) grows; water grows nothing. */
+const HINTED: Record<CellTerrain, Growth | undefined> = { water: undefined, grass: "meadow", forest: "forest", grain: "field", stone: "rock" };
+
+/** What grows on a kind of ground: from the cell's terrain hint if it has one, else from the kind's name. */
+export function growthOf(kind: string | undefined, terrain?: CellTerrain): Growth | undefined {
+  if (terrain) return HINTED[terrain];
   const k = kind?.toLowerCase() ?? "";
   if (FOREST.test(k)) return "forest";
   if (FIELD.test(k)) return "field";
@@ -31,7 +38,7 @@ const COVER: Record<Growth, number> = { meadow: 1, forest: 1, field: 1, rock: 0.
 
 /** The growths on a cell: its own, or those of an edge-matched tile's wedges. */
 export const growthsOf = (cell: GeometryCell): Growth[] =>
-  [...new Set((cell.segments ?? [cell.kind]).map(growthOf))].filter((g): g is Growth => g !== undefined);
+  [...new Set(cell.segments ? cell.segments.map((s) => growthOf(s)) : [growthOf(cell.kind, cell.terrain)])].filter((g): g is Growth => g !== undefined);
 
 type Point = [number, number];
 
@@ -58,7 +65,7 @@ export function growthField(cell: GeometryCell, share: number): ((x: number, y: 
   const [cx, cy] = centroid(cell.polygon);
   const corners = cell.polygon.map(([x, y]): Point => [(x - cx) * share, (y - cy) * share]);
   if (cell.segments) {
-    const kinds = cell.segments.map(growthOf);
+    const kinds = cell.segments.map((s) => growthOf(s));
     if (!kinds.some(Boolean)) return undefined;
     return (x, y) => {
       for (let i = 0; i < corners.length; i++) {
@@ -68,7 +75,7 @@ export function growthField(cell: GeometryCell, share: number): ((x: number, y: 
       return undefined;
     };
   }
-  const growth = growthOf(cell.kind);
+  const growth = growthOf(cell.kind, cell.terrain);
   return growth && ((x, y) => (inside(corners, x, y) ? growth : undefined));
 }
 
@@ -172,11 +179,11 @@ export function grassSpacing(cells: GeometryCell[], size: number, density: numbe
   const spacing = (0.055 * size) / Math.sqrt(density);
   let area = 0;
   for (const cell of cells) {
-    const cover = (kind: string | undefined) => {
-      const growth = growthOf(kind);
+    const cover = (kind: string | undefined, terrain?: CellTerrain) => {
+      const growth = growthOf(kind, terrain);
       return growth ? COVER[growth] : 0;
     };
-    const green = cell.segments ? cell.segments.reduce((sum, s) => sum + cover(s), 0) / cell.segments.length : cover(cell.kind);
+    const green = cell.segments ? cell.segments.reduce((sum, s) => sum + cover(s), 0) / cell.segments.length : cover(cell.kind, cell.terrain);
     if (!green) continue;
     const p = cell.polygon;
     let twice = 0;

@@ -349,7 +349,7 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
     for (const island of ISLANDS) {
       const at = ISLAND_AT[island.id];
       const awards = islandAwards(island, s.numPlayers);
-      cells.push({ id: `island-${island.id}`, polygon: hexagon(at, ISLAND_R), kind: island.id, label: island.name });
+      cells.push({ id: `island-${island.id}`, polygon: hexagon(at, ISLAND_R), kind: island.id, label: island.name, terrain: island.terrain });
       // What the island pays, printed on the board just below it.
       const below = at[1] + ISLAND_R * 0.87 + 0.08;
       cells.push({ id: `awards-${island.id}`, polygon: rect(at[0] - 0.8, below, 1.6, 0.45), kind: "label", label: `${awards.join(" / ")} pts` });

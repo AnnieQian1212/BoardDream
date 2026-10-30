@@ -59,7 +59,8 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     glow color; the table dims and those cells shine. Name water cells with a plain word (sea, lake,
     river, lagoon, reef) and the table draws them as water; grassland (meadow, pasture, plains),
     forest (forest, woodland, grove), grain (fields, wheat, farmland) and stony ground (quarry, rocks,
-    mountains) grow grass and flowers, trees, wheat, or boulders.
+    mountains) grow grass and flowers, trees, wheat, or boulders. A place with a made-up name (an
+    island "Emberfall") can say what its ground is with terrain: water, grass, forest, grain or stone.
   - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
     point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be

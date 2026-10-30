@@ -4,9 +4,40 @@
  * bounce off the shore instead of running under the land, and a still surface costs nothing.
  */
 
-const WATER_WORDS = /(^|[-_ ])(sea|seas|ocean|lagoon|reef|lake|river|water|waters|pond|bay|harbor|harbour|marsh|fen|shoal|shoals|strait|shallows|cove|tarn|loch)($|[-_ ])/;
+import type { GeometryCell } from "@boarddream/engine";
+
+const WATER_WORDS =
+  /(^|[-_ ])(sea|seas|ocean|lagoon|reef|lake|river|water|waters|pond|bay|harbor|harbour|marsh|fen|shoal|shoals|strait|shallows|cove|tarn|loch|wetlands?|swamp|bog|mire|headwaters?|estuary|fjord|creek|brook|stream|canal|waterfall)($|[-_ ])/;
 
 export const isWaterKind = (kind: string | undefined): boolean => kind !== undefined && WATER_WORDS.test(kind.toLowerCase());
+
+/** A whole cell is water by its terrain hint (GeometryCell.terrain), or else by its kind's name. */
+export const isWaterCell = (cell: GeometryCell): boolean => (cell.terrain ? cell.terrain === "water" : isWaterKind(cell.kind));
+
+/**
+ * Where a cell holds water, as polygons around its center in board units: the whole cell shrunk
+ * to `share`, or an edge-matched tile's water wedges shrunk to `wedge`. Neighboring water wedges
+ * join into one fan, so no dry seam runs between them.
+ */
+export function waterPolygons(cell: GeometryCell, share: number, wedge: number): Polygon[] {
+  const n = cell.polygon.length;
+  const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / n;
+  const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / n;
+  const corner = (i: number, f: number): [number, number] => [(cell.polygon[i % n][0] - cx) * f, (cell.polygon[i % n][1] - cy) * f];
+  if (!cell.segments) return isWaterCell(cell) ? [cell.polygon.map((_, i) => corner(i, share))] : [];
+  const wet = cell.segments.map((kind) => isWaterKind(kind));
+  if (wet.every(Boolean)) return [cell.polygon.map((_, i) => corner(i, wedge))];
+  // Runs of water wedges, starting just after a dry one so no run wraps past the end.
+  const start = wet.indexOf(false) + 1;
+  const fans: Polygon[] = [];
+  for (let j = 0; j < n; j++) {
+    const i = (start + j) % n;
+    if (!wet[i]) continue;
+    if (j === 0 || !wet[(i + n - 1) % n]) fans.push([[0, 0], corner(i, wedge)]);
+    fans[fans.length - 1].push(corner(i + 1, wedge));
+  }
+  return fans;
+}
 
 /** How the texture packs slopes and curvature into bytes; the water shader reads them back. */
 export const SLOPE_GAIN = 2;

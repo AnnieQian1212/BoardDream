@@ -32,7 +32,7 @@ import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
 import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow } from "./growth";
-import { isWaterKind, STEP_RATE, WaterGrid } from "./water";
+import { isWaterKind, STEP_RATE, WaterGrid, waterPolygons } from "./water";
 import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
 const SLAB = 0.6;
@@ -47,6 +47,8 @@ const noRaycast = () => null;
 /** Tiles shrink to this share of their cell; water fills a little less, leaving a rim of shore. */
 const TILE_SHARE = 0.9;
 const WATER_SHARE = 0.86;
+/** Edge-matched tiles show their terrain as wedges inset this far, so a rim of the tile shows. */
+const WEDGE_SHARE = TILE_SHARE * 0.84;
 
 const CREAM = "#f3ead8";
 
@@ -112,14 +114,14 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
   const invalidate = useThree((s) => s.invalidate);
   const [ox, , oz] = position;
   // Rebuilt only when the water itself changes, not on every move.
-  const cells = geometry.cells.filter((c) => isWaterKind(c.kind) && !c.segments && c.kind !== "label");
-  const key = cells.map((c) => `${c.id}:${c.polygon.flat().join(",")}`).join("|");
+  const cells = geometry.cells.filter((c) => c.kind !== "label" && waterPolygons(c, WATER_SHARE, WEDGE_SHARE).length > 0);
+  const key = cells.map((c) => `${c.id}:${c.polygon.flat().join(",")}:${c.segments?.join(",") ?? ""}`).join("|");
   const surface = useMemo(() => {
     if (cells.length === 0) return undefined;
-    const polygons = cells.map((c) => {
+    const polygons = cells.flatMap((c) => {
       const [cx, cy] = centroid(c.polygon);
       const [wx, wz] = [(cx - geometry.width / 2) * k, (cy - geometry.height / 2) * k];
-      return c.polygon.map(([x, y]) => [wx + (x - cx) * k * WATER_SHARE, wz + (y - cy) * k * WATER_SHARE] as [number, number]);
+      return waterPolygons(c, WATER_SHARE, WEDGE_SHARE).map((p) => p.map(([x, y]): [number, number] => [wx + x * k, wz + y * k]));
     });
     const grid = new WaterGrid(polygons, k / 20);
     return { grid, uniforms: waterUniforms(grid, [ox, oz], k) };
@@ -262,7 +264,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             target={targets.has(cell.id)}
             night={night}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
-            water={water && isWaterKind(cell.kind) && !cell.segments ? water : undefined}
+            water={water}
             grass={growing ? { field, spacing, size, unit } : undefined}
             chip={rocky && growthsOf(cell).includes("rock") ? chips.burst : undefined}
             print={{ texture: labels, width, depth }}
@@ -292,7 +294,7 @@ interface TileProps {
   night: boolean;
   /** The painted board and where this tile's art sits on it. */
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
-  /** The board's water, when this tile is water. */
+  /** The board's water; the tile draws a surface where it holds some (waterPolygons). */
   water?: Water;
   /** The board's grass, when any cell grows it. */
   grass?: { field: GrassField; spacing: number; size: number; unit: number };
@@ -303,7 +305,10 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, onPick }: TileProps) {
+function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, chip, print, onPick }: TileProps) {
+  const segmentsKey = cell.segments?.join(",");
+  const pools = useMemo(() => waterPolygons(cell, WATER_SHARE, WEDGE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey]);
+  const water = pools.length > 0 ? boardWater : undefined;
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -323,23 +328,24 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, 
     // The painted prop is rebuilt every render; only its content matters here.
   }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  // A water tile's top is a moving surface, a little inside the tile so a rim of shore shows.
+  // Where a tile holds water its top is a moving surface, a little inside the tile (or over its
+  // water wedges) so a rim of shore shows.
   const surface = useMemo(() => {
     if (!water) return undefined;
-    const [cx, cy] = centroid(cell.polygon);
-    const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * WATER_SHARE, -(y - cy) * k * WATER_SHARE))));
+    const g = new ShapeGeometry(pools.map((pool) => new Shape(pool.map(([x, y]) => new Vector2(x * k, -y * k)))));
     g.rotateX(-Math.PI / 2);
     if (painted) paintUvs(g, painted, k);
     return g;
-  }, [water, cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
+  }, [water, pools, k, painted?.paint, painted?.source[0], painted?.source[1]]);
+  // Water wedges keep their own color under the surface; a whole cell its tile's.
+  const waterColor = useMemo(() => new Color(kindColor(cell.segments?.find((s) => isWaterKind(s)) ?? "")), [segmentsKey]);
   useEffect(() => () => surface?.dispose(), [surface]);
   const surfaceMaterial = useRef<MeshStandardMaterial>(null);
   // What grows on the cell (or on an edge-matched tile's wedges), with a bare patch for its name
   // that is wider where taller things grow.
-  const segmentsKey = cell.segments?.join(",");
   const growth = useMemo(() => {
     if (!grass) return undefined;
-    const field = growthField(cell, cell.segments ? TILE_SHARE * 0.84 : TILE_SHARE * 0.97);
+    const field = growthField(cell, cell.segments ? WEDGE_SHARE : TILE_SHARE * 0.97);
     if (!field) return undefined;
     const tallest = Math.max(...growthsOf(cell).map((g) => HEIGHT[g]));
     const bare = clearing(cell, grass.unit, grass.size * GRASS_HEIGHT * tallest);
@@ -382,11 +388,10 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, 
   }, [target, cell.polygon, cell.kind, k]);
   useEffect(() => () => halo?.dispose(), [halo]);
   // Edge-matched tiles: a wedge per edge on top, inset so a rim of the tile (its owner's tint) shows.
-  const segmentKey = cell.segments?.join(",");
   const wedges = useMemo(() => {
     if (!cell.segments) return undefined;
     const [cx, cy] = centroid(cell.polygon);
-    const f = k * 0.9 * 0.84;
+    const f = k * WEDGE_SHARE;
     const n = cell.polygon.length;
     const positions: number[] = [];
     const colors: number[] = [];
@@ -404,7 +409,7 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, 
     g.setAttribute("color", new Float32BufferAttribute(colors, 3));
     g.setAttribute("normal", new Float32BufferAttribute(positions.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
     return g;
-  }, [segmentKey, cell.polygon, k]);
+  }, [segmentsKey, cell.polygon, k]);
   useEffect(() => () => wedges?.dispose(), [wedges]);
   const wedgeMaterial = useRef<MeshStandardMaterial>(null);
   const base = useMemo(() => new Color(tileColor(cell)), [cell]);
@@ -490,7 +495,7 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, 
             key={painted ? "painted" : "plain"}
             ref={surfaceMaterial}
             map={painted?.texture ?? null}
-            color={painted ? tint : base}
+            color={painted ? tint : cell.segments ? waterColor : base}
             emissive={target || !glowColor ? highlight : glowColor}
             emissiveIntensity={0}
             roughness={0.1}

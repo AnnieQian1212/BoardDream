@@ -1,5 +1,6 @@
+import type { GeometryCell } from "@boarddream/engine";
 import { describe, expect, it } from "vitest";
-import { isWaterKind, WaterGrid } from "./water";
+import { isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
 
 const square = (x: number, z: number, size: number): [number, number][] => [
   [x, z],
@@ -10,8 +11,58 @@ const square = (x: number, z: number, size: number): [number, number][] => [
 
 describe("isWaterKind", () => {
   it("knows water by the words in a kind", () => {
-    for (const kind of ["lagoon", "reef", "sea", "deep-sea", "river_ford", "Harbor", "salt marsh"]) expect(isWaterKind(kind)).toBe(true);
-    for (const kind of ["forest", "seaside-market", "wildmere", "reefer", undefined]) expect(isWaterKind(kind)).toBe(false);
+    for (const kind of ["lagoon", "reef", "sea", "deep-sea", "river_ford", "Harbor", "salt marsh", "wetland", "headwater", "canal"]) expect(isWaterKind(kind)).toBe(true);
+    for (const kind of ["forest", "seaside-market", "wildmere", "reefer", "tide", undefined]) expect(isWaterKind(kind)).toBe(false);
+  });
+
+  it("lets a cell's terrain hint overrule its kind's name", () => {
+    expect(isWaterCell({ id: "a", polygon: [], kind: "lowhaven", terrain: "water" })).toBe(true);
+    expect(isWaterCell({ id: "b", polygon: [], kind: "lake", terrain: "grass" })).toBe(false);
+    expect(isWaterCell({ id: "c", polygon: [], kind: "lake" })).toBe(true);
+  });
+});
+
+describe("waterPolygons", () => {
+  // A unit square, corners clockwise from the top left; edge i runs from corner i to corner i + 1.
+  const tile = (segments?: string[], kind?: string): GeometryCell => ({
+    id: "t",
+    polygon: [
+      [0, 0],
+      [2, 0],
+      [2, 2],
+      [0, 2],
+    ],
+    kind,
+    segments,
+  });
+
+  it("shrinks a whole water cell around its center", () => {
+    expect(waterPolygons(tile(undefined, "lake"), 0.5, 0.4)).toEqual([
+      [
+        [-0.5, -0.5],
+        [0.5, -0.5],
+        [0.5, 0.5],
+        [-0.5, 0.5],
+      ],
+    ]);
+    expect(waterPolygons(tile(undefined, "meadow"), 0.5, 0.4)).toEqual([]);
+  });
+
+  it("joins neighboring water wedges into one fan, even across the first edge", () => {
+    // Edges 3 and 0 are water: one fan from the center through corners 3, 0 and 1.
+    const fans = waterPolygons(tile(["wetland", "meadow", "meadow", "wetland"]), 0.9, 0.5);
+    expect(fans).toEqual([
+      [
+        [0, 0],
+        [-0.5, 0.5],
+        [-0.5, -0.5],
+        [0.5, -0.5],
+      ],
+    ]);
+    // Water on two opposite edges makes two fans; water all round makes the whole tile.
+    expect(waterPolygons(tile(["sea", "meadow", "sea", "meadow"]), 0.9, 0.5)).toHaveLength(2);
+    expect(waterPolygons(tile(["sea", "sea", "sea", "sea"]), 0.9, 0.5)).toHaveLength(1);
+    expect(waterPolygons(tile(["meadow", "meadow", "heath", "heath"]), 0.9, 0.5)).toEqual([]);
   });
 });
 
