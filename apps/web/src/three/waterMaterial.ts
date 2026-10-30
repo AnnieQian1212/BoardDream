@@ -98,6 +98,10 @@ vec2 shift = slope * uRefract * (0.25 + 0.75 * deep);
 #endif
 // Shallows are lighter, open water cooler and darker.
 diffuseColor.rgb = mix(diffuseColor.rgb * 1.06, diffuseColor.rgb * vec3(0.74, 0.84, 0.92), deep);
+// Ripples shade like relief, lit on the side facing the sun and dim on the far side. Glints alone
+// show them on deep blue water but vanish on a pale lagoon; shading shows on both.
+float relief = -dot(slope, normalize(uSun.xz)) * uTilt;
+diffuseColor.rgb *= 1.0 + clamp(relief * 1.5, -0.3, 0.3);
 // A faint sunlit web on the bed that the ripples bend, and bright light where a crest focuses it.
 float web = waterWeb((vWaterXZ + shift * 1.6) * uBedScale * 1.4);
 float focus = clamp(-curve * 5.0, 0.0, 0.6);

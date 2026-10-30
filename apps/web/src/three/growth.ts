@@ -2,25 +2,40 @@ import type { GeometryCell } from "@boarddream/engine";
 import { hash, seeded } from "./paint";
 
 /**
- * Grass on the board. Cells whose kind names grassland grow bright grass with flowers; forest cells
- * grow darker grass under a few trees. This file only decides where things grow, in board units
- * relative to the cell's center; Grass.tsx draws them.
+ * Growth on the board. Grassland grows bright grass with flowers, forest darker grass under a few
+ * trees, grain fields rows of wheat with poppies, and stony ground boulders, stones and tufts of
+ * grass. This file only decides where things grow, in board units relative to the cell's center;
+ * Grass.tsx draws them.
  */
-export type Growth = "meadow" | "forest";
+export type Growth = "meadow" | "forest" | "field" | "rock";
 
 const FOREST = /(forest|woodland|grove|jungle|thicket|mistwood|(^|[-_ ])woods?($|[-_ ]))/;
+const FIELD = /(wheat|grain|barley|farmland|cropland|(^|[-_ ])(fields?|farms?|crops?|corn|rye|oats|millet|paddy|paddies)($|[-_ ]))/;
+const ROCK = /(quarr(y|ies)|stone|rock|boulder|crag|cliff|scree|mountain|granite|marble|basalt|rubble|(^|[-_ ])(peaks?|mines?|ore|mesa)($|[-_ ]))/;
 const MEADOW = /(grass|meadow|pasture|prairie|steppe|savann|lawn|glade|(^|[-_ ])(plains?|green)($|[-_ ]))/;
 
 export function growthOf(kind: string | undefined): Growth | undefined {
   const k = kind?.toLowerCase() ?? "";
   if (FOREST.test(k)) return "forest";
+  if (FIELD.test(k)) return "field";
+  if (ROCK.test(k)) return "rock";
   if (MEADOW.test(k)) return "meadow";
   return undefined;
 }
 
+/** How tall each growth stands, relative to grass: the name's clearing grows with it. */
+export const HEIGHT: Record<Growth, number> = { meadow: 1, forest: 1.15, field: 1.5, rock: 0.7 };
+
+/** Share of a cell's area each growth fills with clumps: stony ground grows only a few tufts and stones. */
+const COVER: Record<Growth, number> = { meadow: 1, forest: 1, field: 1, rock: 0.25 };
+
+/** The growths on a cell: its own, or those of an edge-matched tile's wedges. */
+export const growthsOf = (cell: GeometryCell): Growth[] =>
+  [...new Set((cell.segments ?? [cell.kind]).map(growthOf))].filter((g): g is Growth => g !== undefined);
+
 type Point = [number, number];
 
-function inside(polygon: Point[], x: number, y: number): boolean {
+export function inside(polygon: Point[], x: number, y: number): boolean {
   let hit = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const [xi, yi] = polygon[i];
@@ -84,7 +99,8 @@ export type Clearing = [rx: number, ry: number, shift: number];
 
 /**
  * Clumps on a jittered grid, `spacing` apart, wherever the field grows something and outside the
- * clearing. Seeded by the cell's id, so a cell grows the same way every time it is drawn.
+ * clearing; wheat keeps to its rows. Seeded by the cell's id, so a cell grows the same way every
+ * time it is drawn.
  */
 export function sow(cell: GeometryCell, field: (x: number, y: number) => Growth | undefined, spacing: number, bare: Clearing): Sprout[] {
   const random = seeded(hash(cell.id));
@@ -95,7 +111,8 @@ export function sow(cell: GeometryCell, field: (x: number, y: number) => Growth 
   for (let gy = Math.min(...ys); gy < Math.max(...ys); gy += spacing) {
     for (let gx = Math.min(...xs); gx < Math.max(...xs); gx += spacing) {
       const x = gx + random() * spacing;
-      const y = gy + random() * spacing;
+      const rows = field(gx + spacing / 2, gy + spacing / 2) === "field";
+      const y = gy + (rows ? 0.4 + random() * 0.2 : random()) * spacing;
       const turn = random() * Math.PI * 2;
       const size = 0.75 + random() * 0.5;
       // Thinning toward the clearing's edge makes it a soft patch rather than a cut-out.
@@ -109,15 +126,23 @@ export function sow(cell: GeometryCell, field: (x: number, y: number) => Growth 
 }
 
 /**
- * A few trees among a forest's grass: spread out, back from the cell's edge, and never in front of
- * the cell's name (the camera looks from larger y), only behind it or beside it.
+ * A few large things among the clumps (trees in a forest, boulders on stony ground): spread out,
+ * back from the cell's edge, and never in front of the cell's name (the camera looks from larger
+ * y), only behind it or beside it.
  */
-export function plant(sprouts: Sprout[], field: (x: number, y: number) => Growth | undefined, bare: Clearing, spacing: number, count: number): Sprout[] {
+export function plant(
+  sprouts: Sprout[],
+  field: (x: number, y: number) => Growth | undefined,
+  bare: Clearing,
+  spacing: number,
+  count: number,
+  growth: Growth = "forest",
+): Sprout[] {
   const trees: Sprout[] = [];
   // Sprouts come row by row; their random turns give an order that favors no side of the cell.
   for (const s of [...sprouts].sort((a, b) => a.turn - b.turn)) {
     if (trees.length >= count) break;
-    if (s.growth !== "forest" || field(s.x * 1.35, s.y * 1.35) !== "forest") continue;
+    if (s.growth !== growth || field(s.x * 1.35, s.y * 1.35) !== growth) continue;
     if (Math.abs(s.x) < bare[0] + spacing * 2 && s.y > bare[2] - bare[1] - spacing) continue;
     if (trees.some((t) => Math.hypot(t.x - s.x, t.y - s.y) < spacing * 4)) continue;
     trees.push(s);
@@ -128,9 +153,9 @@ export function plant(sprouts: Sprout[], field: (x: number, y: number) => Growth
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const widthOf = (cell: GeometryCell) => Math.max(...cell.polygon.map(([x]) => x)) - Math.min(...cell.polygon.map(([x]) => x));
 
-/** A typical green cell's width, in board units: grass and trees are sized from it. */
+/** A typical growing cell's width, in board units: grass and trees are sized from it. */
 export function cellSize(cells: GeometryCell[]): number {
-  const green = cells.filter((c) => c.kind !== "label" && (c.segments ? c.segments.some((s) => growthOf(s)) : growthOf(c.kind)));
+  const green = cells.filter((c) => c.kind !== "label" && growthsOf(c).length > 0);
   return green.length ? median(green.map(widthOf)) : 1;
 }
 
@@ -142,12 +167,16 @@ export function printUnit(cells: GeometryCell[]): number {
 
 const MAX_CLUMPS = 9000;
 
-/** Distance between clumps, in board units: denser at higher `density`, sparser on a board with a lot of green. */
+/** Distance between clumps, in board units: denser at higher `density`, sparser on a board with a lot of growth. */
 export function grassSpacing(cells: GeometryCell[], size: number, density: number): number {
   const spacing = (0.055 * size) / Math.sqrt(density);
   let area = 0;
   for (const cell of cells) {
-    const green = cell.segments ? cell.segments.filter((s) => growthOf(s)).length / cell.segments.length : growthOf(cell.kind) ? 1 : 0;
+    const cover = (kind: string | undefined) => {
+      const growth = growthOf(kind);
+      return growth ? COVER[growth] : 0;
+    };
+    const green = cell.segments ? cell.segments.reduce((sum, s) => sum + cover(s), 0) / cell.segments.length : cover(cell.kind);
     if (!green) continue;
     const p = cell.polygon;
     let twice = 0;

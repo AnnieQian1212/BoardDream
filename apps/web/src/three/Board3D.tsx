@@ -29,8 +29,9 @@ import type { BoardItem } from "./layout";
 import { reducedMotion, step } from "./motion";
 import { hash, mix } from "./paint";
 import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
-import { GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
-import { cellSize, clearing, grassSpacing, growthField, plant, printUnit, sow } from "./growth";
+import { Chips, useChips } from "./Chips";
+import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
+import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow } from "./growth";
 import { isWaterKind, STEP_RATE, WaterGrid } from "./water";
 import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
@@ -222,6 +223,19 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   const unit = useMemo(() => printUnit(geometry.cells), [geometry.cells.length, geometry.width, geometry.height]);
   const spacing = useMemo(() => grassSpacing(geometry.cells, size, grass), [greenKey, size, grass]);
   const growing = useMemo(() => geometry.cells.some((c) => growthField(c, TILE_SHARE)), [greenKey]);
+  const rocky = useMemo(() => geometry.cells.some((c) => c.kind !== "label" && growthsOf(c).includes("rock")), [greenKey]);
+  // Where tiles lie, in the board group's world units: stone chips land on them and drop between them.
+  const tileKey = geometry.cells.map((c) => (c.kind === "label" || SPOTS.has(c.kind ?? "") ? "" : c.polygon.flat().join(","))).join("|");
+  const ground = useMemo(() => {
+    const tiles = geometry.cells
+      .filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""))
+      .map((c) => {
+        const [cx, cy] = centroid(c.polygon);
+        return c.polygon.map(([x, y]): [number, number] => toWorld(cx + (x - cx) * TILE_SHARE, cy + (y - cy) * TILE_SHARE));
+      });
+    return (x: number, z: number) => tiles.some((t) => inside(t, x, z));
+  }, [tileKey, geometry.width, geometry.height, k]);
+  const chips = useChips(TILE_TOP, SLAB, size * k, position, ground);
   // A gust after each move: what is on the board changed, not merely the object describing it.
   const stir = geometry.pieces.map((p) => `${p.id}@${p.x},${p.y}`).join("|") + geometry.cells.map((c) => `${c.owner ?? ""}${c.label ?? ""}`).join("|");
   const field = useGrassField(k, size, stir, growing);
@@ -250,11 +264,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water && isWaterKind(cell.kind) && !cell.segments ? water : undefined}
             grass={growing ? { field, spacing, size, unit } : undefined}
+            chip={rocky && growthsOf(cell).includes("rock") ? chips.burst : undefined}
             onPick={onPick}
           />
         ))}
       {glowLights > 0 && <GlowLights spots={glowing} size={glowLights} k={k} night={night} />}
       <Fog width={width} depth={depth} night={night} />
+      {rocky && <Chips pool={chips.pool} />}
       <mesh rotation-x={-Math.PI / 2} position={[0, TILE_TOP + 0.02, 0]} raycast={noRaycast}>
         <planeGeometry args={[width, depth]} />
         <meshStandardMaterial map={labels} transparent roughness={0.8} depthWrite={false} />
@@ -279,10 +295,12 @@ interface TileProps {
   water?: Water;
   /** The board's grass, when any cell grows it. */
   grass?: { field: GrassField; spacing: number; size: number; unit: number };
+  /** Knocks stone chips loose at a world point, when the cell has stony ground. */
+  chip?: (x: number, z: number) => void;
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: TileProps) {
+function Tile({ cell, k, at, target, night, painted, water, grass, chip, onPick }: TileProps) {
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -313,17 +331,27 @@ function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: Til
   }, [water, cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => surface?.dispose(), [surface]);
   const surfaceMaterial = useRef<MeshStandardMaterial>(null);
-  // Grass on a green cell (or on an edge-matched tile's green wedges), with a bare patch for its name.
+  // What grows on the cell (or on an edge-matched tile's wedges), with a bare patch for its name
+  // that is wider where taller things grow.
   const segmentsKey = cell.segments?.join(",");
   const growth = useMemo(() => {
     if (!grass) return undefined;
     const field = growthField(cell, cell.segments ? TILE_SHARE * 0.84 : TILE_SHARE * 0.97);
     if (!field) return undefined;
-    const bare = clearing(cell, grass.unit, grass.size * GRASS_HEIGHT);
+    const tallest = Math.max(...growthsOf(cell).map((g) => HEIGHT[g]));
+    const bare = clearing(cell, grass.unit, grass.size * GRASS_HEIGHT * tallest);
     const sprouts = sow(cell, field, grass.spacing, bare);
-    return { sprouts, trees: plant(sprouts, field, bare, grass.spacing, cell.segments ? 0 : 4) };
+    const [trees, boulders] = cell.segments ? [0, 0] : [4, 3];
+    return {
+      field,
+      sprouts,
+      trees: [...plant(sprouts, field, bare, grass.spacing, trees, "forest"), ...plant(sprouts, field, bare, grass.spacing, boulders, "rock")],
+    };
   }, [grass?.spacing, grass?.unit, cell.id, cell.polygon, cell.kind, cell.label, segmentsKey]);
   const compile = useMemo(() => water && waterCompiler(water.uniforms), [water]);
+  // A stony tile glitters under the pointer, like the rocks on it.
+  const stony = !cell.segments && growthsOf(cell).includes("rock");
+  const glitter = useMemo(() => (stony && grass ? glitterCompiler(grass.field, grass.size * k * 0.02) : undefined), [stony, grass?.field, grass?.size, k]);
   // A legal tile sits on a halo the full size of its cell: the gap around the tile shows a teal
   // ring whatever the tile's own color, which a glow alone does not on pale tiles.
   const halo = useMemo(() => {
@@ -407,19 +435,24 @@ function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: Til
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         water?.splash(e.point.x, e.point.z);
+        if (chip && growth) {
+          const p = mesh.current.worldToLocal(e.point.clone());
+          if (growth.field(p.x / k, p.z / k) === "rock") chip(e.point.x, e.point.z);
+        }
         if (target) onPick(cell.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
       }}
     >
       {/* A painted tile wears its art on top; the sides pick up the painting's border color. Keyed so
-          three builds a fresh shader when the map arrives. */}
+          three builds a fresh shader when the map arrives or the glitter comes or goes. */}
       <meshStandardMaterial
-        key={painted ? "painted" : "plain"}
+        key={`${painted ? "painted" : "plain"}${glitter ? "-glitter" : ""}`}
         ref={material}
         map={painted?.texture ?? null}
         color={painted ? tint : base}
         emissive={target || !glowColor ? highlight : glowColor}
         emissiveIntensity={0}
         roughness={painted ? 0.72 : 0.68}
+        {...(glitter && { onBeforeCompile: glitter, defines: { GLITTER: "" } })}
       />
       {halo && (
         <mesh geometry={halo} position={[0, 0.004, 0]} raycast={noRaycast}>
@@ -433,7 +466,7 @@ function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: Til
             ref={surfaceMaterial}
             map={painted?.texture ?? null}
             color={painted ? tint : base}
-            emissive={highlight}
+            emissive={target || !glowColor ? highlight : glowColor}
             emissiveIntensity={0}
             roughness={0.1}
             onBeforeCompile={compile}
@@ -454,7 +487,7 @@ function Tile({ cell, k, at, target, night, painted, water, grass, onPick }: Til
       )}
       {wedges && (
         <mesh geometry={wedges} position={[0, TILE_TOP - SLAB + 0.004, 0]} raycast={noRaycast} receiveShadow>
-          <meshStandardMaterial ref={wedgeMaterial} vertexColors emissive={highlight} emissiveIntensity={0} roughness={0.75} />
+          <meshStandardMaterial ref={wedgeMaterial} vertexColors emissive={target || !glowColor ? highlight : glowColor} emissiveIntensity={0} roughness={0.75} />
         </mesh>
       )}
     </mesh>
