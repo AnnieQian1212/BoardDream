@@ -265,6 +265,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             water={water && isWaterKind(cell.kind) && !cell.segments ? water : undefined}
             grass={growing ? { field, spacing, size, unit } : undefined}
             chip={rocky && growthsOf(cell).includes("rock") ? chips.burst : undefined}
+            print={{ texture: labels, width, depth }}
             onPick={onPick}
           />
         ))}
@@ -297,10 +298,12 @@ interface TileProps {
   grass?: { field: GrassField; spacing: number; size: number; unit: number };
   /** Knocks stone chips loose at a world point, when the cell has stony ground. */
   chip?: (x: number, z: number) => void;
+  /** The board's printed names and the size of the plane they cover, centered on the board. */
+  print: { texture: Texture; width: number; depth: number };
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, water, grass, chip, onPick }: TileProps) {
+function Tile({ cell, k, at, target, night, painted, water, grass, chip, print, onPick }: TileProps) {
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
@@ -349,6 +352,22 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, onPick 
     };
   }, [grass?.spacing, grass?.unit, cell.id, cell.polygon, cell.kind, cell.label, segmentsKey]);
   const compile = useMemo(() => water && waterCompiler(water.uniforms), [water]);
+  // The names are printed on one plane at the tiles' height, so a legal tile lifted under the
+  // pointer would cover its own. It carries a copy of its part of the print on its top instead.
+  const decal = useMemo(() => {
+    if (!target || !cell.label || SPOTS.has(cell.kind ?? "")) return undefined;
+    const [cx, cy] = centroid(cell.polygon);
+    const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * TILE_SHARE, -(y - cy) * k * TILE_SHARE))));
+    g.rotateX(-Math.PI / 2);
+    const pos = g.attributes.position;
+    const uv = g.attributes.uv;
+    // The same mapping as the print's plane: u across its width, v from its far edge.
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, 0.5 + (at[0] + pos.getX(i)) / print.width, 0.5 - (at[1] + pos.getZ(i)) / print.depth);
+    uv.needsUpdate = true;
+    return g;
+  }, [target, cell.label, cell.kind, cell.polygon, k, at[0], at[1], print.width, print.depth]);
+  useEffect(() => () => decal?.dispose(), [decal]);
+  const decalMesh = useRef<Mesh>(null);
   // A stony tile glitters under the pointer, like the rocks on it.
   const stony = !cell.segments && growthsOf(cell).includes("rock");
   const glitter = useMemo(() => (stony && grass ? glitterCompiler(grass.field, grass.size * k * 0.02) : undefined), [stony, grass?.field, grass?.size, k]);
@@ -405,6 +424,7 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, onPick 
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (surfaceMaterial.current) surfaceMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
+    if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > SLAB + 0.01;
     if (moving) state.invalidate();
   });
 
@@ -454,6 +474,11 @@ function Tile({ cell, k, at, target, night, painted, water, grass, chip, onPick 
         roughness={painted ? 0.72 : 0.68}
         {...(glitter && { onBeforeCompile: glitter, defines: { GLITTER: "" } })}
       />
+      {decal && (
+        <mesh ref={decalMesh} geometry={decal} position={[0, TILE_TOP - SLAB + 0.02, 0]} visible={false} raycast={noRaycast}>
+          <meshStandardMaterial map={print.texture} transparent roughness={0.8} depthWrite={false} />
+        </mesh>
+      )}
       {halo && (
         <mesh geometry={halo} position={[0, 0.004, 0]} raycast={noRaycast}>
           <meshBasicMaterial color={HIGHLIGHT} transparent opacity={0.85} />
