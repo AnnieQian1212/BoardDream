@@ -10,8 +10,8 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 2. **Find building blocks.** It picks tested mechanics from the library: card markets, drafting, deck building, worker placement, area majorities, tile placement, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
 3. **Write the rules.** Muse Spark writes the game as code on top of those blocks.
 4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks. More games check that it is worth playing, including whether a player who plans ahead beats random play. Problems go back to the model until the rules pass ([generation benchmark](eval/generation/README.md): 24 of 24 hobby-game ideas pass, and planning beats random play in all 20 that can be measured).
-5. **Play and tune.** Play on a 3D table. Muse Spark opponents trade, bluff, argue and vote, on the open-weight Muse Spark Open (Baseten) when configured ([opponents benchmark](eval/opponents/README.md)). Each game's profile (complexity, strategy, luck, interaction) is measured by playing it. Sliders change the rules and show balance as you drag.
-6. **Paint.** Muse Image paints every card and the board in one style, and SAM 3.1 checks that each painted tile lines up with the real board.
+5. **Play and tune.** Play on a 3D table that reacts to you: water ripples under the pointer, grass and wheat sway and part, stone glitters and chips, tokens fall with real physics, and night games dim to lantern light. It draws nothing while nothing moves, so it runs on laptop GPUs. Muse Spark opponents trade, bluff, argue and vote, on the open-weight Muse Spark Open (Baseten) when configured ([opponents benchmark](eval/opponents/README.md)). Each game's profile (complexity, strategy, luck, interaction) is measured by playing it. Sliders change the rules and show balance as you drag.
+6. **Paint.** Muse Image paints every card and the board in one style. SAM 3.1 checks that each painted tile lines up with the real board, and a color check moves tiles painted as the wrong terrain.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
   test -- design problem --> fix
   test -- worth playing --> table[3D table]
   table --- opponents[Muse Spark or<br/>Spark Open opponents]
-  table --- art[Muse Image art,<br/>SAM 3.1 alignment]
+  table --- art[Muse Image art,<br/>SAM 3.1 alignment,<br/>terrain check]
 ```
 
 ## Try it
@@ -71,4 +71,6 @@ All code was written after kickoff on Oct 26, 2026. The day-by-day plan and prog
 
 - **Oct 26:** engine, fuzzer, first reference game, search, app shell.
 - **Oct 27:** 21 mechanic modules, three original reference games (Glasshouse, Lantern Isles, Highsail) and seven small test games, retrieval eval, 3D table, end-to-end game generation, playtesting with a strategic-depth check, Muse Spark opponents, card and board art.
-- **Oct 28:** tile placement with edge matching, and Wildmere, a fourth original reference game built on it; card drafting, deck building and set collection modules; the generation benchmark rebuilt on hobby-game ideas; AI opponents on Muse Spark Open; a cooperative shared-threat module; Fenlight, a social deduction game where AI players argue and vote; game profiles measured by simulation; a results page; deployment setup; how-to-play cards and hints.
+- **Oct 28:** tile placement with edge matching, and Wildmere, a fourth original reference game built on it; card drafting, deck building and set collection modules; the generation benchmark rebuilt on hobby-game ideas; AI opponents on Muse Spark Open; a cooperative shared-threat module; Fenlight, a social deduction game where AI players argue and vote; game profiles measured by simulation; a results page; deployment setup; how-to-play cards and hints; print-and-play kits; rule changes in plain words.
+- **Oct 29:** a night mode with dusk light, glowing lanterns and fog; water that ripples under the pointer; grass, flowers and trees on green cells.
+- **Oct 30:** wheat on grain fields, rocks that glitter and chip on stony ground; a check that each painted tile shows its terrain; resource tokens that fall with Rapier physics.
