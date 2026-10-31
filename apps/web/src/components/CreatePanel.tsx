@@ -1,5 +1,5 @@
 import type { GameModule, PlayMode } from "@boarddream/engine";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Dices, Sparkles, Wand2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { loadGeneratedGame } from "../generated";
 import { readEvents } from "../sse";
@@ -26,6 +26,7 @@ interface GenerateResult {
 
 /** Friendly text for the designer's progress events. */
 function progressText(event: string): string {
+  if (event === "inventing an idea") return "Dreaming up an idea…";
   if (event === "drafting spec") return "Drafting the design…";
   if (event === "retrieving mechanics") return "Finding mechanics in the library…";
   if (event === "writing rules") return "Writing the rules…";
@@ -56,21 +57,23 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
   const [status, setStatus] = useState("");
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  /** With `surprise`, the idea is left blank and Muse Spark invents one to fit the dials. */
+  async function generate(surprise: boolean) {
     setBusy(true);
     setStatus("Starting…");
+    if (surprise) setPrompt("");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, dials }),
+        body: JSON.stringify({ prompt: surprise ? "" : prompt, dials }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
       let result: GenerateResult | undefined;
       let failure: string | undefined;
       await readEvents(res, (event, data) => {
         if (event === "progress") setStatus(progressText(data));
+        else if (event === "idea") setPrompt(data);
         else if (event === "result") result = JSON.parse(data) as GenerateResult;
         else if (event === "error") failure = data;
       });
@@ -90,16 +93,25 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
   }
 
   return (
-    <form className="panel create" onSubmit={submit}>
+    <form
+      className="panel create"
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        void generate(false);
+      }}
+    >
       <h2>
         <Sparkles size={17} /> Dream up a game
       </h2>
-      <p className="hint">Describe it like you would to a friend. BoardDream writes the rules, playtests them and deals you in.</p>
+      <p className="hint">
+        Describe it like you would to a friend, or let Muse Spark surprise you. BoardDream writes the rules, playtests them and deals you in.
+      </p>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Rival beekeepers trade nectar and wax to build hives across a flowering valley…"
         rows={5}
+        readOnly={busy}
         required
       />
       <div className="field-pair">
@@ -129,9 +141,20 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
           </button>
         ))}
       </div>
-      <button type="submit" className="action wide" disabled={busy || !available}>
-        <Wand2 size={16} /> {busy ? "Dreaming…" : "Generate game"}
-      </button>
+      <div className="create-actions">
+        <button type="submit" className="action" disabled={busy || !available}>
+          <Wand2 size={16} /> {busy ? "Dreaming…" : "Generate game"}
+        </button>
+        <button
+          type="button"
+          className="action secondary"
+          disabled={busy || !available}
+          onClick={() => void generate(true)}
+          title="Muse Spark invents an idea that fits these settings, then builds the game"
+        >
+          <Dices size={16} /> Surprise me
+        </button>
+      </div>
       {!available && (
         <p className="hint">This online demo plays games BoardDream generated earlier: pick one from the game menu at the top. Generating new ones needs the full server with a model key (see the README).</p>
       )}

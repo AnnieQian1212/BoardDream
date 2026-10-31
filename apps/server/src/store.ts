@@ -19,6 +19,9 @@ export interface SavedGame {
   rounds: number;
   /** The designer's rules, for players and AI opponents. */
   rules: string[];
+  /** The idea the game was made from, and whether Muse Spark invented it ("Surprise me"). */
+  idea?: string;
+  invented?: boolean;
 }
 
 const slug = (title: string) =>
@@ -28,7 +31,7 @@ const slug = (title: string) =>
     .replace(/^-|-$/g, "")
     .slice(0, 40) || "game";
 
-export function saveGame(result: DesignResult): SavedGame {
+export function saveGame(result: DesignResult, origin?: { idea: string; invented: boolean }): SavedGame {
   mkdirSync(DIR, { recursive: true });
   const id = `${slug(result.spec.title)}-${Date.now().toString(36)}`;
   const saved: SavedGame = {
@@ -40,6 +43,7 @@ export function saveGame(result: DesignResult): SavedGame {
     retrieved: result.retrieved,
     rounds: result.attempts.length,
     rules: result.spec.rules,
+    ...origin,
   };
   writeFileSync(new URL(`${id}.js`, DIR), result.source + "\n");
   writeFileSync(new URL(`${id}.json`, DIR), JSON.stringify({ ...saved, spec: result.spec, attempts: result.attempts }, null, 2) + "\n");
@@ -79,7 +83,9 @@ export function saveRevision(baseId: string | undefined, result: RevisionResult,
   const { name, summary, family, mode, minPlayers, maxPlayers } = result.game;
   const fallback: DesignResult["spec"] = { title: name, pitch: summary, family, mode, minPlayers, maxPlayers, components: "", rules: [], winCondition: "", mechanics: [], tunables: [] };
   const spec = { ...(base?.spec ?? fallback), title, rules: result.rulesAfter };
-  const saved = saveGame({ ok: true, spec, retrieved: base?.retrieved ?? [], source: result.source, attempts: result.attempts });
+  // The revision was made from the same idea as the game it changed.
+  const origin = base?.idea ? { idea: base.idea, invented: Boolean(base.invented) } : undefined;
+  const saved = saveGame({ ok: true, spec, retrieved: base?.retrieved ?? [], source: result.source, attempts: result.attempts }, origin);
   const file = new URL(`${saved.id}.json`, DIR);
   writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), revisedFrom: baseId ?? null, request }, null, 2) + "\n");
   return saved;

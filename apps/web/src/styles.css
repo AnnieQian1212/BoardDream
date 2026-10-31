@@ -529,6 +529,16 @@ input[type="range"] {
   background: var(--accent-soft);
 }
 
+/* "Generate game", with "Surprise me" under it. */
+.create-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.create-actions .action {
+  padding: 10px 16px;
+}
+
 /* ---------- Table ---------- */
 
 .table {

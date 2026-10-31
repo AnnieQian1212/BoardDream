@@ -39,6 +39,7 @@ cp .env.example .env      # add MODEL_API_KEY
 npm run dev               # http://localhost:5173
 ```
 
+- **Surprise me** has Muse Spark invent an idea that fits the dials, then builds the game from it.
 - Each game opens with a how-to-play card (**Rules** brings it back), and **Hint** asks the game's bot for a move.
 - **Print** makes an A4 print-and-play kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
@@ -73,4 +74,4 @@ All code was written after kickoff on Oct 26, 2026. The day-by-day plan and prog
 - **Oct 27:** 21 mechanic modules, three original reference games (Glasshouse, Lantern Isles, Highsail) and seven small test games, retrieval eval, 3D table, end-to-end game generation, playtesting with a strategic-depth check, Muse Spark opponents, card and board art.
 - **Oct 28:** tile placement with edge matching, and Wildmere, a fourth original reference game built on it; card drafting, deck building and set collection modules; the generation benchmark rebuilt on hobby-game ideas; AI opponents on Muse Spark Open; a cooperative shared-threat module; Fenlight, a social deduction game where AI players argue and vote; game profiles measured by simulation; a results page; deployment setup; how-to-play cards and hints; print-and-play kits; rule changes in plain words.
 - **Oct 29:** a night mode with dusk light, glowing lanterns and fog; water that ripples under the pointer; grass, flowers and trees on green cells.
-- **Oct 30:** wheat on grain fields, rocks that glitter and chip on stony ground; a check that each painted tile shows its terrain; resource tokens that fall with Rapier physics.
+- **Oct 30:** wheat on grain fields, rocks that glitter and chip on stony ground; a check that each painted tile shows its terrain; resource tokens that fall with Rapier physics; water, grass and stone on every game's ground; a Surprise me button that invents an idea and builds it.

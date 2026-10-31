@@ -3,6 +3,8 @@ import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
 import { revisedTitle } from "./store";
+import { ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
+import type { ModelClient } from "./meta/client";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
@@ -192,5 +194,22 @@ describe("revisions", () => {
     expect(revisedTitle("Abbey of Ink and Vine")).toBe("Abbey of Ink and Vine (revised)");
     expect(revisedTitle("Abbey of Ink and Vine (revised)")).toBe("Abbey of Ink and Vine (revised 2)");
     expect(revisedTitle("Abbey of Ink and Vine (revised 2)")).toBe("Abbey of Ink and Vine (revised 3)");
+  });
+});
+
+describe("surprise ideas", () => {
+  const dials = { minPlayers: 3, maxPlayers: 5, playMinutes: 45, complexity: 3, luck: 0.2, mode: "hidden-role" as const };
+
+  it("draw a setting and a mechanic that fits the mode, and name the games to avoid", () => {
+    const asked = (random: () => number) => JSON.parse(ideaMessages(dials, ["Fenlight"], random)[1].content);
+    const first = asked(() => 0);
+    expect(first).toMatchObject({ setting: SETTINGS[0], builtAround: SPINES["hidden-role"][0], dials, avoid: ["Fenlight"] });
+    expect(asked(() => 0.999)).toMatchObject({ setting: SETTINGS.at(-1), builtAround: SPINES["hidden-role"].at(-1) });
+    expect(asked(() => 0.5).builtAround).not.toBe(first.builtAround);
+  });
+
+  it("return the model's idea without stray whitespace", async () => {
+    const llm = { chatJson: async () => ({ idea: "  Rival ferry captains race cargo across a delta.\n" }) } as unknown as ModelClient;
+    expect(await inventIdea(llm, dials, [])).toBe("Rival ferry captains race cargo across a delta.");
   });
 });

@@ -7,6 +7,7 @@ import { Bm25Index } from "@boarddream/retrieval";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { designGame, reviseGame } from "./agent/designer";
+import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
@@ -116,7 +117,8 @@ app.get("/api/games/:id", (c) => {
 });
 
 // Generation takes minutes, so progress streams as server-sent events: "progress" lines, then one
-// "result" (the DesignResult as JSON) or "error".
+// "result" (the DesignResult as JSON) or "error". A blank idea asks for a surprise: Muse Spark
+// invents one, sent as an "idea" event so the player sees it, and the game is designed from that.
 app.post("/api/generate", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
   const limited = overLimit(c, "generate");
@@ -128,8 +130,15 @@ app.post("/api/generate", async (c) => {
       void stream.writeSSE({ event: "progress", data: event });
     };
     try {
+      const invented = !request.prompt?.trim();
+      if (invented) {
+        onProgress("inventing an idea");
+        const made = [...catalog.filter((e) => e.kind === "game").map((e) => e.title), ...listGames().map((g) => `${g.title}: ${g.pitch}`)];
+        request.prompt = await inventIdea(designer, request.dials, made.slice(0, 40));
+        await stream.writeSSE({ event: "idea", data: request.prompt });
+      }
       const result = await designGame(request, { llm: designer, index, onProgress });
-      const saved = result.ok ? saveGame(result) : undefined;
+      const saved = result.ok ? saveGame(result, { idea: request.prompt, invented }) : undefined;
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
     } catch (err) {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
