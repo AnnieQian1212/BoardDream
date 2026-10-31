@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
-import { GenerationView } from "./components/GenerationView";
+import { GenerationStage } from "./components/GenerationStage";
+import { GenerationSteps } from "./components/GenerationSteps";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
@@ -132,10 +133,6 @@ export function App() {
 
   // Focus mode hides the side panels so the table fills the screen (press F).
   const [focus, setFocus] = useState(WATCH || window.innerWidth < 1100);
-  const insets = useMemo(
-    () => ({ left: focus ? 0 : PANEL_INSET, right: focus ? 0 : PANEL_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
-    [focus],
-  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -180,6 +177,14 @@ export function App() {
     }, g.isTerminal(m.state) ? 1800 : PREVIEW_DELAY);
     return () => clearTimeout(timer);
   }, [preview]);
+
+  // While a game is made, its steps take the left column, the stage the rest; the right panels,
+  // about the game that was on the table, step aside until the new one is ready.
+  const making = Boolean(generation);
+  const insets = useMemo(
+    () => ({ left: focus && !making ? 0 : PANEL_INSET, right: focus || making ? 0 : PANEL_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
+    [focus, making],
+  );
 
   // Bots take their turns one at a time. Muse Spark may take a few seconds on a social move; a
   // decision for a state that has since changed (new game, undo) is dropped.
@@ -257,23 +262,27 @@ export function App() {
   const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}`;
 
   return (
-    <div className={["app", focus && "focus"].filter(Boolean).join(" ")}>
-      <TableGuard resetKey={tableKey}>
-        {FLAT ? (
-          <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
-            <Table key={tableKey} {...tableProps} />
-          </div>
-        ) : (
-          <Tabletop
-            key={tableKey}
-            {...tableProps}
-            insets={insets}
-            speech={preview ? undefined : speech}
-            art={preview ? undefined : art}
-            boardPaint={preview ? undefined : board?.paint}
-          />
-        )}
-      </TableGuard>
+    <div className={["app", focus && "focus", making && "making"].filter(Boolean).join(" ")}>
+      {generation && <GenerationStage generation={generation} previewing={Boolean(preview)} />}
+      {/* Until a draft runs, the stage stands in for the table. */}
+      {(!generation || preview || generation.done?.ok) && (
+        <TableGuard resetKey={tableKey}>
+          {FLAT ? (
+            <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+              <Table key={tableKey} {...tableProps} />
+            </div>
+          ) : (
+            <Tabletop
+              key={tableKey}
+              {...tableProps}
+              insets={insets}
+              speech={preview ? undefined : speech}
+              art={preview ? undefined : art}
+              boardPaint={preview ? undefined : board?.paint}
+            />
+          )}
+        </TableGuard>
+      )}
 
       <header className="topbar">
         <div className="brand">
@@ -328,7 +337,11 @@ export function App() {
       </header>
 
       <aside className="sidebar left">
-        <CreatePanel available={canGenerate} busy={generating} onGenerate={generate} />
+        {generation ? (
+          <GenerationSteps generation={generation} onCancel={closeGeneration} onClose={closeGeneration} />
+        ) : (
+          <CreatePanel available={canGenerate} busy={generating} onGenerate={generate} />
+        )}
       </aside>
 
       <aside className="sidebar right">
@@ -362,7 +375,6 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
-      {generation && <GenerationView generation={generation} onCancel={closeGeneration} onClose={closeGeneration} />}
       {rulesOpen && !results && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
       {results && <ResultsPage onClose={() => setResults(false)} />}
       {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { progressOf, stepOf, type Generation } from "./generation";
+import { componentItems, progressOf, stepOf, type Generation } from "./generation";
 
 const t0 = 1_000_000;
-const base: Generation = { surprise: false, started: t0, idea: "rival lighthouse keepers", attempt: 0, writing: false, code: "", checks: [] };
+const base: Generation = { surprise: false, started: t0, idea: "rival lighthouse keepers", attempt: 0, writing: false, code: "", checks: [], rounds: [] };
 const plan = { title: "Beacon", pitch: "", family: "map", mode: "competitive" as const, minPlayers: 2, maxPlayers: 4, components: "", rules: [], winCondition: "", tunables: [] };
 const planned: Generation = { ...base, plan, mechanics: [{ id: "mech:market", title: "Card market", description: "" }] };
 
@@ -32,5 +32,23 @@ describe("generation progress", () => {
     const second = progressOf({ ...fixing, attempt: 2, code: "" , codeSince: undefined, writingSince: t0 + 30_000 }, t0 + 30_000);
     expect(second).toBeGreaterThan(0.8);
     expect(second).toBeLessThan(0.98);
+  });
+});
+
+describe("components in the box", () => {
+  it("split at semicolons, or at commas before a count, never inside parentheses", () => {
+    expect(
+      componentItems(
+        "5x5 harbor basin board divided into 6 districts, 60 drydock tiles with Hull, Keel and Rigging edges, 32 Ship Contract cards in 3 classes Frigate, Clipper and Ironclad, 40 prestige seals, and 4 player drydock boards.",
+      ),
+    ).toEqual([
+      "5x5 harbor basin board divided into 6 districts",
+      "60 drydock tiles with Hull, Keel and Rigging edges",
+      "32 Ship Contract cards in 3 classes Frigate, Clipper and Ironclad",
+      "40 prestige seals",
+      "4 player drydock boards",
+    ]);
+    expect(componentItems("a 19-hex board, 60 tiles (6 edges, 3 kinds), one deck")).toEqual(["a 19-hex board", "60 tiles (6 edges, 3 kinds)", "one deck"]);
+    expect(componentItems("19-hex atoll board; 60 reef tiles, each with 6 edges; 4 diver sets")).toEqual(["19-hex atoll board", "60 reef tiles, each with 6 edges", "4 diver sets"]);
   });
 });

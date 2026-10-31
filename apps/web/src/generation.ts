@@ -60,6 +60,21 @@ type DesignEvent =
   | { type: "checking"; attempt: number; done: number; total: number }
   | ({ type: "checked" } & Check);
 
+/** One round of rules: written (the first draft, or a fix for what the last check found), then checked. */
+export interface Round {
+  attempt: number;
+  /** The verdict this round answers; none for the first draft. */
+  answers?: Check;
+  writingSince: number;
+  codeSince?: number;
+  /** Once written: how long the rules are, and when they were done. */
+  lines?: number;
+  writtenAt?: number;
+  checking?: { done: number; total: number };
+  check?: Check;
+  checkedAt?: number;
+}
+
 /** A game being made, as the server reports each step. */
 export interface Generation {
   /** The idea is Muse Spark's, as "Surprise me" wrote it. */
@@ -68,6 +83,11 @@ export interface Generation {
   idea: string;
   plan?: Plan;
   mechanics?: Mechanic[];
+  /** When the plan and the mechanics arrived. */
+  planAt?: number;
+  mechanicsAt?: number;
+  /** Every round of rules so far, the current one last. */
+  rounds: Round[];
   /** The rules being written or checked: 0 for the first draft, then one per fix. */
   attempt: number;
   writing: boolean;
@@ -86,6 +106,27 @@ export interface Generation {
 
 export type Step = "plan" | "rules" | "check" | "ready";
 
+/** The code inside a reply's ```js block, as far as it has been written, line by line. */
+export const codeLines = (code: string) => (code.includes("```") ? code.replace(/^[\s\S]*?```[a-z]*\n?/, "").replace(/```[\s\S]*$/, "") : code).split("\n");
+
+/**
+ * The plan's components as separate items. Plans list them with semicolons, or with commas where
+ * each item starts with how many there are ("60 tiles with Hull, Keel and Rigging edges, 4 boards"),
+ * so a comma splits only before a count, and never inside parentheses.
+ */
+export function componentItems(components: string): string[] {
+  const parts = components.includes(";")
+    ? components.split(";")
+    : components.split(/,\s+(?![^()]*\))(?=(?:and\s+)?(?:\d|(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s))/i);
+  return parts
+    .map((p) => p.trim().replace(/^and\s+/i, "").replace(/\.$/, ""))
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+/** Changes the current (last) round. */
+const current = (g: Generation, change: Partial<Round>): Round[] => [...g.rounds.slice(0, -1), { ...g.rounds.at(-1)!, ...change }];
+
 export function stepOf(g: Generation): Step {
   if (g.done?.ok) return "ready";
   if (!g.plan || !g.mechanics) return "plan";
@@ -96,13 +137,22 @@ function apply(g: Generation, event: DesignEvent): Generation {
   const now = Date.now();
   switch (event.type) {
     case "spec":
-      return { ...g, plan: event.spec };
+      return { ...g, plan: event.spec, planAt: now };
     case "mechanics":
-      return { ...g, mechanics: event.mechanics };
+      return { ...g, mechanics: event.mechanics, mechanicsAt: now };
     case "writing":
-      return { ...g, attempt: event.attempt, writing: true, writingSince: now, codeSince: undefined, code: "", checking: undefined };
+      return {
+        ...g,
+        attempt: event.attempt,
+        writing: true,
+        writingSince: now,
+        codeSince: undefined,
+        code: "",
+        checking: undefined,
+        rounds: [...g.rounds, { attempt: event.attempt, answers: event.attempt > 0 ? g.checks.at(-1) : undefined, writingSince: now }],
+      };
     case "code":
-      return { ...g, code: g.code + event.text, codeSince: g.codeSince ?? now };
+      return { ...g, code: g.code + event.text, codeSince: g.codeSince ?? now, rounds: g.rounds.at(-1)?.codeSince ? g.rounds : current(g, { codeSince: now }) };
     case "draft": {
       let draft = g.draft;
       try {
@@ -110,13 +160,15 @@ function apply(g: Generation, event: DesignEvent): Generation {
       } catch {
         // A draft that does not load keeps the last one on the table; the check will say why.
       }
-      return { ...g, attempt: event.attempt, writing: false, draft };
+      return { ...g, attempt: event.attempt, writing: false, draft, rounds: current(g, { lines: codeLines(g.code).length, writtenAt: now }) };
     }
-    case "checking":
-      return { ...g, checking: { done: event.done, total: event.total } };
+    case "checking": {
+      const checking = { done: event.done, total: event.total };
+      return { ...g, checking, rounds: current(g, { checking }) };
+    }
     case "checked": {
       const { type: _type, ...check } = event;
-      return { ...g, checks: [...g.checks, check] };
+      return { ...g, checks: [...g.checks, check], rounds: current(g, { check, checkedAt: now }) };
     }
   }
 }
@@ -166,7 +218,7 @@ export function useGeneration(onReady: (game: GameModule) => void) {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
-      let g: Generation = { surprise: invented, started: Date.now(), idea: prompt.trim(), attempt: 0, writing: false, code: "", checks: [] };
+      let g: Generation = { surprise: invented, started: Date.now(), idea: prompt.trim(), attempt: 0, writing: false, code: "", checks: [], rounds: [] };
       const update = (next: Generation) => {
         g = next;
         if (!abort.signal.aborted) setGeneration(next);
