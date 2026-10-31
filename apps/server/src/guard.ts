@@ -18,6 +18,8 @@ export interface Limit {
 export const LIMITS = {
   /** A game takes minutes of model calls and fuzzing. */
   generate: { perClient: 3, windowMs: 60 * 60_000, perDay: 40 },
+  /** An idea for "Surprise me": one short call, often asked for again. */
+  idea: { perClient: 20, windowMs: 60 * 60_000, perDay: 400 },
   /** One move by an AI opponent: a few seconds of a model. */
   opponent: { perClient: 120, windowMs: 10 * 60_000, perDay: 5000 },
   /** A deck or a board painted by Muse Image, checked by SAM. */

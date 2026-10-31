@@ -39,7 +39,7 @@ cp .env.example .env      # add MODEL_API_KEY
 npm run dev               # http://localhost:5173
 ```
 
-- **Surprise me** has Muse Spark invent an idea that fits the dials, then builds the game from it.
+- **Surprise me** has Muse Spark suggest an idea that fits the dials. It appears in the box to read, change or swap for another; **Generate game** makes it.
 - Each game opens with a how-to-play card (**Rules** brings it back), and **Hint** asks the game's bot for a move.
 - **Print** makes an A4 print-and-play kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.

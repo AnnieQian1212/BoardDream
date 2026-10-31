@@ -285,6 +285,13 @@ textarea:focus,
   border-color: var(--accent);
 }
 
+/* The idea box grows to show a whole suggested idea, up to about nine lines. */
+.create textarea {
+  field-sizing: content;
+  min-height: 118px;
+  max-height: 210px;
+}
+
 .field {
   display: flex;
   flex-direction: column;

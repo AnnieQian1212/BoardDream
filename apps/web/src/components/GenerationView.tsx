@@ -1,9 +1,8 @@
-import { AlertTriangle, Check, ClipboardList, Code2, Dices, Lightbulb, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, ClipboardList, Code2, Dices, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { progressOf, stepOf, type Generation, type Step } from "../generation";
 
 const STEPS: { step: Step; label: string; icon: ReactNode }[] = [
-  { step: "idea", label: "Idea", icon: <Lightbulb size={14} /> },
   { step: "plan", label: "Design", icon: <ClipboardList size={14} /> },
   { step: "rules", label: "Rules", icon: <Code2 size={14} /> },
   { step: "check", label: "Playtest", icon: <Dices size={14} /> },
@@ -35,7 +34,6 @@ function status(g: Generation): string {
   if (g.done) return g.done.ok ? `“${g.done.title}” passed ${g.checks.length === 1 ? "on the first try" : `after ${g.checks.length} rounds of playtesting`}.` : `“${g.done.title}” still fails after ${g.checks.length} rounds.`;
   const last = g.checks.at(-1);
   const step = stepOf(g);
-  if (step === "idea") return "Muse Spark is thinking up an idea…";
   if (step === "plan") return "Drafting the design and picking tested mechanics from the library…";
   if (step === "rules") {
     const fixing = g.attempt > 0 && last ? (last.ok ? `Improving the design: ${last.issues?.[0] ?? ""}` : `Fixing what the playtest found: ${last.problem ?? ""}`) : undefined;
@@ -157,7 +155,7 @@ export function GenerationView({ generation: g, onCancel, onClose }: Props) {
           <span className="rules-kicker">
             <Sparkles size={13} /> {g.surprise ? "Surprise game" : "Dreaming up your game"}
           </span>
-          <h3>{plan?.title ?? (g.idea ? "Your game" : "A new idea")}</h3>
+          <h3>{plan?.title ?? "Your game"}</h3>
         </div>
         <span className="gen-clock">{clock((finish ?? now) - g.started)}</span>
         {running ? (
@@ -178,7 +176,7 @@ export function GenerationView({ generation: g, onCancel, onClose }: Props) {
         <span style={{ width: pct(peak.current) }} />
       </div>
       <ol className="gen-steps">
-        {STEPS.filter((s) => g.surprise || s.step !== "idea").map((s) => {
+        {STEPS.map((s) => {
           const at = STEPS.indexOf(s);
           const state = g.done?.ok || at < order ? "done" : at === order && running ? "now" : "later";
           return (
@@ -209,7 +207,7 @@ export function GenerationView({ generation: g, onCancel, onClose }: Props) {
         {header}
         <div className="gen-body">
           <section className="gen-box">
-            {g.idea && <blockquote className="gen-idea">{g.idea}</blockquote>}
+            <blockquote className="gen-idea">{g.idea}</blockquote>
             {plan ? (
               <div className="gen-plan">
                 <p className="gen-pitch">{plan.pitch}</p>

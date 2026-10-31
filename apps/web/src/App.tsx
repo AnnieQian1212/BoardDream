@@ -328,7 +328,7 @@ export function App() {
       </header>
 
       <aside className="sidebar left">
-        <CreatePanel available={canGenerate} busy={generating} idea={generation?.surprise ? generation.idea : undefined} onGenerate={generate} />
+        <CreatePanel available={canGenerate} busy={generating} onGenerate={generate} />
       </aside>
 
       <aside className="sidebar right">

@@ -1,6 +1,6 @@
 import type { PlayMode } from "@boarddream/engine";
 import { Dices, Sparkles, Wand2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type { Dials } from "../generation";
 
 const MODES: { value: PlayMode; label: string }[] = [
@@ -14,14 +14,17 @@ interface Props {
   available: boolean;
   /** A game is being made; its progress shows over the table (GenerationView). */
   busy: boolean;
-  /** The idea Muse Spark invented for a surprise, shown in the box as soon as it is written. */
-  idea?: string;
-  /** Makes a game; a blank idea asks Muse Spark for a surprise. */
-  onGenerate(prompt: string, dials: Dials): void;
+  /** Makes a game; `invented` when the idea is Muse Spark's, unchanged. */
+  onGenerate(prompt: string, dials: Dials, invented: boolean): void;
 }
 
-export function CreatePanel({ available, busy, idea, onGenerate }: Props) {
+export function CreatePanel({ available, busy, onGenerate }: Props) {
   const [prompt, setPrompt] = useState("");
+  // "Surprise me" only writes an idea into the box; the player reads it, changes it or asks for
+  // another, and makes the game when it appeals.
+  const [invented, setInvented] = useState<string>();
+  const [inventing, setInventing] = useState(false);
+  const [problem, setProblem] = useState<string>();
   const [dials, setDials] = useState<Dials>({
     minPlayers: 2,
     maxPlayers: 4,
@@ -31,30 +34,43 @@ export function CreatePanel({ available, busy, idea, onGenerate }: Props) {
     mode: "competitive",
   });
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
-  useEffect(() => {
-    if (idea) setPrompt(idea);
-  }, [idea]);
+
+  async function surprise() {
+    setInventing(true);
+    setProblem(undefined);
+    try {
+      const res = await fetch("/api/idea", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dials }) });
+      const reply = (await res.json()) as { idea?: string; error?: string };
+      if (!res.ok || !reply.idea) throw new Error(reply.error ?? res.statusText);
+      setPrompt(reply.idea);
+      setInvented(reply.idea);
+    } catch (err) {
+      setProblem(`No idea this time: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setInventing(false);
+    }
+  }
 
   return (
     <form
       className="panel create"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
-        onGenerate(prompt, dials);
+        onGenerate(prompt, dials, prompt.trim() === invented?.trim());
       }}
     >
       <h2>
         <Sparkles size={17} /> Dream up a game
       </h2>
       <p className="hint">
-        Describe it like you would to a friend, or let Muse Spark surprise you. BoardDream writes the rules, playtests them and deals you in.
+        Describe it like you would to a friend, or let Muse Spark suggest one. BoardDream writes the rules, playtests them and deals you in.
       </p>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Rival beekeepers trade nectar and wax to build hives across a flowering valley…"
         rows={5}
-        readOnly={busy}
+        readOnly={busy || inventing}
         required
       />
       <div className="field-pair">
@@ -91,16 +107,14 @@ export function CreatePanel({ available, busy, idea, onGenerate }: Props) {
         <button
           type="button"
           className="action secondary"
-          disabled={busy || !available}
-          onClick={() => {
-            setPrompt("");
-            onGenerate("", dials);
-          }}
-          title="Muse Spark invents an idea that fits these settings, then builds the game"
+          disabled={busy || inventing || !available}
+          onClick={() => void surprise()}
+          title="Muse Spark writes an idea that fits these settings into the box above; nothing is made until you press Generate game"
         >
-          <Dices size={16} /> Surprise me
+          <Dices size={16} /> {inventing ? "Thinking of one…" : "Surprise me"}
         </button>
       </div>
+      {problem && <p className="hint status-line">{problem}</p>}
       {!available && (
         <p className="hint">This online demo plays games BoardDream generated earlier: pick one from the game menu at the top. Generating new ones needs the full server with a model key (see the README).</p>
       )}

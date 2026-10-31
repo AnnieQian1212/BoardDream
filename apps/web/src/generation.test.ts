@@ -8,7 +8,6 @@ const planned: Generation = { ...base, plan, mechanics: [{ id: "mech:market", ti
 
 describe("generation progress", () => {
   it("moves through the steps as the plan, the rules and the playtest arrive", () => {
-    expect(stepOf({ ...base, surprise: true, idea: undefined })).toBe("idea");
     expect(stepOf(base)).toBe("plan");
     expect(progressOf(base, t0 + 5000)).toBeLessThan(0.2);
     const thinking: Generation = { ...planned, writing: true, writingSince: t0 + 8000 };

@@ -62,10 +62,10 @@ type DesignEvent =
 
 /** A game being made, as the server reports each step. */
 export interface Generation {
-  /** Muse Spark invents the idea ("Surprise me"). */
+  /** The idea is Muse Spark's, as "Surprise me" wrote it. */
   surprise: boolean;
   started: number;
-  idea?: string;
+  idea: string;
   plan?: Plan;
   mechanics?: Mechanic[];
   /** The rules being written or checked: 0 for the first draft, then one per fix. */
@@ -84,11 +84,10 @@ export interface Generation {
   error?: string;
 }
 
-export type Step = "idea" | "plan" | "rules" | "check" | "ready";
+export type Step = "plan" | "rules" | "check" | "ready";
 
 export function stepOf(g: Generation): Step {
   if (g.done?.ok) return "ready";
-  if (!g.idea) return "idea";
   if (!g.plan || !g.mechanics) return "plan";
   return g.writing ? "rules" : "check";
 }
@@ -134,10 +133,8 @@ const THINKING = 12;
  */
 export function progressOf(g: Generation, now: number): number {
   if (g.done?.ok) return 1;
-  const idea = g.surprise ? 0.04 : 0;
-  if (!g.idea) return 0.04 * (1 - Math.exp(-(now - g.started) / 3000));
   const planned = (g.plan ? 0.6 : 0) + (g.mechanics ? 0.4 : 0);
-  if (!g.plan || !g.mechanics) return idea + (0.2 - idea) * Math.max(planned, 0.8 * (1 - Math.exp(-(now - g.started) / 9000)));
+  if (!g.plan || !g.mechanics) return 0.2 * Math.max(planned, 0.8 * (1 - Math.exp(-(now - g.started) / 9000)));
   // Writing: a slow creep while Muse Spark thinks, then the share of a typical length written.
   const thought = g.writingSince ? 1 - Math.exp(-(now - g.writingSince) / (THINKING * 1000)) : 1;
   const written = g.writing ? (g.codeSince ? 0.25 + 0.75 * Math.min(1, g.code.length / RULES_LENGTH) : 0.25 * thought) : 1;
@@ -156,8 +153,8 @@ interface GenerateResult {
 }
 
 /**
- * Makes a game from an idea (or a blank one, for a surprise), following each step as the server
- * reports it. Cancelling, or leaving the page, closes the stream, and the server stops the work.
+ * Makes a game from an idea, following each step as the server reports it. Cancelling, or leaving
+ * the page, closes the stream, and the server stops the work.
  */
 export function useGeneration(onReady: (game: GameModule) => void) {
   const [generation, setGeneration] = useState<Generation>();
@@ -165,12 +162,11 @@ export function useGeneration(onReady: (game: GameModule) => void) {
   useEffect(() => () => controller.current?.abort(), []);
 
   const start = useCallback(
-    async (prompt: string, dials: Dials) => {
+    async (prompt: string, dials: Dials, invented: boolean) => {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
-      const surprise = !prompt.trim();
-      let g: Generation = { surprise, started: Date.now(), idea: surprise ? undefined : prompt.trim(), attempt: 0, writing: false, code: "", checks: [] };
+      let g: Generation = { surprise: invented, started: Date.now(), idea: prompt.trim(), attempt: 0, writing: false, code: "", checks: [] };
       const update = (next: Generation) => {
         g = next;
         if (!abort.signal.aborted) setGeneration(next);
@@ -180,15 +176,14 @@ export function useGeneration(onReady: (game: GameModule) => void) {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: surprise ? "" : prompt, dials }),
+          body: JSON.stringify({ prompt: prompt.trim(), dials, invented }),
           signal: abort.signal,
         });
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
         let result: GenerateResult | undefined;
         let failure: string | undefined;
         await readEvents(res, (event, data) => {
-          if (event === "idea") update({ ...g, idea: data });
-          else if (event === "design") update(apply(g, JSON.parse(data) as DesignEvent));
+          if (event === "design") update(apply(g, JSON.parse(data) as DesignEvent));
           else if (event === "result") result = JSON.parse(data) as GenerateResult;
           else if (event === "error") failure = data;
         });

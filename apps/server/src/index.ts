@@ -159,27 +159,32 @@ function designStream(stream: SSEStreamingApi, label: string) {
   };
 }
 
+// "Surprise me": Muse Spark invents an idea that fits the dials, for the player to read, change
+// or replace before anything is made.
+app.post("/api/idea", async (c) => {
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
+  const limited = overLimit(c, "idea");
+  if (limited) return limited;
+  const { dials } = await c.req.json<Partial<Pick<GameRequest, "dials">>>();
+  if (!dials || typeof dials !== "object") return c.json({ error: "send the dials the idea should fit" }, 400);
+  const made = [...catalog.filter((e) => e.kind === "game").map((e) => e.title), ...listGames().map((g) => `${g.title}: ${g.pitch}`)];
+  return c.json({ idea: await inventIdea(designer, dials, made.slice(0, 40)) });
+});
+
 // Generation takes a minute or more, so it streams as server-sent events (designStream), then one
-// "result" (the DesignResult as JSON) or "error". A blank idea asks for a surprise: Muse Spark
-// invents one, sent as an "idea" event so the player sees it, and the game is designed from that.
+// "result" (the DesignResult as JSON) or "error". `invented` says the idea is Muse Spark's, as
+// "Surprise me" wrote it; the saved game records that.
 app.post("/api/generate", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
+  const request = await c.req.json<GameRequest & { invented?: boolean }>();
+  if (!request.prompt?.trim() || request.prompt.length > 2000) return c.json({ error: "describe the game in at most 2,000 characters" }, 400);
   const limited = overLimit(c, "generate");
   if (limited) return limited;
-  const request = await c.req.json<GameRequest>();
   return streamSSE(c, async (stream) => {
     const { onProgress, onEvent, signal, close } = designStream(stream, "generate");
     try {
-      const invented = !request.prompt?.trim();
-      if (invented) {
-        onProgress("inventing an idea");
-        const made = [...catalog.filter((e) => e.kind === "game").map((e) => e.title), ...listGames().map((g) => `${g.title}: ${g.pitch}`)];
-        request.prompt = await inventIdea(designer, request.dials, made.slice(0, 40));
-        signal.throwIfAborted();
-        await stream.writeSSE({ event: "idea", data: request.prompt });
-      }
       const result = await designGame(request, { llm: designer, index, onProgress, onEvent, signal });
-      const saved = result.ok ? saveGame(result, { idea: request.prompt, invented }) : undefined;
+      const saved = result.ok ? saveGame(result, { idea: request.prompt, invented: request.invented === true }) : undefined;
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
     } catch (err) {
