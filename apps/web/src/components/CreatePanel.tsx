@@ -1,40 +1,7 @@
-import type { GameModule, PlayMode } from "@boarddream/engine";
+import type { PlayMode } from "@boarddream/engine";
 import { Dices, Sparkles, Wand2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
-import { loadGeneratedGame } from "../generated";
-import { readEvents } from "../sse";
-
-/** Mirrors Dials in apps/server/src/agent/spec.ts. */
-interface Dials {
-  minPlayers: number;
-  maxPlayers: number;
-  playMinutes: number;
-  complexity: number;
-  luck: number;
-  mode: PlayMode;
-}
-
-interface GenerateResult {
-  /** Where the server saved the game; it joins the picker on later visits. */
-  id?: string;
-  ok: boolean;
-  spec: { title: string; rules?: string[] };
-  source: string;
-  retrieved: string[];
-  attempts: unknown[];
-}
-
-/** Friendly text for the designer's progress events. */
-function progressText(event: string): string {
-  if (event === "inventing an idea") return "Dreaming up an idea…";
-  if (event === "drafting spec") return "Drafting the design…";
-  if (event === "retrieving mechanics") return "Finding mechanics in the library…";
-  if (event === "writing rules") return "Writing the rules…";
-  const fuzzing = event.match(/^fuzzing attempt (\d+)/);
-  if (fuzzing) return Number(fuzzing[1]) === 0 ? "Playtesting 1,000 games…" : `Playtesting fix ${fuzzing[1]}…`;
-  if (event.startsWith("repairing")) return `Fixing what broke (${event.replace(/^repairing:?\s*/, "")})…`;
-  return event;
-}
+import { useEffect, useState, type FormEvent } from "react";
+import type { Dials } from "../generation";
 
 const MODES: { value: PlayMode; label: string }[] = [
   { value: "competitive", label: "Versus" },
@@ -42,8 +9,18 @@ const MODES: { value: PlayMode; label: string }[] = [
   { value: "hidden-role", label: "Hidden role" },
 ];
 
-/** `available` is false when no server can generate (e.g. the static demo); games generated earlier still play. */
-export function CreatePanel({ available, onGenerated }: { available: boolean; onGenerated(game: GameModule): void }) {
+interface Props {
+  /** False when no server can generate (e.g. the static demo); games generated earlier still play. */
+  available: boolean;
+  /** A game is being made; its progress shows over the table (GenerationView). */
+  busy: boolean;
+  /** The idea Muse Spark invented for a surprise, shown in the box as soon as it is written. */
+  idea?: string;
+  /** Makes a game; a blank idea asks Muse Spark for a surprise. */
+  onGenerate(prompt: string, dials: Dials): void;
+}
+
+export function CreatePanel({ available, busy, idea, onGenerate }: Props) {
   const [prompt, setPrompt] = useState("");
   const [dials, setDials] = useState<Dials>({
     minPlayers: 2,
@@ -53,51 +30,17 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
     luck: 0.3,
     mode: "competitive",
   });
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
-
-  /** With `surprise`, the idea is left blank and Muse Spark invents one to fit the dials. */
-  async function generate(surprise: boolean) {
-    setBusy(true);
-    setStatus("Starting…");
-    if (surprise) setPrompt("");
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: surprise ? "" : prompt, dials }),
-      });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-      let result: GenerateResult | undefined;
-      let failure: string | undefined;
-      await readEvents(res, (event, data) => {
-        if (event === "progress") setStatus(progressText(data));
-        else if (event === "idea") setPrompt(data);
-        else if (event === "result") result = JSON.parse(data) as GenerateResult;
-        else if (event === "error") failure = data;
-      });
-      if (!result) throw new Error(failure ?? "the server closed the connection");
-      const tries = `${result.attempts.length} playtest round${result.attempts.length === 1 ? "" : "s"}`;
-      if (!result.ok) {
-        setStatus(`“${result.spec.title}” still fails playtesting after ${tries}.`);
-        return;
-      }
-      onGenerated(loadGeneratedGame(result.source, result.id, result.spec.rules));
-      setStatus(`“${result.spec.title}” passed after ${tries}.`);
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    if (idea) setPrompt(idea);
+  }, [idea]);
 
   return (
     <form
       className="panel create"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
-        void generate(false);
+        onGenerate(prompt, dials);
       }}
     >
       <h2>
@@ -149,7 +92,10 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
           type="button"
           className="action secondary"
           disabled={busy || !available}
-          onClick={() => void generate(true)}
+          onClick={() => {
+            setPrompt("");
+            onGenerate("", dials);
+          }}
           title="Muse Spark invents an idea that fits these settings, then builds the game"
         >
           <Dices size={16} /> Surprise me
@@ -158,7 +104,6 @@ export function CreatePanel({ available, onGenerated }: { available: boolean; on
       {!available && (
         <p className="hint">This online demo plays games BoardDream generated earlier: pick one from the game menu at the top. Generating new ones needs the full server with a model key (see the README).</p>
       )}
-      {status && <p className="hint status-line">{status}</p>}
     </form>
   );
 }

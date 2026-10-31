@@ -1,10 +1,11 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
 import { BarChart3, BookOpen, Maximize2, Minimize2, Printer, RotateCcw, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
+import { GenerationView } from "./components/GenerationView";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
@@ -12,8 +13,10 @@ import { PrintSheet } from "./components/PrintSheet";
 import { ResultsPage } from "./components/ResultsPage";
 import { RevisePanel } from "./components/RevisePanel";
 import { RulesCard } from "./components/RulesCard";
+import { TableGuard } from "./components/TableGuard";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, savedGames } from "./generated";
+import { useGeneration } from "./generation";
 import { decide, type Decision } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
@@ -23,6 +26,8 @@ const HUMAN = 0;
 const SIM_GAMES = 200;
 /** Pause between bot moves so a table full of bots is watchable. */
 const BOT_DELAY = 650;
+/** Bots playing a draft while it is checked move a little faster, to show more of it. */
+const PREVIEW_DELAY = 420;
 
 // ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll);
 // ?quality=lowest|low|medium|high pins the 3D render quality; ?flat uses the 2D table instead of WebGL.
@@ -141,10 +146,45 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // A game being made. Once it is ready it joins the picker and opens.
+  const onReady = useCallback((g: GameModule) => {
+    setGames((current) => [...current, g]);
+    configure(g, defaultPlayers(g), resolveParams(g.params));
+  }, []);
+  const { generation, start: generate, cancel: closeGeneration } = useGeneration(onReady);
+  const generating = Boolean(generation && !generation.done && !generation.error);
+  // While its rules are checked, bots play the newest draft on the table: the board and cards appear
+  // as soon as they exist. A draft that throws stops; the next one starts fresh.
+  const draft = generating ? generation?.draft : undefined;
+  const [preview, setPreview] = useState<{ game: GameModule; match: Match; stuck?: boolean }>();
+  useEffect(() => {
+    if (!draft) return setPreview(undefined);
+    try {
+      setPreview({ game: draft, match: startMatch(draft, defaultPlayers(draft), resolveParams(draft.params)) });
+    } catch {
+      setPreview(undefined);
+    }
+  }, [draft]);
+  useEffect(() => {
+    if (!preview || preview.stuck) return;
+    const { game: g, match: m } = preview;
+    const timer = setTimeout(() => {
+      try {
+        if (g.isTerminal(m.state)) return setPreview({ game: g, match: startMatch(g, defaultPlayers(g), resolveParams(g.params)) });
+        const [seat] = g.activePlayers(m.state);
+        const move = m.rng.pick(g.legalMoves(m.state, seat));
+        setPreview((current) => (current?.match === m ? { game: g, match: applyMove(g, m, seat, move) } : current));
+      } catch {
+        setPreview((current) => (current?.match === m ? { ...current, stuck: true } : current));
+      }
+    }, g.isTerminal(m.state) ? 1800 : PREVIEW_DELAY);
+    return () => clearTimeout(timer);
+  }, [preview]);
+
   // Bots take their turns one at a time. Muse Spark may take a few seconds on a social move; a
   // decision for a state that has since changed (new game, undo) is dropped.
   useEffect(() => {
-    if (game.isTerminal(match.state)) return;
+    if (game.isTerminal(match.state) || generating) return;
     const [seat] = game.activePlayers(match.state);
     if (seat === HUMAN && !WATCH) return;
     let cancelled = false;
@@ -161,7 +201,7 @@ export function App() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [game, match, muse, numPlayers]);
+  }, [game, match, muse, numPlayers, generating]);
 
   // Re-simulate in a worker whenever the rules or sliders change; a new setting cancels the old run.
   useEffect(() => {
@@ -199,29 +239,41 @@ export function App() {
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
 
+
   // The latest table talk among the last few moves.
   const spoken = match.log.slice(-4).findLast((e) => e.say);
   const speech = spoken ? { id: spoken.id, seat: spoken.seat, text: spoken.say! } : undefined;
 
-  const tableProps = {
-    game,
-    state: match.state,
-    numPlayers,
-    human: HUMAN,
-    onMove: (move: unknown) => setMatch(applyMove(game, match, HUMAN, move)),
-    onRestart: () => setMatch(startMatch(game, numPlayers, params)),
-  };
-  const tableKey = `${games.indexOf(game)}-${numPlayers}`;
+  const tableProps = preview
+    ? { game: preview.game, state: preview.match.state, numPlayers: defaultPlayers(preview.game), human: HUMAN, onMove: () => {}, onRestart: () => {} }
+    : {
+        game,
+        state: match.state,
+        numPlayers,
+        human: HUMAN,
+        onMove: (move: unknown) => setMatch(applyMove(game, match, HUMAN, move)),
+        onRestart: () => setMatch(startMatch(game, numPlayers, params)),
+      };
+  const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}`;
 
   return (
     <div className={["app", focus && "focus"].filter(Boolean).join(" ")}>
-      {FLAT ? (
-        <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
-          <Table key={tableKey} {...tableProps} />
-        </div>
-      ) : (
-        <Tabletop key={tableKey} {...tableProps} insets={insets} speech={speech} art={art} boardPaint={board?.paint} />
-      )}
+      <TableGuard resetKey={tableKey}>
+        {FLAT ? (
+          <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+            <Table key={tableKey} {...tableProps} />
+          </div>
+        ) : (
+          <Tabletop
+            key={tableKey}
+            {...tableProps}
+            insets={insets}
+            speech={preview ? undefined : speech}
+            art={preview ? undefined : art}
+            boardPaint={preview ? undefined : board?.paint}
+          />
+        )}
+      </TableGuard>
 
       <header className="topbar">
         <div className="brand">
@@ -230,7 +282,7 @@ export function App() {
         </div>
         <label className="picker">
           <span>Now playing</span>
-          <select value={games.indexOf(game)} onChange={(e) => selectGame(games[Number(e.target.value)])}>
+          <select value={games.indexOf(game)} onChange={(e) => selectGame(games[Number(e.target.value)])} disabled={generating}>
             {/* The hand-made reference games apart from those BoardDream generated from an idea. */}
             {[
               { label: "Original reference games", list: games.filter((g) => !generatedSource(g)) },
@@ -276,13 +328,7 @@ export function App() {
       </header>
 
       <aside className="sidebar left">
-        <CreatePanel
-          available={canGenerate}
-          onGenerated={(g) => {
-            setGames([...games, g]);
-            selectGame(g);
-          }}
-        />
+        <CreatePanel available={canGenerate} busy={generating} idea={generation?.surprise ? generation.idea : undefined} onGenerate={generate} />
       </aside>
 
       <aside className="sidebar right">
@@ -316,7 +362,8 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
-      {rulesOpen && !results && <RulesCard game={game} params={params} onClose={closeRules} />}
+      {generation && <GenerationView generation={generation} onCancel={closeGeneration} onClose={closeGeneration} />}
+      {rulesOpen && !results && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
       {results && <ResultsPage onClose={() => setResults(false)} />}
       {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}
     </div>
