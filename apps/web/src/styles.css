@@ -2416,11 +2416,11 @@ button.pile-count.target {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 6px 12px 12px;
+  padding: 6px 4px 12px;
 }
 
 .stage-sheet {
-  width: min(1120px, 100%);
+  width: min(1600px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   grid-template-areas:

@@ -205,11 +205,13 @@ export function GenerationSteps({ generation: g, onCancel, onClose }: Props) {
           {g.done?.ok && passed?.play && (
             <ul className="gen-stats">
               <li>
-                <strong>{passed.play.medianTurns}</strong> moves in a typical {passed.play.numPlayers}-player game
+                <strong>{passed.play.medianTurns}</strong> moves in a typical {passed.play.numPlayers}-player game, about{" "}
+                {Math.round(passed.play.medianTurns / passed.play.numPlayers)} each
               </li>
               {passed.play.plannerWinRate !== undefined && (
                 <li>
-                  <strong>{pct(passed.play.plannerWinRate)}</strong> won by a player who plans ahead (fair share {pct(1 / passed.play.numPlayers)})
+                  <strong>{pct(passed.play.plannerWinRate)}</strong> of games won by a bot that thinks ahead against random players, where luck alone would
+                  give it {pct(1 / passed.play.numPlayers)}
                 </li>
               )}
             </ul>
