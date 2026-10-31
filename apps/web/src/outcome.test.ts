@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resultHeadline } from "./outcome";
+import { tidyPanels } from "./panels";
 
 describe("resultHeadline", () => {
   it("names the winner of a competitive game", () => {
@@ -18,5 +19,15 @@ describe("resultHeadline", () => {
   it("speaks of sides in a hidden-role game", () => {
     expect(resultHeadline("hidden-role", { winners: [0, 4] }, 0)).toBe("Your side wins!");
     expect(resultHeadline("hidden-role", { winners: [1, 2, 3, 5] }, 0)).toBe("Your side lost");
+  });
+});
+
+describe("counters", () => {
+  it("show at most one decimal, leaving whole numbers and their panels alone", () => {
+    const whole = { id: "p1", title: "Player 1", zone: "players" as const, counters: [{ id: "s", label: "Score", value: 7 }] };
+    const estimated = { ...whole, id: "p2", counters: [{ id: "s", label: "Score", value: 4.046666666666667 }, { id: "w", label: "Water", value: 3.8966 }] };
+    const [a, b] = tidyPanels([whole, estimated]);
+    expect(a).toBe(whole);
+    expect(b.counters!.map((c) => c.value)).toEqual([4, 3.9]);
   });
 });

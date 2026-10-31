@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { playerColor } from "../colors";
 import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
+import { tidyPanels } from "../panels";
 import { Board } from "./Board";
 import { Hint } from "./Hint";
 import { Card } from "./Card";
@@ -36,7 +37,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const resources = resourceById(game.meta.resources);
   const raw = game.geometry?.(state, human);
   const geometry = raw && fitBounds(raw);
-  const panels = game.panels?.(state, human) ?? [];
+  const panels = tidyPanels(game.panels?.(state, human) ?? []);
   const label = (move: unknown) => game.describeMove?.(state, move, human) ?? JSON.stringify(move);
 
   // Group my legal moves by what they act on; the rest become buttons.

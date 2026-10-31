@@ -6,6 +6,7 @@ import { playerColor } from "../colors";
 import { Hint } from "../components/Hint";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
+import { tidyPanels } from "../panels";
 import { setCursor, setHover, useHover } from "./hover";
 import { labelAnchors, Labels } from "./Labels";
 import { layoutTable } from "./layout";
@@ -112,7 +113,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const targets = useMemo(() => new Set(byTarget.keys()), [byTarget]);
 
   const panels = useMemo(() => {
-    const raw = game.panels?.(state, human) ?? [];
+    const raw = tidyPanels(game.panels?.(state, human) ?? []);
     if (!art?.size) return raw;
     return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
   }, [game, state, human, art]);
