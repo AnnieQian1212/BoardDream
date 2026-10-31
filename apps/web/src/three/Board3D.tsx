@@ -14,10 +14,13 @@ import {
   SRGBColorSpace,
   TextureLoader,
   Vector2,
+  Vector3,
+  Vector4,
   type Group,
   CanvasTexture,
   type Mesh,
   type MeshBasicMaterial,
+  type MeshPhysicalMaterial,
   type MeshStandardMaterial,
   type PointLight,
   type Texture,
@@ -32,7 +35,8 @@ import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
 import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow } from "./growth";
-import { isWaterKind, STEP_RATE, WaterGrid, waterPolygons } from "./water";
+import { DOME, jellyGeometry, Wobble } from "./jelly";
+import { isWaterCell, isWaterKind, STEP_RATE, WaterGrid, waterPolygons } from "./water";
 import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
 const SLAB = 0.6;
@@ -137,13 +141,13 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
       const now = performance.now();
       const gap = grid.spacing * 1.5;
       const from = last.current && now - last.current.t < 150 ? last.current : undefined;
-      if (!from) grid.disturb(lx, lz, 0.25);
+      if (!from) grid.disturb(lx, lz, 0.16, 3.5);
       else {
         // Dips evenly spaced along the path, however often the pointer reports.
         const d = Math.hypot(lx - from.x, lz - from.z);
         if (d < gap) return void (from.t = now);
         const n = Math.min(16, Math.floor(d / gap));
-        for (let i = 1; i <= n; i++) grid.disturb(from.x + ((lx - from.x) * i) / n, from.z + ((lz - from.z) * i) / n, 0.25);
+        for (let i = 1; i <= n; i++) grid.disturb(from.x + ((lx - from.x) * i) / n, from.z + ((lz - from.z) * i) / n, 0.16, 3.5);
       }
       last.current = { x: lx, z: lz, t: now };
       invalidate();
@@ -153,7 +157,8 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
   const splash = useCallback(
     (x: number, z: number) => {
       if (!surface || reducedMotion) return;
-      surface.grid.disturb(x - ox, z - oz, 0.9, 4);
+      // Jelly answers a press with a broad, soft dent rather than a splash.
+      surface.grid.disturb(x - ox, z - oz, 0.45, 6);
       invalidate();
     },
     [surface, ox, oz, invalidate],
@@ -244,6 +249,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   useEffect(() => {
     if (water && paint) water.uniforms.uMapScale.value.set(1 / (k * TILE_SHARE * paint.width), -1 / (k * TILE_SHARE * paint.height));
   }, [water, paint, k]);
+  useEffect(() => {
+    if (!water) return;
+    water.uniforms.uPrint.value = labels ?? null;
+    water.uniforms.uPrintMap.value.set(position[0], position[2], 1 / width, 1 / depth);
+  }, [water, labels, position[0], position[2], width, depth]);
+  // Pieces on a pool stand on its jelly.
+  const poolCells = useMemo(() => new Set(geometry.cells.filter((c) => !c.segments && isWaterCell(c)).map((c) => c.id)), [geometry]);
   const glowing = useMemo(
     () => geometry.cells.filter((c) => c.glow && c.kind !== "label").map((c) => ({ at: toWorld(...centroid(c.polygon)), color: c.glow! })),
     [geometry, k],
@@ -279,7 +291,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
         <meshStandardMaterial map={labels} transparent roughness={0.8} depthWrite={false} />
       </mesh>
       {geometry.pieces.map((piece) => (
-        <Piece key={piece.id} piece={piece} k={k} at={toWorld(piece.x, piece.y)} base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : TILE_TOP} />
+        <Piece
+          key={piece.id}
+          piece={piece}
+          k={k}
+          at={toWorld(piece.x, piece.y)}
+          base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : TILE_TOP + (poolCells.has(piece.cellId ?? "") ? DOME * k : 0)}
+        />
       ))}
     </group>
   );
@@ -328,19 +346,29 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
     // The painted prop is rebuilt every render; only its content matters here.
   }, [cell.polygon, k, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  // Where a tile holds water its top is a moving surface, a little inside the tile (or over its
+  // Where a tile holds water its top is a slab of jelly, a little inside the tile (or over its
   // water wedges) so a rim of shore shows.
   const surface = useMemo(() => {
     if (!water) return undefined;
-    const g = new ShapeGeometry(pools.map((pool) => new Shape(pool.map(([x, y]) => new Vector2(x * k, -y * k)))));
-    g.rotateX(-Math.PI / 2);
+    const g = jellyGeometry(pools, k);
     if (painted) paintUvs(g, painted, k);
     return g;
   }, [water, pools, k, painted?.paint, painted?.source[0], painted?.source[1]]);
+  // How it wobbles when touched, and the dome's height, squash and sway for its shader.
+  const wobble = useMemo(() => new Wobble(), []);
+  // One set of uniforms for the tile's life: a material keeps the uniforms it was compiled with.
+  const jelly = useMemo(() => ({ uJelly: { value: new Vector4(DOME * k, 0, 0, 0) } }), []);
+  useEffect(() => void jelly.uJelly.value.setX(DOME * k), [k]);
+  const poke = (strength: number, point: { x: number; z: number }) => {
+    if (!water || reducedMotion) return;
+    const p = mesh.current.worldToLocal(new Vector3(point.x, 0, point.z));
+    wobble.poke(strength, p.x / k, p.z / k);
+    invalidate();
+  };
   // Water wedges keep their own color under the surface; a whole cell its tile's.
   const waterColor = useMemo(() => new Color(kindColor(cell.segments?.find((s) => isWaterKind(s)) ?? "")), [segmentsKey]);
   useEffect(() => () => surface?.dispose(), [surface]);
-  const surfaceMaterial = useRef<MeshStandardMaterial>(null);
+  const surfaceMaterial = useRef<MeshPhysicalMaterial>(null);
   // What grows on the cell (or on an edge-matched tile's wedges), with a bare patch for its name
   // that is wider where taller things grow.
   const growth = useMemo(() => {
@@ -357,7 +385,7 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
       trees: [...plant(sprouts, field, bare, grass.spacing, trees, "forest"), ...plant(sprouts, field, bare, grass.spacing, boulders, "rock")],
     };
   }, [grass?.spacing, grass?.unit, cell.id, cell.polygon, cell.kind, cell.label, segmentsKey]);
-  const compile = useMemo(() => water && waterCompiler(water.uniforms), [water]);
+  const compile = useMemo(() => water && waterCompiler(water.uniforms, jelly), [water]);
   // The names are printed on one plane at the tiles' height, so a legal tile lifted under the
   // pointer would cover its own. It carries a copy of its part of the print on its top instead.
   const decal = useMemo(() => {
@@ -429,6 +457,10 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (surfaceMaterial.current) surfaceMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
+    if (!wobble.still) {
+      moving = wobble.step(dt) || moving;
+      jelly.uJelly.value.set(DOME * k, wobble.squash, wobble.sway[0] / k, wobble.sway[1] / k);
+    }
     if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > SLAB + 0.01;
     if (moving) state.invalidate();
   });
@@ -444,6 +476,7 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
         e.stopPropagation();
         setHovered(true);
         setCursor(target);
+        poke(0.3, e.point);
       }}
       onPointerOut={() => {
         setHovered(false);
@@ -460,6 +493,7 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         water?.splash(e.point.x, e.point.z);
+        poke(0.9, e.point);
         if (chip && growth) {
           const p = mesh.current.worldToLocal(e.point.clone());
           if (growth.field(p.x / k, p.z / k) === "rock") chip(e.point.x, e.point.z);
@@ -491,14 +525,18 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
       )}
       {surface && water && (
         <mesh geometry={surface} position={[0, TILE_TOP - SLAB + 0.006, 0]} raycast={noRaycast} receiveShadow>
-          <meshStandardMaterial
+          {/* A glossy clear coat over a softer body, like a jelly sweet. */}
+          <meshPhysicalMaterial
             key={painted ? "painted" : "plain"}
             ref={surfaceMaterial}
             map={painted?.texture ?? null}
             color={painted ? tint : cell.segments ? waterColor : base}
             emissive={target || !glowColor ? highlight : glowColor}
             emissiveIntensity={0}
-            roughness={0.1}
+            roughness={0.32}
+            clearcoat={1}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.4}
             onBeforeCompile={compile}
           />
         </mesh>

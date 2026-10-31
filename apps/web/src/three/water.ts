@@ -45,8 +45,8 @@ export const CURVE_GAIN = 3;
 
 /** Steps per second. Each step a wave moves about one grid node. */
 export const STEP_RATE = 60;
-/** Amplitude kept per step: ripples fade within a few seconds. */
-const DAMPING = 0.98;
+/** Amplitude kept per step: the water is a thick jelly, so ripples fade within a second or two. */
+const DAMPING = 0.965;
 /** Below this the surface counts as still (too flat to see): the grid stops and the table stops drawing frames. */
 const REST = 0.01;
 /** Nodes from the shore over which the water deepens. */
