@@ -1,4 +1,4 @@
-import { OPEN_MODEL_ID, OPEN_MODEL_OPTIONS } from "./meta/client";
+import { OPEN_MODEL_ID, OPEN_MODEL_OPTIONS, type ChatOptions } from "./meta/client";
 
 // Load the repo-root .env when present; real environment variables take precedence.
 try {
@@ -19,6 +19,11 @@ export const config = {
     baseUrl: env("META_BASE_URL", "https://api.meta.ai/v1"),
     apiKey: env("MODEL_API_KEY"),
   },
+  /**
+   * How long Muse Spark reasons before it answers in the generation pipeline ("default" leaves it
+   * to the model). At its default it spends about 25,000 tokens thinking before writing rules.
+   */
+  designerEffort: env("DESIGNER_EFFORT", "low") as NonNullable<ChatOptions["reasoningEffort"]> | "default",
   models: {
     designer: env("DESIGNER_MODEL", "muse-spark-1.3"),
     wonder: env("WONDER_MODEL", "muse-wonder-1.0"),

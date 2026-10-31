@@ -19,18 +19,38 @@ export class CachedModelClient extends ModelClient {
     mkdirSync(dir, { recursive: true });
   }
 
-  override async chat(messages: ChatMessage[], callOptions: ChatOptions = {}): Promise<string> {
+  /** The cache file for a call: keyed by model, messages and options, with the client's defaults applied. */
+  private entry(messages: ChatMessage[], callOptions: ChatOptions) {
     const options = this.withDefaults(callOptions);
     const model = options.model ?? this.model;
     const key = createHash("sha256").update(JSON.stringify({ model, messages, options })).digest("hex").slice(0, 16);
-    const file = new URL(`${key}.json`, this.dir);
     this.used.add(`${key}.json`);
+    return { options, model, file: new URL(`${key}.json`, this.dir) };
+  }
+
+  override async chat(messages: ChatMessage[], callOptions: ChatOptions = {}): Promise<string> {
+    const { options, model, file } = this.entry(messages, callOptions);
     if (existsSync(file)) {
       this.hits++;
       return (JSON.parse(readFileSync(file, "utf8")) as { reply: string }).reply;
     }
     if (!this.opts.apiKey) throw new Error(`cache miss and no API key is set for ${model}`);
     const reply = await super.chat(messages, options);
+    writeFileSync(file, JSON.stringify({ model, messages, options, reply }, null, 2) + "\n");
+    return reply;
+  }
+
+  /** A streamed reply is cached like any other; from the cache it arrives in one piece. */
+  override async chatStream(messages: ChatMessage[], onText: (piece: string) => void, callOptions: ChatOptions = {}, signal?: AbortSignal): Promise<string> {
+    const { options, model, file } = this.entry(messages, callOptions);
+    if (existsSync(file)) {
+      this.hits++;
+      const { reply } = JSON.parse(readFileSync(file, "utf8")) as { reply: string };
+      onText(reply);
+      return reply;
+    }
+    if (!this.opts.apiKey) throw new Error(`cache miss and no API key is set for ${model}`);
+    const reply = await super.chatStream(messages, onText, options, signal);
     writeFileSync(file, JSON.stringify({ model, messages, options, reply }, null, 2) + "\n");
     return reply;
   }

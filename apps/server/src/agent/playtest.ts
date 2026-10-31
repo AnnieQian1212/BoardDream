@@ -22,6 +22,8 @@ export interface PlayStats {
    * every seat. Measured for competitive games without bluffing, where it shows whether skill pays.
    */
   plannerWinRate?: number;
+  /** Games behind plannerWinRate: fewer than asked for when a slow game ran out of time. */
+  plannerGames?: number;
 }
 
 export interface PlaytestOptions {
@@ -30,7 +32,15 @@ export interface PlaytestOptions {
   plannerGames?: number;
   /** Called with each simulated game's seed before it starts (heartbeats for the checker's watchdog). */
   onGame?(seed: number): void;
+  /**
+   * Time the planner may take, in milliseconds. It looks a few moves ahead in short playouts, which
+   * in a game with dozens of legal moves takes minutes; a slow game then measures fewer games.
+   */
+  plannerMs?: number;
 }
+
+/** Fewer planner games than this say too little to call a game shallow. */
+const MIN_PLANNER_GAMES = 12;
 
 const kindOf = (move: unknown): string =>
   move !== null && typeof move === "object" && "type" in move ? String((move as { type: unknown }).type) : typeof move;
@@ -42,7 +52,7 @@ const skillMeasurable = (game: GameModule) => game.meta.mode === "competitive" &
 export const playtestPlayers = (game: GameModule) => Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
 
 export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStats {
-  const { games = 100, plannerGames = 30, onGame } = opts;
+  const { games = 100, plannerGames = 30, onGame, plannerMs = 30_000 } = opts;
   const numPlayers = playtestPlayers(game);
   const stats = simulate(game, { numPlayers, games, bots: new Array(numPlayers).fill(randomBot), onGame });
   // Replay a few random games by hand to see how many real choices players get.
@@ -62,6 +72,19 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
       state = game.applyMove(state, seat, move, rng);
     }
   }
+  const measurable = skillMeasurable(game) && plannerGames > 0;
+  let planned = 0;
+  const planner = measurable
+    ? plannerWinRate(game, heuristicBot({ rollouts: 6, depth: 16 }), {
+        numPlayers,
+        games: plannerGames,
+        deadline: Date.now() + plannerMs,
+        onGame: (seed) => {
+          planned++;
+          onGame?.(seed);
+        },
+      })
+    : undefined;
   return {
     numPlayers,
     games: stats.games,
@@ -72,10 +95,8 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
     moveKinds: [...kinds].sort(),
     choiceRate: turns ? choices / turns : 0,
     // The planner takes each seat in turn against random players.
-    plannerWinRate:
-      skillMeasurable(game) && plannerGames > 0
-        ? plannerWinRate(game, heuristicBot({ rollouts: 6, depth: 16 }), { numPlayers, games: plannerGames, onGame })
-        : undefined,
+    plannerWinRate: planner,
+    plannerGames: measurable ? planned : undefined,
   };
 }
 
@@ -102,7 +123,8 @@ export function playIssues(stats: PlayStats, mode: GameModule["meta"]["mode"]): 
   if (stats.choiceRate < 0.3) {
     issues.push(`players have a real choice on only ${Math.round(stats.choiceRate * 100)}% of turns; most turns offer a single legal move`);
   }
-  const edge = skillEdge(stats);
+  // Too few planner games (a slow game out of time) say nothing either way.
+  const edge = (stats.plannerGames ?? Infinity) >= MIN_PLANNER_GAMES ? skillEdge(stats) : undefined;
   const fair = 1 / stats.numPlayers;
   if (edge !== undefined && stats.plannerWinRate! < 0.75 * fair) {
     // Planning by the standings loses to random play: the standings point the wrong way.

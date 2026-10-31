@@ -215,16 +215,28 @@ export const withPlanner = (m: ProfileMeasures, rate: number): ProfileMeasures =
 export function plannerWinRate(
   game: GameModule,
   planner: Bot,
-  opts: { numPlayers: number; params?: Params; games: number; onGame?(seed: number): void },
+  opts: {
+    numPlayers: number;
+    params?: Params;
+    games: number;
+    onGame?(seed: number): void;
+    /**
+     * A time (Date.now()) after which no new round of games starts. A round gives the planner each
+     * seat once, so a slow game measures fewer games but never favors one seat.
+     */
+    deadline?: number;
+  },
 ): number {
-  const { numPlayers, games } = opts;
+  const { numPlayers, games, deadline = Infinity } = opts;
+  const seats = Array.from({ length: numPlayers }, (_, seat) => Array.from({ length: numPlayers }, (_, i) => (i === seat ? planner : randomBot)));
   let wins = 0;
   let played = 0;
-  for (let seat = 0; seat < numPlayers; seat++) {
-    const bots = Array.from({ length: numPlayers }, (_, i) => (i === seat ? planner : randomBot));
-    const stats = simulate(game, { numPlayers, params: opts.params, games: Math.ceil(games / numPlayers), seed: 1000 + 100 * seat, bots, onGame: opts.onGame });
-    wins += stats.winRateBySeat[seat] * stats.games;
-    played += stats.games;
+  for (let round = 0; round < Math.ceil(games / numPlayers) && (round === 0 || Date.now() < deadline); round++) {
+    seats.forEach((bots, seat) => {
+      const stats = simulate(game, { numPlayers, params: opts.params, games: 1, seed: 1000 + 100 * seat + round, bots, onGame: opts.onGame });
+      wins += stats.winRateBySeat[seat] * stats.games;
+      played += stats.games;
+    });
   }
   return played ? wins / played : 0;
 }

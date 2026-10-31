@@ -4,7 +4,7 @@ import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
 import { revisedTitle } from "./store";
 import { ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
-import type { ModelClient } from "./meta/client";
+import { ModelClient } from "./meta/client";
 import { extractCode } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
@@ -211,5 +211,36 @@ describe("surprise ideas", () => {
   it("return the model's idea without stray whitespace", async () => {
     const llm = { chatJson: async () => ({ idea: "  Rival ferry captains race cargo across a delta.\n" }) } as unknown as ModelClient;
     expect(await inventIdea(llm, dials, [])).toBe("Rival ferry captains race cargo across a delta.");
+  });
+});
+
+describe("streamed replies", () => {
+  it("pass on each piece as it arrives and count the tokens, however the stream is split", async () => {
+    const events = [
+      { choices: [{ delta: { role: "assistant", content: "```js\nmodule" } }] },
+      { choices: [{ delta: { content: ".exports = {};\n```" } }] },
+      { choices: [], usage: { prompt_tokens: 12, completion_tokens: 34 } },
+    ];
+    const text = events.map((e) => `data: ${JSON.stringify(e)}\r\n\r\n`).join("") + "data: [DONE]\r\n\r\n";
+    // Cut mid-line, so a piece of an event waits for the rest.
+    const cuts = [0, 17, 80, 81, text.length];
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 1; i < cuts.length; i++) controller.enqueue(new TextEncoder().encode(text.slice(cuts[i - 1], cuts[i])));
+        controller.close();
+      },
+    });
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(body, { status: 200 })) as typeof fetch;
+    try {
+      const client = new ModelClient({ baseUrl: "http://model.test", apiKey: "test", model: "m" });
+      const pieces: string[] = [];
+      const reply = await client.chatStream([{ role: "user", content: "rules" }], (p) => pieces.push(p));
+      expect(reply).toBe("```js\nmodule.exports = {};\n```");
+      expect(pieces).toEqual(["```js\nmodule", ".exports = {};\n```"]);
+      expect(client.usage).toEqual({ calls: 1, promptTokens: 12, completionTokens: 34 });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

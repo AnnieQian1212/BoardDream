@@ -5,6 +5,7 @@
 //
 //   npm run eval:generation                 # every prompt
 //   npm run eval:generation -- g01,g09      # a subset
+//   npm run eval:generation -- --setup=low  # another model setting (see SETUPS), into out/low/
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { catalog, catalogText } from "@boarddream/library";
 import { Bm25Index } from "@boarddream/retrieval";
@@ -13,6 +14,7 @@ import { skillEdge } from "../../apps/server/src/agent/playtest";
 import type { GameRequest } from "../../apps/server/src/agent/spec";
 import { config } from "../../apps/server/src/config";
 import { CachedModelClient } from "../../apps/server/src/meta/cache";
+import type { ClientOptions } from "../../apps/server/src/meta/client";
 
 const MAX_REPAIRS = 4;
 const FUZZ_RUNS = 1000;
@@ -25,12 +27,27 @@ const prompts = readFileSync(new URL("prompts.jsonl", here), "utf8")
   .split(/\r?\n/)
   .filter(Boolean)
   .map((line) => JSON.parse(line) as GameRequest & { id: string });
-const only = process.argv[2]?.split(",");
+const args = process.argv.slice(2);
+const only = args.find((a) => !a.startsWith("--"))?.split(",");
 const selected = only ? prompts.filter((p) => only.includes(p.id)) : prompts;
 
+/**
+ * Model settings to compare. "spark" is Muse Spark 1.3 at its default reasoning effort, the
+ * setting the results below were first measured with; the others trade thinking for speed.
+ */
+const SETUPS: Record<string, ClientOptions> = {
+  spark: { ...config.meta, model: config.models.designer },
+  low: { ...config.meta, model: config.models.designer, defaults: { reasoningEffort: "low" } },
+  medium: { ...config.meta, model: config.models.designer, defaults: { reasoningEffort: "medium" } },
+  // Muse Spark Open on Baseten; rules need far more tokens than the opponents' default cap.
+  open: { ...config.openModel, defaults: { reasoningEffort: "low", maxTokens: 32_000 } },
+};
+const setup = args.find((a) => a.startsWith("--setup="))?.slice("--setup=".length) ?? "spark";
+if (!SETUPS[setup]) throw new Error(`unknown setup ${setup}; one of ${Object.keys(SETUPS).join(", ")}`);
+
 const index = new Bm25Index(catalog.filter((e) => e.status === "ready").map((e) => ({ id: e.id, text: catalogText(e) })));
-const llm = new CachedModelClient({ ...config.meta, model: config.models.designer }, new URL("cache/", here));
-const outDir = new URL("out/", here);
+const llm = new CachedModelClient(SETUPS[setup], new URL("cache/", here));
+const outDir = new URL(setup === "spark" ? "out/" : `out/${setup}/`, here);
 mkdirSync(outDir, { recursive: true });
 
 interface Row {
@@ -51,6 +68,8 @@ interface Row {
   /** Design problems the playtest found in the first working rules, and those still in the final ones. */
   designIssues: string[];
   issuesLeft: string[];
+  /** Wall-clock seconds from the idea to the final rules (meaningless when every reply was cached). */
+  seconds: number;
 }
 
 function kinds(result: DesignResult): string[] {
@@ -60,7 +79,9 @@ function kinds(result: DesignResult): string[] {
 }
 
 async function runOne(request: GameRequest & { id: string }): Promise<Row> {
-  const log = (event: string) => console.log(`[${request.id}] ${event}`);
+  const started = Date.now();
+  const seconds = () => Math.round((Date.now() - started) / 1000);
+  const log = (event: string) => console.log(`[${request.id} +${seconds()}s] ${event}`);
   try {
     const result = await designGame(request, { llm, index, maxRepairs: MAX_REPAIRS, fuzzRuns: FUZZ_RUNS, onProgress: log });
     writeFileSync(new URL(`${request.id}.js`, outDir), result.source + "\n");
@@ -83,10 +104,11 @@ async function runOne(request: GameRequest & { id: string }): Promise<Row> {
       skillEdge: play && skillEdge(play),
       designIssues: working[0]?.issues ?? [],
       issuesLeft: working.at(-1)?.issues ?? [],
+      seconds: seconds(),
     };
   } catch (err) {
     log(`error: ${String(err)}`);
-    return { id: request.id, family: "?", mode: "?", ok: false, error: String(err), failureKinds: [], retrieved: [], designIssues: [], issuesLeft: [] };
+    return { id: request.id, family: "?", mode: "?", ok: false, error: String(err), failureKinds: [], retrieved: [], designIssues: [], issuesLeft: [], seconds: seconds() };
   }
 }
 
@@ -109,6 +131,8 @@ writeFileSync(new URL("results.json", outDir), JSON.stringify(rows, null, 2) + "
 
 const n = rows.length;
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+const times = rows.map((r) => r.seconds).sort((a, b) => a - b);
+console.log(`\nSetup ${setup}: median ${times[Math.floor(n / 2)]} s from idea to final rules (fastest ${times[0]} s, slowest ${times[n - 1]} s)`);
 const passedBy = (k: number) => rows.filter((r) => r.repairs !== undefined && r.repairs <= k).length;
 console.log(`\n${n} prompts`);
 for (let k = 0; k <= MAX_REPAIRS; k++) console.log(`  passing after ${k} repair${k === 1 ? "" : "s"}: ${passedBy(k)}/${n}`);
@@ -134,4 +158,4 @@ for (const r of rows) {
   for (const issue of r.issuesLeft.filter((i) => !r.designIssues.includes(i))) console.log(`      new: ${issue}`);
 }
 const cost = llm.usage.promptTokens * PRICE.prompt + llm.usage.completionTokens * PRICE.completion;
-console.log(`\nMuse Spark: ${llm.usage.calls} new calls (${llm.usage.promptTokens} prompt + ${llm.usage.completionTokens} completion tokens, ~$${cost.toFixed(2)}), ${llm.hits} cached`);
+console.log(`\n${llm.model}: ${llm.usage.calls} new calls (${llm.usage.promptTokens} prompt + ${llm.usage.completionTokens} completion tokens, ~$${cost.toFixed(2)}), ${llm.hits} cached`);

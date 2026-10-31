@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { catalog, catalogText } from "@boarddream/library";
 import { Bm25Index } from "@boarddream/retrieval";
 import { Hono, type Context } from "hono";
-import { streamSSE } from "hono/streaming";
-import { designGame, reviseGame } from "./agent/designer";
+import { streamSSE, type SSEStreamingApi } from "hono/streaming";
+import { designGame, reviseGame, type DesignEvent } from "./agent/designer";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
@@ -17,7 +17,11 @@ import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit 
 import { ModelClient } from "./meta/client";
 import { gameSource, listGames, saveGame, saveRevision } from "./store";
 
-const designer = new ModelClient({ ...config.meta, model: config.models.designer });
+const designer = new ModelClient({
+  ...config.meta,
+  model: config.models.designer,
+  ...(config.designerEffort !== "default" && { defaults: { reasoningEffort: config.designerEffort } }),
+});
 const painter = new ModelClient({ ...config.meta, model: config.models.image });
 // Opponents play on Muse Spark Open when a host for it is configured: fast and cheap enough for a
 // whole table of them. Otherwise Muse Spark plays them.
@@ -116,7 +120,46 @@ app.get("/api/games/:id", (c) => {
   return source ? c.text(source, 200, { "Content-Type": "text/javascript" }) : c.json({ error: "no such game" }, 404);
 });
 
-// Generation takes minutes, so progress streams as server-sent events: "progress" lines, then one
+/**
+ * Server-sent events for a design under way: "progress" log lines and "design" events (DesignEvent
+ * as JSON). Pieces of rules are sent in batches and check progress a few times a second, so a fast
+ * stream does not flood the page. When the player leaves, the work stops: no more model calls.
+ */
+function designStream(stream: SSEStreamingApi, label: string) {
+  const controller = new AbortController();
+  stream.onAbort(() => {
+    console.log(`[${label}] cancelled: the page closed`);
+    controller.abort();
+  });
+  let code = "";
+  let lastCheck = 0;
+  const send = (event: DesignEvent) => void stream.writeSSE({ event: "design", data: JSON.stringify(event) });
+  const flush = () => {
+    if (code) send({ type: "code", text: code });
+    code = "";
+  };
+  const timer = setInterval(flush, 150);
+  return {
+    signal: controller.signal,
+    onProgress: (line: string) => {
+      console.log(`[${label}] ${line}`);
+      void stream.writeSSE({ event: "progress", data: line });
+    },
+    onEvent: (event: DesignEvent) => {
+      if (event.type === "code") return void (code += event.text);
+      flush();
+      if (event.type === "checking" && event.done < event.total && Date.now() - lastCheck < 200) return;
+      if (event.type === "checking") lastCheck = Date.now();
+      send(event);
+    },
+    close: () => {
+      clearInterval(timer);
+      flush();
+    },
+  };
+}
+
+// Generation takes a minute or more, so it streams as server-sent events (designStream), then one
 // "result" (the DesignResult as JSON) or "error". A blank idea asks for a surprise: Muse Spark
 // invents one, sent as an "idea" event so the player sees it, and the game is designed from that.
 app.post("/api/generate", async (c) => {
@@ -125,23 +168,23 @@ app.post("/api/generate", async (c) => {
   if (limited) return limited;
   const request = await c.req.json<GameRequest>();
   return streamSSE(c, async (stream) => {
-    const onProgress = (event: string) => {
-      console.log(`[generate] ${event}`);
-      void stream.writeSSE({ event: "progress", data: event });
-    };
+    const { onProgress, onEvent, signal, close } = designStream(stream, "generate");
     try {
       const invented = !request.prompt?.trim();
       if (invented) {
         onProgress("inventing an idea");
         const made = [...catalog.filter((e) => e.kind === "game").map((e) => e.title), ...listGames().map((g) => `${g.title}: ${g.pitch}`)];
         request.prompt = await inventIdea(designer, request.dials, made.slice(0, 40));
+        signal.throwIfAborted();
         await stream.writeSSE({ event: "idea", data: request.prompt });
       }
-      const result = await designGame(request, { llm: designer, index, onProgress });
+      const result = await designGame(request, { llm: designer, index, onProgress, onEvent, signal });
       const saved = result.ok ? saveGame(result, { idea: request.prompt, invented }) : undefined;
+      close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
     } catch (err) {
-      await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+      close();
+      if (!signal.aborted) await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
     }
   });
 });
@@ -158,16 +201,15 @@ app.post("/api/revise", async (c) => {
   const limited = overLimit(c, "generate");
   if (limited) return limited;
   return streamSSE(c, async (stream) => {
-    const onProgress = (event: string) => {
-      console.log(`[revise] ${event}`);
-      void stream.writeSSE({ event: "progress", data: event });
-    };
+    const { onProgress, onEvent, signal, close } = designStream(stream, "revise");
     try {
-      const result = await reviseGame(source, request, { llm: designer, index, onProgress });
+      const result = await reviseGame(source, request, { llm: designer, index, onProgress, onEvent, signal });
       const saved = result.ok ? saveRevision(body.id, result, request) : undefined;
+      close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id, title: saved?.title }) });
     } catch (err) {
-      await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+      close();
+      if (!signal.aborted) await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
     }
   });
 });

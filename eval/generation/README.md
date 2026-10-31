@@ -6,7 +6,38 @@ Can BoardDream turn a one-sentence idea into rules that work and are worth playi
 
 Each idea goes through the full pipeline: design, retrieval, rules code, then 1,000 strict random games. Failures go back to Muse Spark for repair (up to 4 rounds). Rules that pass get a playtest: 100 random games, plus 30 where a planner (the generic bot with short playouts) takes each seat in turn against random players. Design problems get one improvement round: games over too fast, mostly draws, a seat that never wins, no real choices, or a planner that barely beats random play.
 
-## Results (Oct 28, 2026)
+## Faster rules (Oct 31, 2026): what the app uses
+
+At its default reasoning effort Muse Spark 1.3 thinks for about 25,000 tokens before it writes 8,000–9,000 tokens of rules, so a game took four to five minutes from idea to table. The app now asks for low reasoning effort on every call (`DESIGNER_EFFORT`, default `low`; `default` restores the old setting).
+
+Time per step, two ideas each (Oct 31):
+
+| Step | Default effort | Medium | Low | Muse Spark Open (Baseten, low) |
+| --- | --- | --- | --- | --- |
+| Plan (spec) | 22 s | 14–20 s | 8 s | 7 s |
+| Query expansion and rerank | 11–18 s | 10–12 s | 5–6 s | 4–5 s |
+| Rules | 124–129 s | 48–84 s | 27 s | 18–21 s |
+| First draft passes 300 random games | 2 / 2 | 1 / 2 | 2 / 2 | 2 / 2 |
+
+The same 24 ideas at low effort, against the default-effort run below:
+
+| | Low effort (Oct 31) | Default effort (Oct 28) |
+| --- | --- | --- |
+| Pass 1,000-game fuzzing on the first draft | 15 / 24 | 17 / 24 |
+| Pass after one repair, after two | 22 / 24, 24 / 24 | 24 / 24 |
+| Planner win rate in 3-player games (20 measurable) | 83%, fair share 34% | 88%, fair share 34% |
+| Games where planning clearly pays (skill edge 0.25 or more) | 18 / 20 | 20 / 20 |
+| Design problems found, fixed in one round | 4, 2 fixed | 2, both fixed |
+| Time from idea to final rules | median 75 s (35–140 s), three ideas at a time | about 4–5 minutes |
+| Model cost per game | about $0.10 | about $0.30–0.40 |
+
+- Every idea still ends with rules that pass 1,000 strict games. The two games where planning does not pay, g03 (steampunk workshop) and g04 (deck-building musicians), have mid-game scores that mislead the planner; one design round did not fix them.
+- Two other settings did no better. Planning the spec at high effort (rules at low): 12 / 24 first drafts, 17 / 20 games where planning pays, median 94 s. Fixing design problems at high effort, or allowing a second design round: g03 and g04 stayed below the fair share in both. Run to run, single games move a lot (g02's planner won 100% in one low-effort run and 20% in another), so 18 / 20 against 20 / 20 is within the noise of one run per idea; the direction is still slightly against low effort.
+- Muse Spark Open writes rules fastest, but its rules for g09 took 38 s to check (the planner's playtest ran out of time) against 10 s for Spark's; it was not run on all 24.
+
+The checking also got faster. The 1,000 runs are shared among four worker threads (their failures merged in a fixed order, so a rerun from the cache reproduces every repair) and the playtest runs beside them. The planner gets 30 s: a slow game plays fewer planner games rather than failing the check, and fewer than 12 are not used to call a game shallow. g13's planner played 27 or 30 games in two otherwise identical runs, the only difference between them. A check that took 15–19 s on one thread takes 5–10 s.
+
+## Results at default effort (Oct 28, 2026)
 
 | | |
 | --- | --- |
@@ -67,8 +98,9 @@ Before the focus on hobby games, the benchmark had 24 lighter ideas (8 engine bu
 ## Run it
 
 ```sh
-npm run eval:generation              # all prompts
-npm run eval:generation -- g01,g09   # a subset
+npm run eval:generation                 # all prompts, default effort
+npm run eval:generation -- g01,g09      # a subset
+npm run eval:generation -- --setup=low  # low effort (also medium, open), into out/low/
 ```
 
-Model replies are cached in `cache/` (not committed), so a rerun is free. Generated rules and their records land in `out/`.
+Model replies are cached in `cache/` (not committed), so a rerun is free. Generated rules and their records land in `out/`; each record has the seconds it took from idea to final rules.
