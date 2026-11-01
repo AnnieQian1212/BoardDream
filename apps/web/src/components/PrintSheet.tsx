@@ -49,7 +49,8 @@ export function PrintSheet({ game, params, art, onClose }: { game: GameModule; p
     const start = startingGeometry(game);
     return start && { ...start, pieces: [] };
   }, [game]);
-  const cards = inventory.flatMap(({ card, copies }) => Array.from({ length: copies }, (_, i) => ({ card, key: `${card.title}-${i}` })));
+  // Keyed by design, not title: two designs may share a title.
+  const cards = inventory.flatMap(({ card, copies }, design) => Array.from({ length: copies }, (_, i) => ({ card, key: `${design}-${i}` })));
   const pages = Array.from({ length: Math.ceil(cards.length / CARDS_PER_PAGE) }, (_, i) => cards.slice(i * CARDS_PER_PAGE, (i + 1) * CARDS_PER_PAGE));
   const rules = rulesFor(game, params);
   const players = game.meta.minPlayers === game.meta.maxPlayers ? `${game.meta.minPlayers}` : `${game.meta.minPlayers}–${game.meta.maxPlayers}`;
