@@ -1,6 +1,7 @@
 import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
 import type { CSSProperties } from "react";
-import { PLAYER_COLORS, playerColor, TILE_COLORS } from "../colors";
+import { PLAYER_COLORS, TILE_COLORS } from "../colors";
+import { tileColor, zoneColors } from "../three/ground";
 
 interface Props {
   geometry: Geometry;
@@ -25,6 +26,7 @@ const centroid = (polygon: [number, number][]) => [
 export function Board({ geometry, targets, onCell }: Props) {
   const pad = 0.4;
   const { width, height } = geometry;
+  const zones = zoneColors(geometry.cells);
   return (
     <svg
       className="board"
@@ -62,7 +64,7 @@ export function Board({ geometry, targets, onCell }: Props) {
         filter="url(#board-shadow)"
       />
       {geometry.cells.map((cell) => (
-        <Cell key={cell.id} cell={cell} target={targets.has(cell.id)} onClick={(event) => onCell(cell.id, event)} />
+        <Cell key={cell.id} cell={cell} zone={zones.get(cell.id)} target={targets.has(cell.id)} onClick={(event) => onCell(cell.id, event)} />
       ))}
       {geometry.pieces.map((piece) => (
         <Piece key={piece.id} piece={piece} />
@@ -78,20 +80,44 @@ function labelSize(cell: GeometryCell, label: string): number {
   return Math.min(0.32, (1.3 * width) / Math.max(1, label.length));
 }
 
-function Cell({ cell, target, onClick }: { cell: GeometryCell; target: boolean; onClick(event: React.MouseEvent): void }) {
+interface CellProps {
+  cell: GeometryCell;
+  /** The color of the cell's group, drawn as a rim inside its edge (zoneColors). */
+  zone?: string;
+  target: boolean;
+  onClick(event: React.MouseEvent): void;
+}
+
+function Cell({ cell, zone, target, onClick }: CellProps) {
   const [cx, cy] = centroid(cell.polygon);
   const isLabel = cell.kind === "label";
   const className = ["cell", cell.kind, target && "target"].filter(Boolean).join(" ");
-  const tint: CSSProperties | undefined =
-    !isLabel && !target && cell.owner !== undefined ? { fill: shade(playerColor(cell.owner), 0.55) } : undefined;
+  const fill: CSSProperties | undefined = !isLabel && !target ? { fill: tileColor(cell) } : undefined;
+  const inset = (f: number) => cell.polygon.map(([x, y]) => `${cx + (x - cx) * f},${cy + (y - cy) * f}`).join(" ");
+  // The name above its badge's token, the pair centered on the cell.
+  const xs = cell.polygon.map(([x]) => x);
+  const badge = !isLabel && cell.badge !== undefined ? String(cell.badge) : undefined;
+  const r = badge ? 0.11 * (Math.max(...xs) - Math.min(...xs)) : 0;
+  const size = cell.label ? labelSize(cell, cell.label) : 0;
+  const gap = badge && cell.label ? 0.04 : 0;
+  const total = size + gap + 2 * r;
   return (
     <g>
-      <polygon points={cell.polygon.map((p) => p.join(",")).join(" ")} className={className} style={tint} onClick={onClick} />
+      <polygon points={cell.polygon.map((p) => p.join(",")).join(" ")} className={className} style={fill} onClick={onClick} />
+      {zone && <polygon points={inset(0.86)} className="cell-rim" style={{ stroke: zone }} />}
       {cell.segments && <Wedges cell={cell} center={[cx, cy]} />}
       {cell.label && (
-        <text x={cx} y={cy} className="cell-label" fontSize={labelSize(cell, cell.label)}>
+        <text x={cx} y={cy - total / 2 + size / 2} className="cell-label" fontSize={size}>
           {cell.label}
         </text>
+      )}
+      {badge && (
+        <g className="cell-token">
+          <circle cx={cx} cy={cy + total / 2 - r} r={r} />
+          <text x={cx} y={cy + total / 2 - r} fontSize={r * (badge.length > 1 ? 0.95 : 1.15)}>
+            {badge}
+          </text>
+        </g>
       )}
     </g>
   );

@@ -87,6 +87,17 @@ describe("fuzz", () => {
     expect(firstFailure({ ...nim, geometry: () => squareGridGeometry(1, 1), moveTarget: () => "nowhere" })).toBe("bad-geometry");
   });
 
+  it("catches a cell badge too long for its token", () => {
+    const badged = (badge: unknown) => () => {
+      const g = squareGridGeometry(1, 1);
+      return { ...g, cells: g.cells.map((c) => ({ ...c, badge: badge as string })) };
+    };
+    expect(firstFailure({ ...nim, geometry: badged("Elevation 3") })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, geometry: badged(Number.NaN) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, geometry: badged(3) })).toBeUndefined();
+    expect(firstFailure({ ...nim, geometry: badged("+2") })).toBeUndefined();
+  });
+
   it("passes a simultaneous-move game", () => {
     expect(fuzz(rps, { runs: 200 }).ok).toBe(true);
   });

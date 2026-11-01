@@ -182,6 +182,10 @@ function checkGeometry(geometry: Geometry): string | null {
     if (ids.has(cell.id)) return `geometry() has two cells with id "${cell.id}"`;
     ids.add(cell.id);
     if (!Array.isArray(cell.polygon) || cell.polygon.length < 3) return `cell "${cell.id}" needs a polygon with at least 3 points`;
+    if (cell.badge !== undefined) {
+      const text = typeof cell.badge === "string" || Number.isFinite(cell.badge) ? String(cell.badge) : "";
+      if (text.length === 0 || text.length > 3) return `cell "${cell.id}" has a badge that is not a number or a string of 1 to 3 characters`;
+    }
   }
   return null;
 }

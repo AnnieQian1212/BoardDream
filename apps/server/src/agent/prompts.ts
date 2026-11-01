@@ -91,6 +91,12 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     forest (forest, woodland, grove), grain (fields, wheat, farmland) and stony ground (quarry, rocks,
     mountains) grow grass and flowers, trees, wheat, or boulders. A place with a made-up name (an
     island "Emberfall") can say what its ground is with terrain: water, grass, forest, grain or stone.
+    Make a map look like a landscape: give its places varied ground (set terrain where the kind does not
+    say it), with water somewhere (a lake, a river bend, a harbor) when the theme allows. Water or scenery
+    no rule uses can be extra cells in geometry only, never in the rules' map, as long as no move targets them.
+    A map cell's label is the place's name as players would say it ("Copper Steps", "Emberfall", "Lamp
+    Quay"), each different, never an id or code like "E1" or "T12". A number players read off the cell
+    (an elevation, a yield, a cost) goes in badge (1-3 characters), printed on a round token under the name.
   - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
     point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be

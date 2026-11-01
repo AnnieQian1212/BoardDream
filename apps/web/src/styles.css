@@ -1244,6 +1244,36 @@ button.card {
   font-family: var(--font-display);
   font-weight: 600;
   fill: var(--ink);
+  /* A pale halo keeps names legible on grass, stone and water. */
+  stroke: rgb(251 243 225 / 0.7);
+  stroke-width: 0.05px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.cell-rim {
+  fill: none;
+  stroke-width: 0.09px;
+  pointer-events: none;
+}
+
+.cell-token {
+  pointer-events: none;
+}
+
+.cell-token circle {
+  fill: #fbf3e1;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.cell-token text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
 }
 
 .piece {

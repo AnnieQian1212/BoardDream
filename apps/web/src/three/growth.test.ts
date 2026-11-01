@@ -58,7 +58,26 @@ describe("sowing a cell", () => {
     const bare = clearing(cells[0], 1, 0.17);
     const trees = plant(sow(cells[0], field, 0.1, bare), field, bare, 0.1, 4);
     expect(trees.length).toBeGreaterThan(0);
-    for (const t of trees) expect(Math.abs(t.x) >= bare[0] + 0.2 || t.y <= bare[2] - bare[1] - 0.1).toBe(true);
+    for (const t of trees) expect(Math.abs(t.x) >= bare[0] + 0.1 || t.y <= bare[2] - bare[1] - 0.1).toBe(true);
+  });
+
+  it("hugs the printed name and keeps grass in front of it short enough to read it", () => {
+    const cell = hex("m", 0, 0, { kind: "meadow", label: "Bell Green" });
+    const box = { halfWidth: 0.4, top: -0.2, bottom: 0.25 };
+    const bare = clearing(cell, 1, 0.17, box);
+    expect(bare[0]).toBeCloseTo(0.43);
+    expect(bare[2]).toBeCloseTo(0.025);
+    const sprouts = sow(cell, growthField(cell, 0.9)!, 0.06, bare);
+    // Nothing grows on the print.
+    for (const s of sprouts) expect(Math.abs(s.x) < box.halfWidth && s.y > box.top && s.y < box.bottom).toBe(false);
+    // Right in front of it the grass is cut short; beside and behind it, it grows in full.
+    const front = sprouts.filter((s) => Math.abs(s.x) < 0.3 && s.y > box.bottom + 0.03 && s.y < box.bottom + 0.1);
+    expect(front.length).toBeGreaterThan(0);
+    for (const s of front) expect(s.tall).toBeLessThan(1);
+    const beside = sprouts.filter((s) => Math.abs(s.x) > 0.55);
+    expect(beside.length).toBeGreaterThan(10);
+    for (const s of beside) expect(s.tall).toBe(1);
+    for (const s of sprouts.filter((s) => s.y < box.top - 0.05)) expect(s.tall).toBe(1);
   });
 
   it("sows wheat in rows", () => {
@@ -83,7 +102,7 @@ describe("sowing a cell", () => {
     expect(plant(sprouts, field, bare, 0.1, 4)).toEqual([]);
     const boulders = plant(sprouts, field, bare, 0.1, 3, "rock");
     expect(boulders.length).toBeGreaterThan(0);
-    for (const b of boulders) expect(Math.abs(b.x) >= bare[0] + 0.2 || b.y <= bare[2] - bare[1] - 0.1).toBe(true);
+    for (const b of boulders) expect(Math.abs(b.x) >= bare[0] + 0.1 || b.y <= bare[2] - bare[1] - 0.1).toBe(true);
   });
 
   it("counts stony ground as light cover when spacing clumps", () => {

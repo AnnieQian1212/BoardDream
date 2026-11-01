@@ -86,26 +86,43 @@ export interface Sprout {
   turn: number;
   /** Size relative to an average clump. */
   size: number;
+  /** Share of its full height it grows to: grass by the name is cut short so the name reads. */
+  tall: number;
   growth: Growth;
 }
 
+/** Where a cell's name and token are printed, in board units around its center (boardPrint). */
+export interface PrintBox {
+  halfWidth: number;
+  /** The print's top and bottom edges; y grows toward the camera. */
+  top: number;
+  bottom: number;
+}
+
 /**
- * The bare patch at a cell's center where its name is printed (and a piece may stand): an ellipse's
- * radii and how far its middle sits toward the camera (larger y), since grass in front of the name
- * hides it and grass behind does not. `blade` is the grass's height, in board units.
+ * Where a cell's grass leaves room for its printed name (and token, or a piece standing at its
+ * center): a box that grows nothing, as half its width, half its height and its middle's y, and how
+ * far in front of it (toward the camera, at larger y) a full-height blade would reach up over it.
+ * Grass there grows only as tall as it can without hiding the print; everywhere else, in full.
+ * `blade` is the grass's height, in board units. With the printed box (boardPrint) the clearing hugs
+ * the print; without, it guesses from the label's length.
  */
-export function clearing(cell: GeometryCell, unit: number, blade: number): Clearing {
-  if (!cell.label) return [0.16 * unit, 0.12 * unit + blade * 0.4, blade * 0.4];
+export function clearing(cell: GeometryCell, unit: number, blade: number, box?: PrintBox): Clearing {
+  // The camera looks down at about 50 degrees: a blade hides what lies up to about its own height
+  // behind it, a little more as it sways.
+  const reach = blade * 1.1;
+  if (box) return [box.halfWidth + 0.03 * unit, (box.bottom - box.top) / 2 + 0.03 * unit, (box.top + box.bottom) / 2, reach];
+  if (!cell.label) return [0.14 * unit, 0.12 * unit, 0, reach];
   // Close to how boardPrint sizes the name: about 0.3 units tall, at most 80% of the cell wide.
   const xs = cell.polygon.map(([x]) => x);
   const text = Math.min(0.8 * (Math.max(...xs) - Math.min(...xs)), cell.label.length * 0.17 * unit);
-  return [text / 2 + 0.08 * unit, 0.2 * unit + blade * 0.45, blade * 0.45];
+  return [text / 2 + 0.05 * unit, 0.17 * unit, 0, reach];
 }
 
-export type Clearing = [rx: number, ry: number, shift: number];
+export type Clearing = [rx: number, ry: number, middle: number, reach: number];
 
 /**
- * Clumps on a jittered grid, `spacing` apart, wherever the field grows something and outside the
+ * Clumps on a jittered grid, `spacing` apart, wherever the field grows something and off the
  * clearing; wheat keeps to its rows. Seeded by the cell's id, so a cell grows the same way every
  * time it is drawn.
  */
@@ -114,6 +131,7 @@ export function sow(cell: GeometryCell, field: (x: number, y: number) => Growth 
   const [cx, cy] = centroid(cell.polygon);
   const xs = cell.polygon.map(([x]) => x - cx);
   const ys = cell.polygon.map(([, y]) => y - cy);
+  const [rx, ry, middle, reach] = bare;
   const sprouts: Sprout[] = [];
   for (let gy = Math.min(...ys); gy < Math.max(...ys); gy += spacing) {
     for (let gx = Math.min(...xs); gx < Math.max(...xs); gx += spacing) {
@@ -122,11 +140,15 @@ export function sow(cell: GeometryCell, field: (x: number, y: number) => Growth 
       const y = gy + (rows ? 0.4 + random() * 0.2 : random()) * spacing;
       const turn = random() * Math.PI * 2;
       const size = 0.75 + random() * 0.5;
-      // Thinning toward the clearing's edge makes it a soft patch rather than a cut-out.
-      const e = (x / bare[0]) ** 2 + ((y - bare[2]) / bare[1]) ** 2;
-      if (e < 1 || (e < 1.6 && random() > (e - 1) / 0.6)) continue;
+      const across = Math.abs(x) / rx;
+      const down = Math.abs(y - middle) / ry;
+      // Nothing on the print, and a ragged edge round it rather than a cut-out.
+      if ((across < 1 && down < 1) || (across < 1.15 && down < 1.15 && random() < 0.5)) continue;
+      // In front of the print, only as tall as leaves it in view.
+      const front = y - (middle + ry);
+      const tall = across < 1.15 && front > 0 && front < reach ? Math.max(0.25, front / reach) : 1;
       const growth = field(x, y);
-      if (growth) sprouts.push({ x, y, turn, size, growth });
+      if (growth) sprouts.push({ x, y, turn, size, tall, growth });
     }
   }
   return sprouts;
@@ -149,9 +171,9 @@ export function plant(
   // Sprouts come row by row; their random turns give an order that favors no side of the cell.
   for (const s of [...sprouts].sort((a, b) => a.turn - b.turn)) {
     if (trees.length >= count) break;
-    if (s.growth !== growth || field(s.x * 1.35, s.y * 1.35) !== growth) continue;
-    if (Math.abs(s.x) < bare[0] + spacing * 2 && s.y > bare[2] - bare[1] - spacing) continue;
-    if (trees.some((t) => Math.hypot(t.x - s.x, t.y - s.y) < spacing * 4)) continue;
+    if (s.growth !== growth || s.tall < 1 || field(s.x * 1.15, s.y * 1.15) !== growth) continue;
+    if (Math.abs(s.x) < bare[0] + spacing && s.y > bare[2] - bare[1] - spacing) continue;
+    if (trees.some((t) => Math.hypot(t.x - s.x, t.y - s.y) < spacing * 3.2)) continue;
     trees.push(s);
   }
   return trees;

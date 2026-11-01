@@ -499,14 +499,14 @@ export function GrassPatch({ sprouts, trees, k, spacing, cellSize, top, field, g
     const shade = new Color();
     const blend = (tints: Color[], s: Sprout, i: number) => shade.copy(tints[i % 3]).lerp(tints[(i + 1) % 3], (s.size - 0.75) * 2);
     const { clumps } = groups;
-    place(grass.current, clumps, (s) => [width * s.size, height * s.size * HEIGHT[s.growth]], (s, i) =>
+    place(grass.current, clumps, (s) => [width * s.size, height * s.size * HEIGHT[s.growth] * s.tall], (s, i) =>
       blend(s.growth === "forest" ? FOREST_TINTS : s.growth === "rock" ? ROCK_TINTS : MEADOW_TINTS, s, i),
     );
-    place(flowers.current, groups.blooms, (s) => [width * 0.9, height * (0.95 + s.size * 0.2)]);
+    place(flowers.current, groups.blooms, (s) => [width * 0.9, height * (0.95 + s.size * 0.2) * s.tall]);
     // Wheat stands to an even height, as a sown field does.
     const ears = height * HEIGHT.field;
-    place(wheat.current, groups.wheat, (s) => [width * 0.9 * s.size, ears * (0.92 + s.size * 0.1)], (s, i) => blend(WHEAT_TINTS, s, i));
-    place(poppies.current, groups.poppies, (s) => [width * 0.8, ears * (0.95 + s.size * 0.1)]);
+    place(wheat.current, groups.wheat, (s) => [width * 0.9 * s.size, ears * (0.92 + s.size * 0.1) * s.tall], (s, i) => blend(WHEAT_TINTS, s, i));
+    place(poppies.current, groups.poppies, (s) => [width * 0.8, ears * (0.95 + s.size * 0.1) * s.tall]);
     const tree = cellSize * 0.3 * k;
     place(forest.current, groups.pines, (s) => [tree * s.size, tree * s.size], (_, i) => shade.copy(FOREST_TINTS[i % 3]).lerp(tint("#ffffff"), 0.55));
     // Boulders a few times a stone's size; each rock squat or tall by its turn.

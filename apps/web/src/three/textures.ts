@@ -2,7 +2,7 @@ import type { CardView, Geometry, ResourceSpec } from "@boarddream/engine";
 import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import { iconFor, tagStyle } from "../icons";
-import { inside } from "./growth";
+import { growthsOf, inside, type PrintBox } from "./growth";
 import {
   alpha,
   canvas2d,
@@ -414,6 +414,196 @@ export function tableTexture(): Texture {
   return wood;
 }
 
+const grounds = new Map<string, CanvasTexture>();
+
+/**
+ * A tile's ground painted in its color, storybook style: grass in light and dark strokes with
+ * flowers on a meadow, moss, ferns and leaf litter under trees, furrowed rows in a field, cracks,
+ * pebbles and lichen on stone, all over soft lighter and darker patches. Every mark is drawn again a
+ * width away, so the texture tiles; one repeat spans about two cells.
+ */
+export function groundTexture(ground: "meadow" | "forest" | "field" | "rock", color: string): CanvasTexture {
+  return cached(grounds, `${ground}:${color}`, () => {
+    const size = 512;
+    const [canvas, ctx] = canvas2d(size, size);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+    const rand = seeded(hash(ground));
+    const wrapped = (draw: (ox: number, oy: number) => void) => {
+      for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) draw(ox, oy);
+    };
+    const light = mix(color, "#fff8d8", 0.32);
+    const dark = mix(color, INK, 0.3);
+    for (let i = 0; i < 30; i++) {
+      const [x, y, r] = [rand() * size, rand() * size, 30 + rand() * 60];
+      const tone = i % 2 ? light : dark;
+      wrapped((ox, oy) => {
+        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+        g.addColorStop(0, alpha(tone, 0.45));
+        g.addColorStop(1, alpha(tone, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(x + ox - r, y + oy - r, 2 * r, 2 * r);
+      });
+    }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    /** Three to five short blades fanning up from one root. */
+    const tuft = (x: number, y: number, length: number, stroke: string, width: number) => {
+      const blades = 3 + Math.floor(rand() * 3);
+      const fan = Array.from({ length: blades }, (_, b) => -0.75 + (1.5 * b) / (blades - 1) + (rand() - 0.5) * 0.3);
+      wrapped((ox, oy) => {
+        ctx.beginPath();
+        for (const a of fan) {
+          ctx.moveTo(x + ox, y + oy);
+          ctx.quadraticCurveTo(x + ox + Math.sin(a) * length * 0.3, y + oy - length * 0.6, x + ox + Math.sin(a) * length * 0.75, y + oy - Math.cos(a) * length);
+        }
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      });
+    };
+    const dot = (x: number, y: number, r: number, fill: string, rim?: string) =>
+      wrapped((ox, oy) => {
+        ctx.beginPath();
+        ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (rim) {
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = rim;
+          ctx.stroke();
+        }
+      });
+    if (ground === "meadow" || ground === "forest") {
+      const meadow = ground === "meadow";
+      // Grass in two tones, the dark tufts first so the sunlit ones sit on top.
+      const deep = mix(color, "#24401a", meadow ? 0.45 : 0.5);
+      const sunlit = mix(color, meadow ? "#eef5a8" : "#cfe39a", meadow ? 0.5 : 0.35);
+      for (let i = 0; i < (meadow ? 90 : 60); i++) tuft(rand() * size, rand() * size, 17 + rand() * 10, alpha(deep, 0.8), 4.2);
+      for (let i = 0; i < (meadow ? 80 : 34); i++) tuft(rand() * size, rand() * size, 15 + rand() * 9, alpha(sunlit, 0.9), 3.8);
+      if (meadow) {
+        // Flowers: a few small clusters of white, butter and pink.
+        const petals = ["#fffaf0", "#f6dc7a", "#f2b4bd", "#fffaf0"];
+        for (let c = 0; c < 14; c++) {
+          const [x, y, petal] = [rand() * size, rand() * size, petals[c % petals.length]];
+          for (let f = 0; f < 3; f++) dot(x + (rand() - 0.5) * 26, y + (rand() - 0.5) * 18, 4 + rand() * 1.6, petal, alpha(INK, 0.5));
+        }
+      } else {
+        // Leaf litter and fern fronds under the trees.
+        const leaf = mix(color, "#c69a3e", 0.55);
+        for (let i = 0; i < 44; i++) {
+          const [x, y, a] = [rand() * size, rand() * size, rand() * Math.PI * 2];
+          wrapped((ox, oy) => {
+            ctx.beginPath();
+            ctx.ellipse(x + ox, y + oy, 8, 4, a, 0, Math.PI * 2);
+            ctx.fillStyle = alpha(i % 3 ? leaf : mix(color, "#8a5a2a", 0.5), 0.8);
+            ctx.fill();
+          });
+        }
+        const frond = mix(color, "#1f3a18", 0.4);
+        for (let i = 0; i < 14; i++) {
+          const [x, y, a] = [rand() * size, rand() * size, -Math.PI / 2 + (rand() - 0.5) * 1.4];
+          wrapped((ox, oy) => {
+            ctx.beginPath();
+            const [dx, dy] = [Math.cos(a), Math.sin(a)];
+            ctx.moveTo(x + ox, y + oy);
+            ctx.lineTo(x + ox + dx * 40, y + oy + dy * 40);
+            for (let t = 0.25; t < 1; t += 0.15) {
+              const [px, py] = [x + ox + dx * 40 * t, y + oy + dy * 40 * t];
+              const reach = 14 * (1 - t * 0.7);
+              ctx.moveTo(px, py);
+              ctx.lineTo(px - dy * reach + dx * 3, py + dx * reach + dy * 3);
+              ctx.moveTo(px, py);
+              ctx.lineTo(px + dy * reach + dx * 3, py - dx * reach + dy * 3);
+            }
+            ctx.strokeStyle = alpha(frond, 0.85);
+            ctx.lineWidth = 3.2;
+            ctx.stroke();
+          });
+        }
+      }
+    } else if (ground === "field") {
+      // Furrowed rows: a light ridge and a dark trough each, with stalks along the ridges.
+      const rows = 10;
+      const band = size / rows;
+      for (let r = 0; r < rows; r++) {
+        const y = r * band;
+        const phase = rand() * Math.PI * 2;
+        const wave = (x: number) => 2.5 * Math.sin((2 * Math.PI * 2 * x) / size + phase);
+        for (const [offset, tone, width] of [
+          [band * 0.3, alpha(light, 0.8), band * 0.34],
+          [band * 0.78, alpha(dark, 0.5), band * 0.16],
+        ] as const) {
+          ctx.beginPath();
+          for (let x = 0; x <= size; x += 8) {
+            if (x === 0) ctx.moveTo(x, y + offset + wave(x));
+            else ctx.lineTo(x, y + offset + wave(x));
+          }
+          ctx.strokeStyle = tone;
+          ctx.lineWidth = width;
+          ctx.stroke();
+        }
+        const stalk = mix(color, "#8a6424", 0.5);
+        for (let d = 0; d < 16; d++) {
+          const x = rand() * size;
+          const at = y + band * 0.3 + wave(x);
+          wrapped((ox) => {
+            ctx.beginPath();
+            ctx.moveTo(x + ox, at + 6);
+            ctx.lineTo(x + ox + 3, at - 8);
+            ctx.strokeStyle = alpha(stalk, 0.75);
+            ctx.lineWidth = 3.2;
+            ctx.stroke();
+          });
+        }
+      }
+      for (let i = 0; i < 8; i++) tuft(rand() * size, rand() * size, 16, alpha(mix(color, "#4f7a2c", 0.6), 0.75), 3.6);
+    } else {
+      // Pebbles with a lit top, lichen, then cracks that fork once.
+      for (let i = 0; i < 46; i++) {
+        const [x, y, r, a] = [rand() * size, rand() * size, 5 + rand() * 8, rand() * Math.PI];
+        wrapped((ox, oy) => {
+          ctx.beginPath();
+          ctx.ellipse(x + ox, y + oy, r, r * 0.7, a, 0, Math.PI * 2);
+          ctx.fillStyle = i % 2 ? light : mix(color, "#ffffff", 0.18);
+          ctx.fill();
+          ctx.lineWidth = 2.2;
+          ctx.strokeStyle = alpha(INK, 0.45);
+          ctx.stroke();
+        });
+      }
+      for (let i = 0; i < 22; i++) dot(rand() * size, rand() * size, 3.5 + rand() * 4, alpha(mix(color, "#b9b867", 0.6), 0.8));
+      ctx.strokeStyle = alpha(INK, 0.45);
+      ctx.lineWidth = 3.4;
+      for (let i = 0; i < 9; i++) {
+        let [x, y, a] = [rand() * size, rand() * size, rand() * Math.PI * 2];
+        const points: [number, number][] = [[x, y]];
+        for (let s = 0; s < 4 + Math.floor(rand() * 3); s++) {
+          a += (rand() - 0.5) * 1.2;
+          const step = 18 + rand() * 16;
+          [x, y] = [x + Math.cos(a) * step, y + Math.sin(a) * step];
+          points.push([x, y]);
+        }
+        const fork = points[1 + Math.floor(rand() * (points.length - 2))];
+        const forkTo: [number, number] = [fork[0] + Math.cos(a + 1.2) * 24, fork[1] + Math.sin(a + 1.2) * 24];
+        wrapped((ox, oy) => {
+          ctx.beginPath();
+          points.forEach(([px, py], j) => (j === 0 ? ctx.moveTo(px + ox, py + oy) : ctx.lineTo(px + ox, py + oy)));
+          ctx.moveTo(fork[0] + ox, fork[1] + oy);
+          ctx.lineTo(forkTo[0] + ox, forkTo[1] + oy);
+          ctx.stroke();
+        });
+      }
+    }
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = grainPattern(ctx);
+    ctx.fillRect(0, 0, size, size);
+    const t = texture(canvas);
+    t.wrapS = t.wrapT = RepeatWrapping;
+    return t;
+  });
+}
+
 // ---------- Mats, glows and labels ----------
 
 const mats = new Map<string, CanvasTexture>();
@@ -527,10 +717,6 @@ const centroid = (polygon: [number, number][]): [number, number] => [
   polygon.reduce((sum, [, y]) => sum + y, 0) / polygon.length,
 ];
 
-/**
- * Printed over the whole board slab: an inked frame in the margin, then cell labels, in ink on the
- * tiles and on the board itself for text-only cells. `margin` is in geometry units.
- */
 /** Line height of two-line board labels, in font sizes. */
 const LINE = 1.1;
 /** Corners and edge midpoints of a label's box, which must all lie inside its cell. */
@@ -544,8 +730,21 @@ const BOX = [
   [-1, 1],
   [-1, 0],
 ];
+/** The pale card a token is cut from, and the halo that keeps names legible on grass and water. */
+const TOKEN = "#fbf3e1";
 
-export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
+export interface BoardPrint {
+  texture: CanvasTexture;
+  /** Where each cell's name and token sit, by cell id, so grass can leave them clear. */
+  boxes: Map<string, PrintBox>;
+}
+
+/**
+ * Printed over the whole board slab: an inked frame in the margin, then cell names, in ink on the
+ * tiles and on the board itself for text-only cells, with a cell's badge on a round token under its
+ * name. `margin` is in geometry units.
+ */
+export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
   const w = geometry.width + 2 * margin;
   const h = geometry.height + 2 * margin;
   const scale = 2048 / Math.max(w, h);
@@ -561,54 +760,119 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
   ctx.stroke();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
   const span = (values: number[]) => Math.max(...values) - Math.min(...values);
   const widthOf = (cell: Geometry["cells"][number]) => span(cell.polygon.map(([x]) => x));
   // Text sizes are tuned for cells about one unit wide; boards drawn in bigger units scale them up.
   const tiles = geometry.cells.filter((c) => c.kind !== "label").map(widthOf).sort((a, b) => a - b);
   const unit = Math.max(1, tiles[Math.floor(tiles.length / 2)] ?? 1);
+  const boxes = new Map<string, PrintBox>();
   for (const cell of geometry.cells) {
-    if (!cell.label) continue;
-    const [cx, cy] = centroid(cell.polygon);
     const isLabel = cell.kind === "label";
+    const badge = cell.badge === undefined || isLabel ? undefined : String(cell.badge);
+    if (!cell.label && !badge) continue;
+    const label = cell.label ?? "";
+    const [cx, cy] = centroid(cell.polygon);
     // The text stays inside the cell's own shape (a wedge, a hex), shrunk toward its center, not
     // merely inside its bounding box.
     const share = isLabel ? 0.95 : 0.8;
     const area = cell.polygon.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
     const [px, py] = [(cx + margin) * scale, (cy + margin) * scale];
-    const fits = (lines: string[], size: number) => {
+    const within = (x: number, y: number, hw: number, hh: number) => BOX.every(([sx, sy]) => inside(area, x + sx * hw, y + sy * hh));
+    // The token: about a sixth of a typical cell across, smaller if the cell cannot hold it.
+    let radius = badge ? Math.min(0.09 * unit, 0.14 * widthOf(cell)) * scale : 0;
+    while (badge && radius > 3 && !within(px, py, radius, radius)) radius *= 0.9;
+    const gap = badge && label ? 0.04 * unit * scale : 0;
+    // The name above the token, the pair centered `drop` below the cell's center: their middles for
+    // a name `size` tall.
+    const place = (lines: string[], size: number, drop: number) => {
+      const half = label ? ((lines.length - 1) * LINE * size) / 2 + 0.42 * size : 0;
+      const total = 2 * half + gap + 2 * radius;
+      return { half, name: drop - total / 2 + half, token: drop + total / 2 - radius };
+    };
+    const measure = (lines: string[]) => Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
+    const fits = (lines: string[], size: number, drop: number) => {
       ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
-      const halfW = Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
-      const halfH = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
-      return BOX.every(([sx, sy]) => inside(area, px + sx * halfW, py + sy * halfH));
+      const at = place(lines, size, drop);
+      return within(px, py + at.name, measure(lines), at.half) && (!badge || within(px, py + at.token, radius, radius));
     };
     // Measured at the size it is drawn: the display font's letters widen as they get smaller.
-    const largest = (lines: string[], from: number) => {
+    const largest = (lines: string[], from: number, drop: number) => {
       let size = from;
-      while (size > 4 && !fits(lines, size)) size *= 0.94;
+      while (size > 4 && !fits(lines, size, drop)) size *= 0.94;
       return size;
     };
-    const width = widthOf(cell) * share * scale;
+    // A tile's name leaves its sides for what grows there.
+    const width = widthOf(cell) * (isLabel ? share : 0.68) * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
-    const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.3 * unit) * scale;
+    const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.22 * unit) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
     ctx.font = `600 100px ${FONT_DISPLAY}`;
     const guess = (lines: string[]) => Math.min(cap, (width / Math.max(1, ...lines.map((line) => ctx.measureText(line).width))) * 100);
-    let best = { lines: [cell.label], size: largest([cell.label], guess([cell.label])) };
-    const words = cell.label.split(" ");
-    for (let i = 1; i < words.length; i++) {
-      const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
-      ctx.font = `600 100px ${FONT_DISPLAY}`;
-      const size = largest(lines, guess(lines));
-      if (size > best.size * 1.15) best = { lines, size };
+    const layout = (drop: number) => {
+      let best = { lines: [label], size: label ? largest([label], guess([label]), drop) : 0, drop };
+      const words = label.split(" ");
+      for (let i = 1; i < words.length; i++) {
+        const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+        ctx.font = `600 100px ${FONT_DISPLAY}`;
+        const size = largest(lines, guess(lines), drop);
+        if (size > best.size * 1.15) best = { lines, size, drop };
+      }
+      return best;
+    };
+    // Where things grow, the print sits toward the tile's front like a caption, leaving the back
+    // for trees and boulders, unless that would cost the name much of its size.
+    const centered = layout(0);
+    const lowered = !isLabel && growthsOf(cell).length > 0 ? layout(0.12 * unit * scale) : undefined;
+    const best = lowered && lowered.size >= centered.size * 0.9 && fits(lowered.lines, lowered.size, lowered.drop) ? lowered : centered;
+    const at = place(best.lines, best.size, best.drop);
+    if (label) {
+      ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
+      best.lines.forEach((line, i) => {
+        const y = py + at.name + (i - (best.lines.length - 1) / 2) * LINE * best.size;
+        // A pale halo keeps a tile's name legible on grass, stone or water.
+        if (!isLabel) {
+          ctx.lineWidth = best.size * 0.2;
+          ctx.strokeStyle = alpha(TOKEN, 0.7);
+          ctx.strokeText(line, px, y);
+        }
+        ctx.fillStyle = isLabel ? INK : alpha(INK, 0.88);
+        ctx.fillText(line, px, y);
+      });
     }
+    if (badge) token(ctx, badge, px, py + at.token, radius);
     ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
-    ctx.fillStyle = isLabel ? INK : alpha(INK, 0.85);
-    best.lines.forEach((line, i) => {
-      const dy = (i - (best.lines.length - 1) / 2) * LINE * best.size;
-      ctx.fillText(line, px, py + dy);
+    const halfWidth = Math.max(label ? measure(best.lines) : 0, radius);
+    boxes.set(cell.id, {
+      halfWidth: halfWidth / scale,
+      top: (label ? at.name - at.half : at.token - radius) / scale,
+      bottom: (badge ? at.token + radius * 1.14 : at.name + at.half) / scale,
     });
   }
-  return texture(canvas);
+  return { texture: texture(canvas), boxes };
+}
+
+/** A round card token with an inked rim and a hard shadow, like the table's stickers. */
+function token(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, r: number) {
+  ctx.beginPath();
+  ctx.arc(x, y + r * 0.14, r, 0, Math.PI * 2);
+  ctx.fillStyle = INK;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = TOKEN;
+  ctx.fill();
+  ctx.lineWidth = Math.max(1.5, r * 0.12);
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.76, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(1, r * 0.045);
+  ctx.strokeStyle = alpha(INK, 0.35);
+  ctx.stroke();
+  fitFont(ctx, text, r * 1.3, r * 1.1, r * 0.45, (size) => `700 ${size}px ${FONT_DISPLAY}`);
+  ctx.fillStyle = INK;
+  ctx.fillText(text, x, y + r * 0.04);
 }
 
 const pieceLabels = new Map<string, CanvasTexture>();

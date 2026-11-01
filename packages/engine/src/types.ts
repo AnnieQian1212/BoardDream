@@ -60,7 +60,13 @@ export interface GeometryCell {
   owner?: PlayerId;
   /** "label" cells are text only: no fill, no outline, not clickable. */
   kind?: string;
+  /** Printed on the cell: a place's name as players say it ("Copper Steps"), or a label cell's text. */
   label?: string;
+  /**
+   * A short number or mark players read off the cell (an elevation, a yield, a cost), printed on a
+   * round token under its name.
+   */
+  badge?: string | number;
   /**
    * Edge-matched tiles: a terrain kind per polygon edge (edge i runs from polygon[i] to
    * polygon[i + 1]). Each is painted as a wedge from the cell's center to that edge.
