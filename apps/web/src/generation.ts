@@ -108,6 +108,8 @@ export interface Generation {
   checks: Check[];
   /** The newest draft that loads in the browser, for bots to play on the table while it is checked. */
   draft?: GameModule;
+  /** Which round of rules that draft is. */
+  draftAttempt?: number;
   done?: { ok: boolean; title: string; game?: GameModule };
   error?: string;
 }
@@ -162,13 +164,14 @@ function apply(g: Generation, event: DesignEvent): Generation {
     case "code":
       return { ...g, code: g.code + event.text, codeSince: g.codeSince ?? now, rounds: g.rounds.at(-1)?.codeSince ? g.rounds : current(g, { codeSince: now }) };
     case "draft": {
-      let draft = g.draft;
+      let { draft, draftAttempt } = g;
       try {
         draft = loadGeneratedGame(event.source, `draft-${event.attempt}`, g.plan?.rules, g.plan?.title);
+        draftAttempt = event.attempt;
       } catch {
-        // A draft that does not load keeps the last one on the table; the check will say why.
+        // A draft that does not load keeps the last one; the check will say why.
       }
-      return { ...g, attempt: event.attempt, writing: false, draft, rounds: current(g, { lines: codeLines(g.code).length, writtenAt: now }) };
+      return { ...g, attempt: event.attempt, writing: false, draft, draftAttempt, rounds: current(g, { lines: codeLines(g.code).length, writtenAt: now }) };
     }
     case "checking": {
       const checking = { done: event.done, total: event.total };

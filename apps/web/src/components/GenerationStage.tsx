@@ -16,18 +16,25 @@ function componentIcon(item: string): ReactNode {
   return <Package size={16} />;
 }
 
+/** Text that may wrap after a slash, so "Bright/Sweep/Dim/Pilot" breaks between its words. */
+function breakable(text: string): ReactNode {
+  return text.split("/").flatMap((part, i) => (i === 0 ? [part] : ["/", <wbr key={i} />, part]));
+}
+
 interface Props {
   generation: Generation;
   /** Bots are playing the latest draft on the table, so the stage steps aside. */
   previewing: boolean;
+  /** The latest draft has a fault, so it is off the table until the next one runs. */
+  draftFailed?: boolean;
 }
 
 /**
  * The game being made, in the middle of the page: a box cover from the plan, the library's
  * mechanics dealt beside it, what is in the box and how it plays. Once a draft runs, the real table
- * takes over and the stage shrinks to a label.
+ * takes over and the stage shrinks to a label; a draft with a fault hands the middle back to it.
  */
-export function GenerationStage({ generation: g, previewing }: Props) {
+export function GenerationStage({ generation: g, previewing, draftFailed }: Props) {
   if (g.done?.ok) return null;
   const plan = g.plan;
   if (previewing && plan) {
@@ -35,7 +42,7 @@ export function GenerationStage({ generation: g, previewing }: Props) {
       <div className="stage-label" aria-live="polite">
         <strong>{plan.title}</strong>
         <span>
-          Draft {g.attempt + 1} on the table · bots are playing it while it is tested
+          Draft {(g.draftAttempt ?? g.attempt) + 1} on the table · bots are playing it while it is tested
         </span>
       </div>
     );
@@ -44,7 +51,9 @@ export function GenerationStage({ generation: g, previewing }: Props) {
   const ribbon =
     g.error || g.done
       ? undefined
-      : step === "plan"
+      : draftFailed
+        ? "The last draft hit a fault, so the design stays up: the board comes back when the next draft runs."
+        : step === "plan"
         ? "Drafting the design and picking mechanics from the library…"
         : step === "rules"
           ? "Writing the rules as code: the board appears as soon as they run."
@@ -107,7 +116,7 @@ export function GenerationStage({ generation: g, previewing }: Props) {
               {componentItems(plan.components).map((item, i) => (
                 <li key={i} style={{ animationDelay: `${300 + i * 90}ms` }}>
                   {componentIcon(item)}
-                  <span>{item}</span>
+                  <span>{breakable(item)}</span>
                 </li>
               ))}
             </ul>

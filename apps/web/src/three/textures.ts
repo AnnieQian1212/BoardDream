@@ -2,6 +2,7 @@ import type { CardView, Geometry, ResourceSpec } from "@boarddream/engine";
 import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import { iconFor, tagStyle } from "../icons";
+import { inside } from "./growth";
 import {
   alpha,
   canvas2d,
@@ -532,6 +533,17 @@ const centroid = (polygon: [number, number][]): [number, number] => [
  */
 /** Line height of two-line board labels, in font sizes. */
 const LINE = 1.1;
+/** Corners and edge midpoints of a label's box, which must all lie inside its cell. */
+const BOX = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+];
 
 export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
   const w = geometry.width + 2 * margin;
@@ -558,25 +570,42 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
     if (!cell.label) continue;
     const [cx, cy] = centroid(cell.polygon);
     const isLabel = cell.kind === "label";
-    const width = (isLabel ? 0.95 : 0.8) * widthOf(cell) * scale;
-    const height = 0.8 * span(cell.polygon.map(([, y]) => y)) * scale;
+    // The text stays inside the cell's own shape (a wedge, a hex), shrunk toward its center, not
+    // merely inside its bounding box.
+    const share = isLabel ? 0.95 : 0.8;
+    const area = cell.polygon.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
+    const [px, py] = [(cx + margin) * scale, (cy + margin) * scale];
+    const fits = (lines: string[], size: number) => {
+      ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
+      const halfW = Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
+      const halfH = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
+      return BOX.every(([sx, sy]) => inside(area, px + sx * halfW, py + sy * halfH));
+    };
+    // Measured at the size it is drawn: the display font's letters widen as they get smaller.
+    const largest = (lines: string[], from: number) => {
+      let size = from;
+      while (size > 4 && !fits(lines, size)) size *= 0.94;
+      return size;
+    };
+    const width = widthOf(cell) * share * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
     const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.3 * unit) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
     ctx.font = `600 100px ${FONT_DISPLAY}`;
-    let best = { lines: [cell.label], size: Math.min(cap, height, (width / Math.max(1, ctx.measureText(cell.label).width)) * 100) };
+    const guess = (lines: string[]) => Math.min(cap, (width / Math.max(1, ...lines.map((line) => ctx.measureText(line).width))) * 100);
+    let best = { lines: [cell.label], size: largest([cell.label], guess([cell.label])) };
     const words = cell.label.split(" ");
     for (let i = 1; i < words.length; i++) {
       const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
-      const widest = Math.max(...lines.map((line) => ctx.measureText(line).width));
-      const size = Math.min(cap, (width / Math.max(1, widest)) * 100, height / (2 * LINE));
+      ctx.font = `600 100px ${FONT_DISPLAY}`;
+      const size = largest(lines, guess(lines));
       if (size > best.size * 1.15) best = { lines, size };
     }
     ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
     ctx.fillStyle = isLabel ? INK : alpha(INK, 0.85);
     best.lines.forEach((line, i) => {
       const dy = (i - (best.lines.length - 1) / 2) * LINE * best.size;
-      ctx.fillText(line, (cx + margin) * scale, (cy + margin) * scale + dy);
+      ctx.fillText(line, px, py + dy);
     });
   }
   return texture(canvas);

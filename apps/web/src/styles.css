@@ -2665,6 +2665,12 @@ button.pile-count.target {
   animation: gen-in 0.4s ease-out both;
 }
 
+/* A name with no spaces in it ("Bright/Sweep/Dim/Pilot") still wraps inside its tray. */
+.stage-parts li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .stage-parts li svg {
   flex: none;
   margin-top: 1px;

@@ -154,6 +154,8 @@ export function App() {
   // as soon as they exist. A draft that throws stops; the next one starts fresh.
   const draft = generating ? generation?.draft : undefined;
   const [preview, setPreview] = useState<{ game: GameModule; match: Match; stuck?: boolean }>();
+  // The table that last failed to draw.
+  const [unrenderable, setUnrenderable] = useState<string>();
   useEffect(() => {
     if (!draft) return setPreview(undefined);
     try {
@@ -260,13 +262,19 @@ export function App() {
         onRestart: () => setMatch(startMatch(game, numPlayers, params)),
       };
   const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}`;
+  // A draft with a fault (the playtest failed it, it threw while bots played it, or the table could
+  // not draw it) leaves the table; the design sheet comes back until the next draft runs.
+  const draftFailed = Boolean(
+    preview && (preview.stuck || unrenderable === tableKey || generation?.checks.some((c) => c.attempt === generation.draftAttempt && !c.ok)),
+  );
+  const showDraft = Boolean(preview) && !draftFailed;
 
   return (
     <div className={["app", focus && "focus", making && "making"].filter(Boolean).join(" ")}>
-      {generation && <GenerationStage generation={generation} previewing={Boolean(preview)} />}
-      {/* Until a draft runs, the stage stands in for the table. */}
-      {(!generation || preview || generation.done?.ok) && (
-        <TableGuard resetKey={tableKey}>
+      {generation && <GenerationStage generation={generation} previewing={showDraft} draftFailed={draftFailed} />}
+      {/* Until a draft runs without a fault, the stage stands in for the table. */}
+      {(!generation || showDraft || generation.done?.ok) && (
+        <TableGuard resetKey={tableKey} onError={() => setUnrenderable(tableKey)}>
           {FLAT ? (
             <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
               <Table key={tableKey} {...tableProps} />
