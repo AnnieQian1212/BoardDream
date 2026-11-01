@@ -55,8 +55,7 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
   - geometry(state, viewer): the board as cell polygons in board units, plus pieces; with a viewer, draw
     hidden things face down. Give every cell a kind naming what it is (a terrain, a district, an action
     space); each kind gets its own color. Cells with kind "vertex" or "edge" render as building spots and roads.
-    A game with nights can set mood "night" while it is dark and give light sources (lanterns, fires) a
-    glow color; the table dims and those cells shine. Name water cells with a plain word (sea, lake,
+    Light sources (lanterns, fires, beacons) can take a glow color and shine. Name water cells with a plain word (sea, lake,
     river, lagoon, reef) and the table draws them as water; grassland (meadow, pasture, plains),
     forest (forest, woodland, grove), grain (fields, wheat, farmland) and stony ground (quarry, rocks,
     mountains) grow grass and flowers, trees, wheat, or boulders. A place with a made-up name (an

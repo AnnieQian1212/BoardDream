@@ -97,8 +97,6 @@ export interface Geometry {
   height: number;
   cells: GeometryCell[];
   pieces: GeometryPiece[];
-  /** The light over the table: "night" dims it to a cool dusk, where glowing cells stand out. */
-  mood?: "day" | "night";
 }
 
 /** A card as the UI draws it. */

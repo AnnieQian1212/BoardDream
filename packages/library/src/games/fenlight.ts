@@ -414,7 +414,7 @@ export const fenlight: GameModule<FenlightState, FenlightMove, FenlightParams> =
       const fog = v.fog ? `, fog hid ${v.fog}` : "";
       cells.push({ id: "report", polygon: rectPolygon(0.5, 0.1, BOARD_W - 1, 0.8), kind: "label", label: `Dawn ${last.night}: ${last.dark.length} looked dark, ${last.lost} boat${last.lost === 1 ? "" : "s"} lost${fog}` });
     }
-    return { width: BOARD_W, height: 10.6, cells, pieces, mood: v.phase === "night" ? "night" : "day" };
+    return { width: BOARD_W, height: 10.6, cells, pieces };
   },
 
   panels(s, viewer) {

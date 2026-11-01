@@ -17,9 +17,7 @@ import {
   Vector3,
   Vector4,
   type Group,
-  CanvasTexture,
   type Mesh,
-  type MeshBasicMaterial,
   type MeshPhysicalMaterial,
   type MeshStandardMaterial,
   type PointLight,
@@ -222,7 +220,6 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   useEffect(() => () => labels?.dispose(), [labels]);
   const toWorld = (x: number, y: number): [number, number] => [(x - geometry.width / 2) * k, (y - geometry.height / 2) * k];
   const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "")).map((c) => c.id)), [geometry]);
-  const night = geometry.mood === "night";
   const water = useWater(geometry, k, position);
   // Grass: sized from a typical cell, thinned on boards with a lot of green.
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.segments?.join("")}`).join("|");
@@ -274,7 +271,6 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             k={k}
             at={toWorld(...centroid(cell.polygon))}
             target={targets.has(cell.id)}
-            night={night}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water}
             grass={growing ? { field, spacing, size, unit } : undefined}
@@ -283,8 +279,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             onPick={onPick}
           />
         ))}
-      {glowLights > 0 && <GlowLights spots={glowing} size={glowLights} k={k} night={night} />}
-      <Fog width={width} depth={depth} night={night} />
+      {glowLights > 0 && <GlowLights spots={glowing} size={glowLights} k={k} />}
       {rocky && <Chips pool={chips.pool} />}
       <mesh rotation-x={-Math.PI / 2} position={[0, TILE_TOP + 0.02, 0]} raycast={noRaycast}>
         <planeGeometry args={[width, depth]} />
@@ -308,8 +303,6 @@ interface TileProps {
   k: number;
   at: [number, number];
   target: boolean;
-  /** The table's night (Geometry.mood): glowing cells burn brighter. */
-  night: boolean;
   /** The painted board and where this tile's art sits on it. */
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
   /** The board's water; the tile draws a surface where it holds some (waterPolygons). */
@@ -323,7 +316,7 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, chip, print, onPick }: TileProps) {
+function Tile({ cell, k, at, target, painted, water: boardWater, grass, chip, print, onPick }: TileProps) {
   const segmentsKey = cell.segments?.join(",");
   const pools = useMemo(() => waterPolygons(cell, WATER_SHARE, WEDGE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey]);
   const water = pools.length > 0 ? boardWater : undefined;
@@ -331,7 +324,7 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => invalidate(), [target, hovered, night, invalidate]);
+  useEffect(() => invalidate(), [target, hovered, invalidate]);
   const geometry = useMemo(() => {
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel. Spots are already small.
@@ -450,8 +443,8 @@ function Tile({ cell, k, at, target, night, painted, water: boardWater, grass, c
     const dt = step(delta);
     // Pale tiles under a bright light hide a faint glow, so legal tiles glow clearly; small spots
     // glow a bit more. Only the hovered one lifts: the printed labels lie at the tiles' height.
-    // A cell that gives off light (Geometry cell.glow) burns softly by day and brightly at night.
-    const burn = glowColor ? (night ? 0.9 : 0.35) : 0;
+    // A cell that gives off light (Geometry cell.glow) burns softly.
+    const burn = glowColor ? 0.35 : 0;
     const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.42) : burn;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
@@ -647,12 +640,12 @@ function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [n
  * board has glowed: adding or removing a light makes three recompile every lit material, a stutter
  * each time a lantern goes out. Lights with no cell to sit over fade to zero instead.
  */
-function GlowLights({ spots, size, k, night }: { spots: { at: [number, number]; color: string }[]; size: number; k: number; night: boolean }) {
+function GlowLights({ spots, size, k }: { spots: { at: [number, number]; color: string }[]; size: number; k: number }) {
   const lights = useRef<(PointLight | null)[]>([]);
   const glowed = useRef(false);
   if (spots.length > 0) glowed.current = true;
   const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => invalidate(), [spots, night, invalidate]);
+  useEffect(() => invalidate(), [spots, invalidate]);
   useFrame((_, delta) => {
     const dt = step(delta);
     let moving = false;
@@ -663,7 +656,7 @@ function GlowLights({ spots, size, k, night }: { spots: { at: [number, number]; 
         light.position.set(spot.at[0], SLAB + 2.5, spot.at[1]);
         light.color.set(spot.color);
       }
-      moving = easing.damp(light, "intensity", spot ? (night ? 260 : 40) : 0, 0.35, dt) || moving;
+      moving = easing.damp(light, "intensity", spot ? 40 : 0, 0.35, dt) || moving;
     });
     if (moving) invalidate();
   });
@@ -674,59 +667,5 @@ function GlowLights({ spots, size, k, night }: { spots: { at: [number, number]; 
         <pointLight key={i} ref={(l) => void (lights.current[i] = l)} intensity={0} distance={k * 9} decay={2} />
       ))}
     </>
-  );
-}
-
-let fogTexture: CanvasTexture | undefined;
-/** A soft white puff, drawn once and shared. */
-function fogPuff(): CanvasTexture {
-  if (fogTexture) return fogTexture;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext("2d")!;
-  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gradient.addColorStop(0, "rgba(222, 232, 252, 0.8)");
-  gradient.addColorStop(0.45, "rgba(222, 232, 252, 0.3)");
-  gradient.addColorStop(1, "rgba(222, 232, 252, 0)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 128, 128);
-  fogTexture = new CanvasTexture(canvas);
-  return fogTexture;
-}
-
-/**
- * Where the puffs lie, as fractions of the board (x, z, size): long low banks along the edges and
- * the corners, the same every night, so the middle of the board stays readable.
- */
-const PUFFS: [number, number, number][] = [
-  [-0.36, -0.4, 0.5],
-  [0.3, -0.42, 0.55],
-  [-0.46, 0.02, 0.38],
-  [0.47, -0.04, 0.4],
-  [-0.3, 0.44, 0.5],
-  [0.34, 0.45, 0.48],
-];
-
-/** Low fog over the board at night. It fades in and out with the light and holds still between. */
-function Fog({ width, depth, night }: { width: number; depth: number; night: boolean }) {
-  const materials = useRef<(MeshBasicMaterial | null)[]>([]);
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => invalidate(), [night, invalidate]);
-  useFrame((_, delta) => {
-    const dt = step(delta);
-    let moving = false;
-    for (const material of materials.current) if (material) moving = easing.damp(material, "opacity", night ? 0.5 : 0, 0.5, dt) || moving;
-    if (moving) invalidate();
-  });
-  const size = Math.max(width, depth);
-  return (
-    <group position={[0, TILE_TOP + 0.35, 0]}>
-      {PUFFS.map(([fx, fz, scale], i) => (
-        <mesh key={i} rotation-x={-Math.PI / 2} position={[fx * width, i * 0.01, fz * depth]} raycast={noRaycast} renderOrder={2}>
-          <planeGeometry args={[size * scale, size * scale * 0.45]} />
-          <meshBasicMaterial ref={(m) => void (materials.current[i] = m)} map={fogPuff()} transparent opacity={0} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
   );
 }
