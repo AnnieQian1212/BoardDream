@@ -1,6 +1,7 @@
 import type { PlayMode } from "@boarddream/engine";
-import { Dices, Sparkles, Wand2 } from "lucide-react";
+import { Dices, Sparkles, Wand2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { FAMILIES, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, THEMES } from "../dials";
 import type { Dials } from "../generation";
 
 const MODES: { value: PlayMode; label: string }[] = [
@@ -34,6 +35,13 @@ export function CreatePanel({ available, busy, onGenerate }: Props) {
     mode: "competitive",
   });
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
+  const asked = dials.mustUse ?? [];
+  const offered = MECHANICS.filter((m) => m.modes.includes(dials.mode) && !asked.includes(m.id));
+  // Mechanics that do not suit the new mode are dropped.
+  const setMode = (mode: PlayMode) => {
+    const kept = asked.filter((id) => MECHANICS.find((m) => m.id === id)?.modes.includes(mode));
+    setDials({ ...dials, mode, mustUse: kept.length ? kept : undefined });
+  };
 
   async function surprise() {
     setInventing(true);
@@ -86,19 +94,93 @@ export function CreatePanel({ available, busy, onGenerate }: Props) {
       <Range label="Play time" display={`${dials.playMinutes} min`} min={10} max={90} step={5} value={dials.playMinutes} onChange={(v) => set("playMinutes", v)} />
       <Range label="Complexity" display={["Gateway", "Medium-light", "Medium", "Medium-heavy", "Heavy"][dials.complexity - 1]} min={1} max={5} value={dials.complexity} onChange={(v) => set("complexity", v)} />
       <Range label="Luck" display={`${Math.round(dials.luck * 100)}%`} min={0} max={1} step={0.1} value={dials.luck} onChange={(v) => set("luck", v)} />
-      <div className="segmented" role="radiogroup" aria-label="Mode">
-        {MODES.map((mode) => (
-          <button
-            key={mode.value}
-            type="button"
-            role="radio"
-            aria-checked={dials.mode === mode.value}
-            className={dials.mode === mode.value ? "on" : ""}
-            onClick={() => set("mode", mode.value)}
-          >
-            {mode.label}
-          </button>
-        ))}
+      <div className="field">
+        <span>Mode</span>
+        <div className="segmented" role="radiogroup" aria-label="Mode">
+          {MODES.map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              role="radio"
+              aria-checked={dials.mode === mode.value}
+              className={dials.mode === mode.value ? "on" : ""}
+              onClick={() => setMode(mode.value)}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="field inline">
+        <span>Game type</span>
+        <select value={dials.family ?? ""} onChange={(e) => set("family", (e.target.value || undefined) as Dials["family"])}>
+          <option value="">Any</option>
+          {FAMILIES.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field inline">
+        <span>Theme</span>
+        <select value={dials.theme ?? ""} onChange={(e) => set("theme", (e.target.value || undefined) as Dials["theme"])}>
+          <option value="">Any</option>
+          {THEMES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="field">
+        <span>Interaction</span>
+        <div className="segmented" role="radiogroup" aria-label="Interaction">
+          {INTERACTIONS.map((level) => (
+            <button
+              key={level.value}
+              type="button"
+              role="radio"
+              title={level.hint}
+              aria-checked={(dials.interaction ?? "some") === level.value}
+              className={(dials.interaction ?? "some") === level.value ? "on" : ""}
+              // "Some" is what the designer does anyway, so it is sent as no choice at all.
+              onClick={() => set("interaction", level.value === "some" ? undefined : level.value)}
+            >
+              {level.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="field-row">
+          <span>Build around</span>
+          <output>
+            {asked.length} of {MUST_USE_LIMIT}
+          </output>
+        </span>
+        {asked.length > 0 && (
+          <div className="asked">
+            {asked.map((id) => (
+              <button key={id} type="button" onClick={() => set("mustUse", asked.length > 1 ? asked.filter((a) => a !== id) : undefined)} title="Remove">
+                {mechanicLabel(id)} <X size={12} />
+              </button>
+            ))}
+          </div>
+        )}
+        <select
+          value=""
+          disabled={asked.length >= MUST_USE_LIMIT}
+          onChange={(e) => e.target.value && set("mustUse", [...asked, e.target.value])}
+          aria-label="Add a tested mechanic to build the game around"
+        >
+          <option value="">{asked.length >= MUST_USE_LIMIT ? "Three is the most" : asked.length ? "Add another mechanic" : "Any mechanics"}</option>
+          {offered.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="create-actions">
         <button type="submit" className="action" disabled={busy || !available}>

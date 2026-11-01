@@ -1,9 +1,40 @@
 import type { ChatMessage } from "../meta/client";
 import type { RulesCheck } from "./check";
 import type { Reference } from "./references";
-import type { GameRequest, GameSpec } from "./spec";
+import { dialsForModel } from "./dials";
+import type { Dials, GameRequest, GameSpec, Interaction, Theme } from "./spec";
 
 // Iterated against the fuzz-repair benchmark in eval/generation.
+
+const INTERACTION: Record<Interaction, string | undefined> = {
+  gentle:
+    'interaction "gentle": players mostly build their own engine, tableau or area and race each other; they meet only at a shared market, shared goals or first-come spaces. No attacking, stealing or taking things away.',
+  // The default the system prompt already describes.
+  some: undefined,
+  cutthroat:
+    'interaction "cutthroat": players clash directly every round: blocking, stealing, attacking, or taking spaces and majorities away from each other. Keep it fair: nobody is knocked out, and the leader is the natural target.',
+};
+
+export const THEMES: Record<Theme, string> = {
+  nature: "the natural world (forests, reefs, seasons, wildlife)",
+  history: "the past (crafts, trades and journeys of long ago)",
+  fantasy: "a fantasy world",
+  scifi: "science fiction",
+};
+
+/**
+ * What the player set beyond the basic dials, as lines for the designer. Empty when they set
+ * nothing, so those requests read exactly as the benchmark's do.
+ */
+function wishes(dials: Dials): string {
+  const lines = [
+    dials.family && `family "${dials.family}": the player chose it, so use it whatever the idea suggests.`,
+    dials.interaction && INTERACTION[dials.interaction],
+    dials.theme && `theme: when the idea names no setting, set the game in ${THEMES[dials.theme]}.`,
+    dials.mustUse?.length && "mustUse: mechanics the player asked for. Build the game around every one of them and list them in mechanics.",
+  ].filter(Boolean);
+  return lines.length ? `\nThe player also set these dials:\n${lines.map((line) => `- ${line}`).join("\n")}` : "";
+}
 
 export function specMessages(request: GameRequest): ChatMessage[] {
   return [
@@ -31,9 +62,9 @@ implementable spec for a turn-based board game that runs in a browser.
   Include 2-4, with ranges where every value still gives a playable game.
 - rules: plain sentences a new player can follow, with each tunable written as its default number
   ("after 6 rounds"), never as its key.
-- mechanics lists plain mechanic names (e.g. "card market", "worker placement", "area majority").`,
+- mechanics lists plain mechanic names (e.g. "card market", "worker placement", "area majority").${wishes(request.dials)}`,
     },
-    { role: "user", content: JSON.stringify(request) },
+    { role: "user", content: JSON.stringify(request.dials.mustUse ? { ...request, dials: dialsForModel(request.dials) } : request) },
   ];
 }
 

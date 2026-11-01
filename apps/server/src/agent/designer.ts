@@ -2,6 +2,7 @@ import type { GameMeta } from "@boarddream/engine";
 import type { Bm25Index } from "@boarddream/retrieval";
 import type { ChatMessage, ModelClient } from "../meta/client";
 import { checkRulesIsolated, type RulesCheck } from "./check";
+import { mechanicTitles } from "./dials";
 import { loadGameFromSource } from "../sandbox";
 import type { PlayStats } from "./playtest";
 import { composeMessages, designRepairMessages, extractCode, formatFailures, repairMessages, revisionMessages, specMessages, type DesignBrief } from "./prompts";
@@ -12,6 +13,13 @@ import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
 /** Candidates the reranker sees, and how many of its top picks go into the compose prompt. */
 const RERANK_POOL = 20;
 const REFERENCES = 6;
+/** What each family is about, for the search when the player chose one. */
+const FAMILY_WORDS: Record<NonNullable<GameRequest["dials"]["family"]>, string> = {
+  engine: "engine building with a tableau of cards that pay income",
+  map: "building on a hex map that produces resources, with trading",
+  grid: "tile placement and area control on a board",
+  bluff: "bluffing, bidding and hidden information",
+};
 /** Repair rounds spent on design problems in rules that already work. */
 const MAX_DESIGN_FIXES = 1;
 
@@ -59,21 +67,29 @@ export interface DesignResult {
 export async function designGame(request: GameRequest, deps: DesignDeps): Promise<DesignResult> {
   const { llm, index, onProgress = () => {}, onEvent = () => {}, signal } = deps;
 
-  // The spec and the search both start from the idea alone, so they run side by side.
+  const { dials } = request;
+  // The search looks for the idea, plus the mechanics and the family the player chose, if any.
+  const query = [request.prompt, ...mechanicTitles(dials.mustUse), dials.family && FAMILY_WORDS[dials.family]].filter(Boolean).join(". ");
+
+  // The spec and the search both start from the request alone, so they run side by side.
   onProgress("drafting spec");
   onProgress("retrieving mechanics");
   const [spec, references] = await Promise.all([
-    llm.chatJson<GameSpec>(specMessages(request), gameSpecSchema).then((spec) => {
+    llm.chatJson<GameSpec>(specMessages(request), gameSpecSchema).then((drafted) => {
+      const spec = dials.family ? { ...drafted, family: dials.family } : drafted;
       onEvent({ type: "spec", spec });
       return spec;
     }),
     // The pipeline eval/retrieval measures: Muse Spark query expansion, BM25, then Muse Spark rerank.
+    // The mechanics the player asked for come first, whatever the search ranks.
     (async () => {
-      const pool = (await expandedSearch(llm, index, request.prompt, RERANK_POOL))
+      const pool = (await expandedSearch(llm, index, query, RERANK_POOL))
         .map((hit) => loadReference(hit.id))
         .filter((r): r is Reference => r !== undefined);
-      const order = await rerank(llm, request.prompt, pool.map((r) => r.entry));
-      return order.slice(0, REFERENCES).map((id) => pool.find((r) => r.entry.id === id)!);
+      const order = await rerank(llm, query, pool.map((r) => r.entry));
+      const asked = (dials.mustUse ?? []).map(loadReference).filter((r): r is Reference => r !== undefined);
+      const ranked = order.filter((id) => !asked.some((r) => r.entry.id === id)).map((id) => pool.find((r) => r.entry.id === id)!);
+      return [...asked, ...ranked].slice(0, REFERENCES);
     })(),
   ]);
   const retrieved = references.map((r) => r.entry.id);

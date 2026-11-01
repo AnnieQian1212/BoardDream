@@ -190,7 +190,7 @@ export function GenerationSteps({ generation: g, onCancel, onClose }: Props) {
           title="Pick tested mechanics"
           time={g.mechanicsAt ? seconds(g.mechanicsAt - g.started) : undefined}
         >
-          <p>{g.mechanics ? g.mechanics.map((m) => m.title).join(" · ") : "From the library of 26 modules"}</p>
+          <p>{g.mechanics ? g.mechanics.map((m) => m.title).join(" · ") : g.asked?.length ? `Starting with yours: ${g.asked.join(" · ")}` : "From the library of 26 modules"}</p>
         </Item>
         {g.rounds.map((round) => (
           <RoundItems key={round.attempt} round={round} g={g} now={now} />

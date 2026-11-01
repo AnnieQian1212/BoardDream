@@ -7,6 +7,7 @@ import { Bm25Index } from "@boarddream/retrieval";
 import { Hono, type Context } from "hono";
 import { streamSSE, type SSEStreamingApi } from "hono/streaming";
 import { designGame, reviseGame, type DesignEvent } from "./agent/designer";
+import { cleanDials } from "./agent/dials";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
@@ -165,10 +166,10 @@ app.post("/api/idea", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
   const limited = overLimit(c, "idea");
   if (limited) return limited;
-  const { dials } = await c.req.json<Partial<Pick<GameRequest, "dials">>>();
+  const { dials } = await c.req.json<{ dials?: unknown }>();
   if (!dials || typeof dials !== "object") return c.json({ error: "send the dials the idea should fit" }, 400);
   const made = [...catalog.filter((e) => e.kind === "game").map((e) => e.title), ...listGames().map((g) => `${g.title}: ${g.pitch}`)];
-  return c.json({ idea: await inventIdea(designer, dials, made.slice(0, 40)) });
+  return c.json({ idea: await inventIdea(designer, cleanDials(dials), made.slice(0, 40)) });
 });
 
 // Generation takes a minute or more, so it streams as server-sent events (designStream), then one
@@ -176,8 +177,9 @@ app.post("/api/idea", async (c) => {
 // "Surprise me" wrote it; the saved game records that.
 app.post("/api/generate", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
-  const request = await c.req.json<GameRequest & { invented?: boolean }>();
-  if (!request.prompt?.trim() || request.prompt.length > 2000) return c.json({ error: "describe the game in at most 2,000 characters" }, 400);
+  const body = await c.req.json<{ prompt?: string; dials?: unknown; invented?: boolean }>();
+  if (typeof body.prompt !== "string" || !body.prompt.trim() || body.prompt.length > 2000) return c.json({ error: "describe the game in at most 2,000 characters" }, 400);
+  const request: GameRequest & { invented?: boolean } = { prompt: body.prompt, dials: cleanDials(body.dials), invented: body.invented === true };
   const limited = overLimit(c, "generate");
   if (limited) return limited;
   return streamSSE(c, async (stream) => {

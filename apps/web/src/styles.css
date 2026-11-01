@@ -536,10 +536,62 @@ input[type="range"] {
   background: var(--accent-soft);
 }
 
-/* "Generate game", with "Surprise me" under it. */
+/* A label with its menu beside it. */
+.field.inline {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.create .field select {
+  width: 100%;
+  font-size: 13px;
+  padding: 6px 30px 6px 12px;
+  text-overflow: ellipsis;
+}
+
+.create .field select:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* The mechanics a player asked for; each one removes itself. */
+.asked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.asked button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/*
+ * "Generate game", with "Surprise me" under it. They stay at the foot of the column while the
+ * options above them scroll.
+ */
 .create-actions {
   display: grid;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -18px -18px;
+  padding: 22px 18px 18px;
+  border-radius: 0 0 18px 18px;
+  background: linear-gradient(rgba(255, 252, 247, 0), var(--panel) 22px);
 }
 
 .create-actions .action {

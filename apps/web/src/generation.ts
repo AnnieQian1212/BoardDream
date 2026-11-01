@@ -1,5 +1,6 @@
 import type { GameModule, PlayMode } from "@boarddream/engine";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { mechanicLabel } from "./dials";
 import { loadGeneratedGame } from "./generated";
 import { readEvents } from "./sse";
 
@@ -11,6 +12,11 @@ export interface Dials {
   complexity: number;
   luck: number;
   mode: PlayMode;
+  family?: "engine" | "map" | "grid" | "bluff";
+  interaction?: "gentle" | "some" | "cutthroat";
+  theme?: "nature" | "history" | "fantasy" | "scifi";
+  /** Library mechanics (catalog ids) to build the game around. */
+  mustUse?: string[];
 }
 
 /** The designer's plan, as far as the live view shows it (GameSpec in apps/server/src/agent/spec.ts). */
@@ -81,6 +87,8 @@ export interface Generation {
   surprise: boolean;
   started: number;
   idea: string;
+  /** The mechanics the player asked the game to be built around, by name. */
+  asked?: string[];
   plan?: Plan;
   mechanics?: Mechanic[];
   /** When the plan and the mechanics arrived. */
@@ -218,7 +226,17 @@ export function useGeneration(onReady: (game: GameModule) => void) {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
-      let g: Generation = { surprise: invented, started: Date.now(), idea: prompt.trim(), attempt: 0, writing: false, code: "", checks: [], rounds: [] };
+      let g: Generation = {
+        surprise: invented,
+        started: Date.now(),
+        idea: prompt.trim(),
+        asked: dials.mustUse?.map(mechanicLabel),
+        attempt: 0,
+        writing: false,
+        code: "",
+        checks: [],
+        rounds: [],
+      };
       const update = (next: Generation) => {
         g = next;
         if (!abort.signal.aborted) setGeneration(next);

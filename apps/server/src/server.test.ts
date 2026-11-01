@@ -3,9 +3,11 @@ import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
 import { revisedTitle } from "./store";
-import { ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
+import { cleanDials } from "./agent/dials";
+import { ALL_SETTINGS, ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
+import type { Dials } from "./agent/spec";
 import { ModelClient } from "./meta/client";
-import { extractCode } from "./agent/prompts";
+import { extractCode, specMessages } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
 import { encodePng, pngSize } from "./art/png";
@@ -199,18 +201,63 @@ describe("revisions", () => {
 
 describe("surprise ideas", () => {
   const dials = { minPlayers: 3, maxPlayers: 5, playMinutes: 45, complexity: 3, luck: 0.2, mode: "hidden-role" as const };
+  const asked = (d: Dials, random: () => number) => JSON.parse(ideaMessages(d, ["Fenlight"], random)[1].content);
 
   it("draw a setting and a mechanic that fits the mode, and name the games to avoid", () => {
-    const asked = (random: () => number) => JSON.parse(ideaMessages(dials, ["Fenlight"], random)[1].content);
-    const first = asked(() => 0);
-    expect(first).toMatchObject({ setting: SETTINGS[0], builtAround: SPINES["hidden-role"][0], dials, avoid: ["Fenlight"] });
-    expect(asked(() => 0.999)).toMatchObject({ setting: SETTINGS.at(-1), builtAround: SPINES["hidden-role"].at(-1) });
-    expect(asked(() => 0.5).builtAround).not.toBe(first.builtAround);
+    const first = asked(dials, () => 0);
+    expect(first).toMatchObject({ setting: ALL_SETTINGS[0], builtAround: SPINES["hidden-role"][0].spine, dials, avoid: ["Fenlight"] });
+    expect(asked(dials, () => 0.999)).toMatchObject({ setting: ALL_SETTINGS.at(-1), builtAround: SPINES["hidden-role"].at(-1)!.spine });
+    expect(asked(dials, () => 0.5).builtAround).not.toBe(first.builtAround);
+  });
+
+  it("keep to the player's theme, game type and mechanics", () => {
+    const versus = { ...dials, mode: "competitive" as const };
+    for (const random of [() => 0, () => 0.5, () => 0.999]) {
+      const idea = asked({ ...versus, theme: "scifi", family: "map" }, random);
+      expect(SETTINGS.scifi).toContain(idea.setting);
+      expect(SPINES.competitive.filter((s) => s.family === "map").map((s) => s.spine)).toContain(idea.builtAround);
+    }
+    // A mode with no spine of that type still gets one of its own.
+    expect(SPINES.cooperative.map((s) => s.spine)).toContain(asked({ ...dials, mode: "cooperative", family: "bluff" }, () => 0.5).builtAround);
+    const built = asked({ ...versus, mustUse: ["mech:worker-placement", "mech:area-control"] }, () => 0);
+    expect(built.builtAround).toBe("Worker placement and Area control");
+    expect(built.dials.mustUse).toEqual(["Worker placement", "Area control"]);
   });
 
   it("return the model's idea without stray whitespace", async () => {
     const llm = { chatJson: async () => ({ idea: "  Rival ferry captains race cargo across a delta.\n" }) } as unknown as ModelClient;
     expect(await inventIdea(llm, dials, [])).toBe("Rival ferry captains race cargo across a delta.");
+  });
+});
+
+describe("dials", () => {
+  it("are checked before they reach the designer", () => {
+    expect(cleanDials({ minPlayers: 5, maxPlayers: 2, playMinutes: 999, complexity: 9, luck: -1, mode: "solo" })).toEqual({
+      minPlayers: 5,
+      maxPlayers: 5,
+      playMinutes: 180,
+      complexity: 5,
+      luck: 0,
+      mode: "competitive",
+    });
+    const picked = cleanDials({ family: "map", interaction: "cutthroat", theme: "fantasy", mustUse: ["mech:dice", "mech:nope", "game:hex", "mech:dice", "mech:voting", "mech:market", "mech:trading"] });
+    expect(picked).toMatchObject({ family: "map", interaction: "cutthroat", theme: "fantasy", mustUse: ["mech:dice", "mech:voting", "mech:market"] });
+    expect(cleanDials({ family: "race", interaction: "loud", theme: "noir", mustUse: "mech:dice" })).not.toHaveProperty("family");
+    expect(Object.keys(cleanDials(undefined))).toEqual(["minPlayers", "maxPlayers", "playMinutes", "complexity", "luck", "mode"]);
+  });
+
+  it("add to the designer's brief only what the player set", () => {
+    const basic = cleanDials({ minPlayers: 2, maxPlayers: 4, playMinutes: 60, complexity: 3, luck: 0.3, mode: "competitive" });
+    const [plain, ask] = specMessages({ prompt: "rival beekeepers", dials: basic });
+    expect(plain.content).not.toContain("The player also set");
+    expect(JSON.parse(ask.content)).toEqual({ prompt: "rival beekeepers", dials: basic });
+    const [system, user] = specMessages({ prompt: "rival beekeepers", dials: { ...basic, family: "grid", interaction: "gentle", theme: "nature", mustUse: ["mech:tile-placement"] } });
+    expect(system.content).toContain('family "grid"');
+    expect(system.content).toContain('interaction "gentle"');
+    expect(system.content).toContain("the natural world");
+    expect(JSON.parse(user.content).dials.mustUse).toEqual(["Tile placement"]);
+    // "some" is the default the brief already describes.
+    expect(specMessages({ prompt: "x", dials: { ...basic, interaction: "some" } })[0].content).toBe(plain.content);
   });
 });
 

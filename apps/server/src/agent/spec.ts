@@ -1,7 +1,12 @@
 import type { GameFamily, PlayMode } from "@boarddream/engine";
 import type { JsonSchema } from "../meta/client";
 
-/** The dials on the create screen. */
+/** How much players get in each other's way. */
+export type Interaction = "gentle" | "some" | "cutthroat";
+/** The genre of a game's setting. */
+export type Theme = "nature" | "history" | "fantasy" | "scifi";
+
+/** The dials on the create screen. The optional ones are left to the designer when absent. */
 export interface Dials {
   minPlayers: number;
   maxPlayers: number;
@@ -11,6 +16,12 @@ export interface Dials {
   /** 0 = pure strategy, 1 = pure luck. */
   luck: number;
   mode: PlayMode;
+  family?: Exclude<GameFamily, "race">;
+  interaction?: Interaction;
+  /** For Surprise me, and for ideas that name no setting. */
+  theme?: Theme;
+  /** Library mechanics (catalog ids) to build the game around, at most three. */
+  mustUse?: string[];
 }
 
 export interface GameRequest {
