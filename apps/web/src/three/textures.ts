@@ -29,7 +29,8 @@ const CH = 838;
 function texture(canvas: HTMLCanvasElement): CanvasTexture {
   const t = new CanvasTexture(canvas);
   t.colorSpace = SRGBColorSpace;
-  t.anisotropy = 8;
+  // Text on cards, mats and the board is often seen at a slant; three caps this at what the GPU allows.
+  t.anisotropy = 16;
   return t;
 }
 

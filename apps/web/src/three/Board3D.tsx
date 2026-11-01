@@ -202,7 +202,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
       invalidate();
     });
     t.colorSpace = SRGBColorSpace;
-    t.anisotropy = 8;
+    t.anisotropy = 16;
     return () => {
       alive = false;
       t.dispose();
