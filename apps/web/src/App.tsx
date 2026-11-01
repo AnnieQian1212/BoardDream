@@ -50,7 +50,10 @@ function hasWebGL(): boolean {
     return false;
   }
 }
-const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames[0];
+/** A visitor first sees a game with a painted board, the table at its best. */
+const FIRST_GAME = "lantern-isles";
+const initialGame =
+  referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames.find((g) => g.meta.id === FIRST_GAME) ?? referenceGames[0];
 
 /** A logged move, with the state it was made from so each seat can have it described from its own view. */
 interface MatchEntry extends LogEntry {
