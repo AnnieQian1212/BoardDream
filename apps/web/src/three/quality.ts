@@ -3,8 +3,8 @@
  * these mostly decide how expensive each animated frame is.
  *
  * - lowest: 1x pixels, no shadow maps, glowing cells cast no light, sparse grass
- * - low: up to 1.25x pixels, no shadow maps (integrated and mobile GPUs start here)
- * - medium: up to 1.5x pixels, soft shadow maps (discrete GPUs start here)
+ * - low: up to 1.5x pixels, no shadow maps (integrated and mobile GPUs start here)
+ * - medium: up to 2x pixels, soft shadow maps (discrete GPUs start here)
  * - high: up to 2x pixels, shadow maps and ambient occlusion (opt in with ?quality=high)
  *
  * If animation runs below ~30 fps the table steps down a tier and remembers it.
@@ -29,7 +29,9 @@ const STORAGE_KEY = "boarddream:quality";
 
 export function settings(tier: Tier): Quality {
   const device = window.devicePixelRatio || 1;
-  const cap = { lowest: 1, low: 1.25, medium: 1.5, high: 2 }[tier];
+  // Text on cards, boards and mats needs the screen's own pixel ratio to read sharply: a 150%
+  // scaled laptop screen is 1.5x, so even the low tier draws at that.
+  const cap = { lowest: 1, low: 1.5, medium: 2, high: 2 }[tier];
   return {
     tier,
     dpr: Math.min(device, cap),

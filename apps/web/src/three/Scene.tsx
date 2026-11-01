@@ -16,7 +16,6 @@ import { reducedMotion, step } from "./motion";
 import { Pile3D } from "./Pile3D";
 import type { Quality } from "./quality";
 import { InkViewport } from "./Ink";
-import { SharpWhenStill } from "./SharpWhenStill";
 import { tableTexture, textureUpdates } from "./textures";
 
 export type { Insets } from "./camera";
@@ -62,7 +61,6 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
       <CameraRig layout={layout} insets={insets} />
       <InkViewport />
       <FrameMonitor onSlow={onSlow} />
-      <SharpWhenStill dpr={quality.dpr} />
       <Lights center={center} extent={extent} quality={quality} />
       <Environment resolution={128} environmentIntensity={0.5}>
         <Lightformer form="rect" intensity={2} color="#fffaf0" position={[-20, 60, 10]} rotation-x={Math.PI / 2} scale={[80, 50, 1]} />
