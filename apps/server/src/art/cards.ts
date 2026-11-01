@@ -11,7 +11,7 @@ const ROOT = new URL("../../../../data/art/", import.meta.url);
 
 /** The house style every deck shares, so generated games look like they belong to one product. */
 export const HOUSE_STYLE =
-  "Soft watercolor and fine ink illustration on warm cream paper, gentle muted palette, one centered subject with breathing room, light paper texture, no text, no letters, no numbers, no border, no frame";
+  "Storybook illustration with confident hand-inked dark brown outlines and flat, softly shaded colors in a warm muted palette of ochre, rust, moss green and slate blue, light paper grain on cream paper, one centered subject with breathing room, no text, no letters, no numbers, no border, no frame";
 
 const CONCURRENCY = 4;
 

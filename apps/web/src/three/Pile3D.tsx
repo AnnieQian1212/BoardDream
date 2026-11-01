@@ -11,6 +11,7 @@ import {
   type Mesh,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { Ink } from "./Ink";
 import { setCursor, setHover } from "./hover";
 import type { PileItem } from "./layout";
 import { step } from "./motion";
@@ -78,11 +79,11 @@ const noRaycast = () => null;
 function Material({ shape, color }: { shape: TokenShape; color: string }) {
   switch (shape) {
     case "bead":
-      return <meshStandardMaterial color={color} roughness={0.12} metalness={0.05} />;
+      return <meshStandardMaterial color={color} roughness={0.3} />;
     case "crystal":
-      return <meshStandardMaterial color={color} roughness={0.2} flatShading emissive={color} emissiveIntensity={0.15} />;
+      return <meshStandardMaterial color={color} roughness={0.35} flatShading emissive={color} emissiveIntensity={0.15} />;
     case "coin":
-      return <meshStandardMaterial color={color} roughness={0.3} metalness={0.75} />;
+      return <meshStandardMaterial color={color} roughness={0.45} metalness={0.3} />;
     default:
       return <meshStandardMaterial color={color} roughness={0.72} />;
   }
@@ -112,6 +113,7 @@ function Token({ shape, color, slot, seed }: { shape: TokenShape; color: string;
     <group ref={ref} rotation={rest.rotation}>
       <mesh geometry={GEOMETRY[shape]} castShadow receiveShadow>
         <Material shape={shape} color={color} />
+        <Ink geometry={GEOMETRY[shape]} width={1.5} grounded />
       </mesh>
     </group>
   );
@@ -169,6 +171,7 @@ function PhysicsTokens({ rapier, shape, color, count, seed }: { rapier: NonNulla
       {Array.from({ length: count }, (_, i) => (
         <mesh key={i} ref={(m) => void (meshes.current[i] = m)} geometry={GEOMETRY[shape]} visible={false} castShadow receiveShadow>
           <Material shape={shape} color={color} />
+          <Ink geometry={GEOMETRY[shape]} width={1.5} grounded />
         </mesh>
       ))}
     </>

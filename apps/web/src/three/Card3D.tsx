@@ -17,6 +17,7 @@ import {
 } from "three";
 import { setCursor, setHover } from "./hover";
 import { step } from "./motion";
+import { Ink } from "./Ink";
 import { deckHeight } from "./Labels";
 import { CARD_H, CARD_W, MAT_TOP, type CardItem, type DeckItem } from "./layout";
 import { cardBack, cardFace, glowTexture } from "./textures";
@@ -156,9 +157,10 @@ export function Card3D({ item, resources, onPick }: CardProps) {
       <group ref={group} onPointerOver={over} onPointerOut={out} onClick={click}>
         <mesh geometry={SHARED.body} castShadow>
           <meshStandardMaterial color="#efe6d2" roughness={0.8} />
+          <Ink geometry={SHARED.body} width={1.5} />
         </mesh>
         <mesh geometry={SHARED.face} receiveShadow>
-          <meshStandardMaterial map={face} roughness={0.74} envMapIntensity={0.55} />
+          <meshStandardMaterial map={face} roughness={0.8} envMapIntensity={0.45} />
         </mesh>
         <mesh geometry={SHARED.back}>
           <meshStandardMaterial map={cardBack()} roughness={0.55} envMapIntensity={0.6} />
@@ -214,6 +216,7 @@ export function Deck3D({ item, onPick }: { item: DeckItem; onPick(id: string, x:
         <>
           <mesh geometry={deckGeometry(height)} castShadow>
             <meshStandardMaterial color="#e2d6bd" roughness={0.85} />
+            <Ink geometry={deckGeometry(height)} width={1.5} />
           </mesh>
           <mesh geometry={SHARED.face} position={[0, height - THICK / 2, 0]}>
             <meshStandardMaterial map={cardBack()} roughness={0.55} />

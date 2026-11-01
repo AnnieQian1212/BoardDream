@@ -5,7 +5,8 @@ import type { LucideIcon } from "lucide-react";
 export const FONT_DISPLAY = '"Fraunces Variable", Georgia, serif';
 export const FONT_UI = '"Inter Variable", system-ui, sans-serif';
 
-export const INK = "#2a241c";
+/** Dark brown ink: outlines, frames and printed text. */
+export const INK = "#2d2016";
 export const PAPER = "#f6efe0";
 export const CREAM = "#f4ece0";
 
@@ -133,6 +134,18 @@ export function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: numb
   }
   if (line) lines.push(line);
   return lines;
+}
+
+/** Text with an ink rim `rim` pixels wide, like a printed sticker. Font and alignment as set on ctx. */
+export function inkedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, rim: number, fill = "#ffffff") {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineWidth = rim;
+  ctx.strokeStyle = INK;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
 let grain: HTMLCanvasElement | undefined;

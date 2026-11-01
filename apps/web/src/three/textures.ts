@@ -5,7 +5,6 @@ import { iconFor, tagStyle } from "../icons";
 import {
   alpha,
   canvas2d,
-  CREAM,
   drawIcon,
   fitFont,
   FONT_DISPLAY,
@@ -14,8 +13,8 @@ import {
   hash,
   hexPath,
   INK,
+  inkedText,
   mix,
-  noise2,
   roundRect,
   seeded,
   softRect,
@@ -26,9 +25,9 @@ import {
 const CW = 600;
 const CH = 838;
 
-function texture(canvas: HTMLCanvasElement, color = true): CanvasTexture {
+function texture(canvas: HTMLCanvasElement): CanvasTexture {
   const t = new CanvasTexture(canvas);
-  if (color) t.colorSpace = SRGBColorSpace;
+  t.colorSpace = SRGBColorSpace;
   t.anisotropy = 8;
   return t;
 }
@@ -73,27 +72,27 @@ export function cardFace(card: CardView, resources: Map<string, ResourceSpec>): 
 function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string, number][], resources: Map<string, ResourceSpec>, art?: HTMLImageElement) {
   const { color: tag, icon } = tagStyle(card.tags?.[0]);
 
-  // Card stock.
-  const paper = ctx.createLinearGradient(0, 0, CW, CH);
-  paper.addColorStop(0, "#fbf6ea");
-  paper.addColorStop(1, "#ecdfc3");
+  // Card stock, framed in ink with a band of the card's tag color.
+  const paper = ctx.createLinearGradient(0, 0, 0, CH);
+  paper.addColorStop(0, "#faf2df");
+  paper.addColorStop(1, "#f1e3c5");
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, CW, CH);
   ctx.fillStyle = grainPattern(ctx);
   ctx.fillRect(0, 0, CW, CH);
-  roundRect(ctx, 16, 16, CW - 32, CH - 32, 26);
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = alpha(tag, 0.6);
+  roundRect(ctx, 20, 20, CW - 40, CH - 40, 24);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = INK;
   ctx.stroke();
-  roundRect(ctx, 27, 27, CW - 54, CH - 54, 19);
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = alpha(INK, 0.16);
+  roundRect(ctx, 30, 30, CW - 60, CH - 60, 17);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = alpha(tag, 0.55);
   ctx.stroke();
 
   // Illustration window.
   const [ax, ay, aw, ah] = [42, 120, CW - 84, 352];
   ctx.save();
-  roundRect(ctx, ax, ay, aw, ah, 18);
+  roundRect(ctx, ax, ay, aw, ah, 14);
   ctx.clip();
   if (art) {
     // Painted art leaves a wide paper margin; zoom in so the subject fills the window.
@@ -102,68 +101,50 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
   } else {
     paintWash(ctx, tag, icon, ax, ay, aw, ah, hash(card.title));
   }
-  const vignette = ctx.createRadialGradient(ax + aw / 2, ay + ah / 2, ah * 0.35, ax + aw / 2, ay + ah / 2, aw * 0.72);
-  vignette.addColorStop(0, "rgba(40, 25, 10, 0)");
-  vignette.addColorStop(1, "rgba(40, 25, 10, 0.3)");
+  const vignette = ctx.createRadialGradient(ax + aw / 2, ay + ah / 2, ah * 0.4, ax + aw / 2, ay + ah / 2, aw * 0.75);
+  vignette.addColorStop(0, "rgba(45, 32, 22, 0)");
+  vignette.addColorStop(1, "rgba(45, 32, 22, 0.22)");
   ctx.fillStyle = vignette;
   ctx.fillRect(ax, ay, aw, ah);
   ctx.restore();
-  roundRect(ctx, ax, ay, aw, ah, 18);
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = alpha(INK, 0.4);
+  roundRect(ctx, ax, ay, aw, ah, 14);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = INK;
   ctx.stroke();
 
-  // Cost pills, top left.
+  // Cost pills, top left: flat color, inked edge, white figures with an ink rim.
   const pillW = Math.min(112, (CW - 200 - 10 * (costs.length - 1)) / Math.max(1, costs.length));
   costs.forEach(([id, n], i) => {
     const res = resources.get(id);
     const color = res?.color ?? "#7d8a84";
     const x = 42 + i * (pillW + 10);
-    ctx.save();
-    ctx.shadowColor = "rgba(30, 20, 5, 0.35)";
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 3;
-    const fill = ctx.createLinearGradient(0, 40, 0, 102);
-    fill.addColorStop(0, mix(color, "#ffffff", 0.2));
-    fill.addColorStop(1, mix(color, "#000000", 0.18));
     roundRect(ctx, x, 40, pillW, 62, 31);
-    ctx.fillStyle = fill;
+    ctx.fillStyle = color;
     ctx.fill();
-    ctx.restore();
-    roundRect(ctx, x + 1.5, 41.5, pillW - 3, 59, 29.5);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = INK;
     ctx.stroke();
     drawIcon(ctx, iconFor(res?.icon), x + 31, 71, 32, "#ffffff", 2.5);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `700 34px ${FONT_UI}`;
+    ctx.font = `800 34px ${FONT_UI}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(String(n), x + pillW - 28, 73);
+    inkedText(ctx, String(n), x + pillW - 28, 73, 6);
   });
 
-  // Points medallion, top right.
+  // Points, top right: an ochre hexagon.
   if (card.points) {
-    const [cx, cy, r] = [CW - 80, 71, 42];
-    ctx.save();
-    ctx.shadowColor = "rgba(30, 20, 5, 0.4)";
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-    const gold = ctx.createRadialGradient(cx - 12, cy - 14, 4, cx, cy, r);
-    gold.addColorStop(0, "#fff0bf");
-    gold.addColorStop(0.45, "#e9b950");
-    gold.addColorStop(1, "#a8741f");
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = gold;
+    const [cx, cy, r] = [CW - 82, 71, 46];
+    hexPath(ctx, cx, cy, r);
+    ctx.fillStyle = "#e7b54f";
     ctx.fill();
-    ctx.restore();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r - 6, 0, Math.PI * 2);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(90, 60, 10, 0.45)";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = INK;
     ctx.stroke();
-    ctx.fillStyle = "#3a2a0e";
+    hexPath(ctx, cx, cy, r - 9);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = alpha(INK, 0.35);
+    ctx.stroke();
+    ctx.fillStyle = INK;
     ctx.font = `700 42px ${FONT_DISPLAY}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -200,11 +181,11 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
   // Rules text box.
   if (card.text) {
     const [bx, by, bw, bh] = [46, 598, CW - 92, CH - 598 - 48];
-    roundRect(ctx, bx, by, bw, bh, 16);
-    ctx.fillStyle = alpha(tag, 0.09);
+    roundRect(ctx, bx, by, bw, bh, 14);
+    ctx.fillStyle = alpha(tag, 0.1);
     ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = alpha(tag, 0.25);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = alpha(INK, 0.45);
     ctx.stroke();
     let size = 31;
     let lines: string[] = [];
@@ -213,7 +194,7 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
       lines = wrap(ctx, card.text, bw - 44);
       if (lines.length * size * 1.3 <= bh - 30) break;
     }
-    ctx.fillStyle = "#43392c";
+    ctx.fillStyle = mix(INK, "#6b5a45", 0.4);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const lh = size * 1.3;
@@ -264,110 +245,171 @@ function paintWash(ctx: CanvasRenderingContext2D, tag: string, icon: LucideIcon,
 
 let back: CanvasTexture | undefined;
 
+const BACK = "#4d6b4a";
+
+/** Forest green stock scattered with inked leaves, a cream frame and the brand hexagon. */
 export function cardBack(): CanvasTexture {
   if (back) return back;
   const [canvas, ctx] = canvas2d(CW, CH);
-  const bg = ctx.createLinearGradient(0, 0, CW, CH);
-  bg.addColorStop(0, "#2d3550");
-  bg.addColorStop(1, "#161b2b");
+  const bg = ctx.createRadialGradient(CW / 2, CH / 2, 0, CW / 2, CH / 2, CH * 0.62);
+  bg.addColorStop(0, mix(BACK, "#ffffff", 0.08));
+  bg.addColorStop(1, mix(BACK, INK, 0.2));
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, CW, CH);
-  ctx.strokeStyle = "rgba(233, 190, 98, 0.12)";
-  ctx.lineWidth = 2;
-  for (let row = -1; row < 16; row++) {
-    for (let col = -1; col < 12; col++) {
-      hexPath(ctx, col * 56 + (row % 2) * 28, row * 49, 26);
-      ctx.stroke();
+  const rand = seeded(41);
+  for (let row = 0; row < 14; row++) {
+    for (let col = 0; col < 10; col++) {
+      const x = col * 64 + (row % 2) * 32 + (rand() - 0.5) * 14;
+      const y = row * 62 + (rand() - 0.5) * 14;
+      leaf(ctx, x, y, 17 + rand() * 7, rand() * Math.PI * 2, mix(BACK, INK, 0.38));
     }
   }
-  const glow = ctx.createRadialGradient(CW / 2, CH / 2, 0, CW / 2, CH / 2, CW * 0.6);
-  glow.addColorStop(0, "rgba(30, 36, 56, 0.95)");
-  glow.addColorStop(0.5, "rgba(30, 36, 56, 0.6)");
-  glow.addColorStop(1, "rgba(30, 36, 56, 0)");
-  ctx.fillStyle = glow;
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = grainPattern(ctx);
   ctx.fillRect(0, 0, CW, CH);
-  roundRect(ctx, 26, 26, CW - 52, CH - 52, 20);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "rgba(233, 190, 98, 0.75)";
+  ctx.globalAlpha = 1;
+  roundRect(ctx, 24, 24, CW - 48, CH - 48, 20);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#f1e3c2";
   ctx.stroke();
-  roundRect(ctx, 38, 38, CW - 76, CH - 76, 14);
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "rgba(233, 190, 98, 0.35)";
+  roundRect(ctx, 38, 38, CW - 76, CH - 76, 13);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(241, 227, 194, 0.55)";
   ctx.stroke();
-  const gold = ctx.createLinearGradient(CW / 2 - 110, CH / 2 - 130, CW / 2 + 110, CH / 2 + 110);
-  gold.addColorStop(0, "#f6d98b");
-  gold.addColorStop(1, "#c98a24");
-  hexPath(ctx, CW / 2, CH / 2 - 20, 118);
-  ctx.fillStyle = gold;
+  // A clearing in the leaves for the emblem.
+  const [cx, cy] = [CW / 2, CH / 2 - 20];
+  const clearing = ctx.createRadialGradient(cx, cy, 120, cx, cy, 175);
+  clearing.addColorStop(0, BACK);
+  clearing.addColorStop(1, alpha(BACK, 0));
+  ctx.fillStyle = clearing;
+  ctx.fillRect(cx - 180, cy - 180, 360, 360);
+  hexPath(ctx, cx, cy, 116);
+  ctx.fillStyle = "#e7b54f";
   ctx.fill();
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  hexPath(ctx, cx, cy, 100);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = alpha(INK, 0.4);
+  ctx.stroke();
   ctx.beginPath();
-  const [sx, sy, s] = [CW / 2, CH / 2 - 20, 62];
-  ctx.moveTo(sx, sy - s);
-  ctx.quadraticCurveTo(sx + 8, sy - 8, sx + s, sy);
-  ctx.quadraticCurveTo(sx + 8, sy + 8, sx, sy + s);
-  ctx.quadraticCurveTo(sx - 8, sy + 8, sx - s, sy);
-  ctx.quadraticCurveTo(sx - 8, sy - 8, sx, sy - s);
-  ctx.fillStyle = "#1c2236";
+  const s = 60;
+  ctx.moveTo(cx, cy - s);
+  ctx.quadraticCurveTo(cx + 8, cy - 8, cx + s, cy);
+  ctx.quadraticCurveTo(cx + 8, cy + 8, cx, cy + s);
+  ctx.quadraticCurveTo(cx - 8, cy + 8, cx - s, cy);
+  ctx.quadraticCurveTo(cx - 8, cy - 8, cx, cy - s);
+  ctx.fillStyle = INK;
   ctx.fill();
-  ctx.fillStyle = "#e9be62";
   ctx.font = `600 46px ${FONT_DISPLAY}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("BoardDream", CW / 2, CH / 2 + 172);
+  inkedText(ctx, "BoardDream", CW / 2, CH / 2 + 172, 8, "#f1e3c2");
   back = texture(canvas);
   return back;
 }
 
+/** A pointed leaf with a midrib, `size` pixels long. */
+function leaf(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, angle: number, color: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(-size, 0);
+  ctx.quadraticCurveTo(0, -size * 0.55, size, 0);
+  ctx.quadraticCurveTo(0, size * 0.55, -size, 0);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-size * 1.25, 0);
+  ctx.lineTo(size * 0.7, 0);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = mix(color, "#ffffff", 0.2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 // ---------- Table ----------
 
-let wood: { map: Texture; bump: Texture } | undefined;
+let wood: Texture | undefined;
 
-/** Light oak planks: long wavy grain lines, slow color drift along each plank, thin seams. */
-export function woodTextures(): { map: Texture; bump: Texture } {
+/**
+ * Honey planks drawn like an illustration: a flat tone per plank, a few hand-inked grain lines and
+ * knots, inked seams. Every line repeats across the width, so the texture tiles.
+ */
+export function tableTexture(): Texture {
   if (wood) return wood;
   const size = 1024;
   const plank = 128;
   const [canvas, ctx] = canvas2d(size, size);
-  const [bumpCanvas, bctx] = canvas2d(size, size);
-  const image = ctx.createImageData(size, size);
-  const bump = bctx.createImageData(size, size);
-  const drift = noise2(11, 4, 64);
-  const wave = noise2(23, 8, 32);
-  const fine = noise2(37, 128, 1024);
-  const tones = Array.from({ length: size / plank }, (_, i) => seeded(i + 3)() * 0.2 - 0.1);
-  const offsets = Array.from({ length: size / plank }, (_, i) => Math.floor(seeded(i + 99)() * size));
-  const dark = [176, 136, 96];
-  const light = [234, 208, 170];
-  for (let y = 0; y < size; y++) {
-    const p = Math.floor(y / plank);
-    const ly = y % plank;
-    const fy = y / size;
-    for (let x = 0; x < size; x++) {
-      const sx = ((x + offsets[p]) % size) / size;
-      const d = drift(sx * 4, fy * 64);
-      const w = wave(sx * 8, fy * 32);
-      // Grain: many thin lines along the plank whose phase wanders slowly.
-      const g = Math.sin((fy * 260 + w * 5 + d * 2) * Math.PI * 2);
-      const line = Math.max(0, g - 0.55) / 0.45;
-      let v = 0.6 + tones[p] + (d - 0.5) * 0.36 - line * 0.2 + (fine(sx * 128, fy * 1024) - 0.5) * 0.1;
-      if (ly < 2 || ly > plank - 2) v *= 0.55;
-      v = Math.min(1, Math.max(0, v));
-      const i = (y * size + x) * 4;
-      for (let c = 0; c < 3; c++) image.data[i + c] = dark[c] + (light[c] - dark[c]) * v;
-      image.data[i + 3] = 255;
-      bump.data[i] = bump.data[i + 1] = bump.data[i + 2] = 255 * (v - line * 0.2);
-      bump.data[i + 3] = 255;
+  const rand = seeded(5);
+  const curve = (y: number, waves: { amp: number; k: number; phase: number }[]) => {
+    ctx.beginPath();
+    for (let x = 0; x <= size; x += 8) {
+      const dy = waves.reduce((sum, w) => sum + w.amp * Math.sin((2 * Math.PI * w.k * x) / size + w.phase), 0);
+      if (x === 0) ctx.moveTo(x, y + dy);
+      else ctx.lineTo(x, y + dy);
     }
+    ctx.stroke();
+  };
+  for (let p = 0; p < size / plank; p++) {
+    const top = p * plank;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top, size, plank);
+    ctx.clip();
+    const tone = mix("#ebcd9c", "#d8b07a", 0.15 + rand() * 0.55);
+    const fill = ctx.createLinearGradient(0, top, 0, top + plank);
+    fill.addColorStop(0, mix(tone, "#fff4dc", 0.12));
+    fill.addColorStop(1, mix(tone, "#a87a45", 0.08));
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, top, size, plank);
+    // Grain: long, gently wavy strokes.
+    ctx.lineCap = "round";
+    for (let i = 0; i < 7; i++) {
+      ctx.lineWidth = 1 + rand() * 1.8;
+      ctx.strokeStyle = alpha(INK, 0.07 + rand() * 0.12);
+      curve(top + 8 + rand() * (plank - 16), [
+        { amp: 2 + rand() * 4, k: 1 + Math.floor(rand() * 3), phase: rand() * 6.3 },
+        { amp: rand() * 2, k: 4 + Math.floor(rand() * 4), phase: rand() * 6.3 },
+      ]);
+    }
+    // A knot now and then, drawn again a width away so it wraps.
+    if (rand() < 0.3) {
+      const [kx, ky] = [rand() * size, top + 30 + rand() * (plank - 60)];
+      for (const ox of [-size, 0, size]) {
+        for (let ring = 0; ring < 3; ring++) {
+          ctx.beginPath();
+          ctx.ellipse(kx + ox, ky, 9 + ring * 9, 3.5 + ring * 3.5, 0, 0, Math.PI * 2);
+          ctx.lineWidth = ring === 0 ? 2.5 : 1.4;
+          ctx.strokeStyle = alpha(INK, ring === 0 ? 0.2 : 0.1);
+          ctx.stroke();
+        }
+      }
+    }
+    // Where two boards meet end to end.
+    const joint = rand() * size;
+    ctx.beginPath();
+    ctx.moveTo(joint, top + 3);
+    ctx.lineTo(joint, top + plank - 3);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = alpha(INK, 0.18);
+    ctx.stroke();
+    ctx.restore();
+    // Seam: an ink line with a lit edge below it.
+    ctx.fillStyle = alpha(INK, 0.32);
+    ctx.fillRect(0, top, size, 2.5);
+    ctx.fillStyle = "rgba(255, 246, 225, 0.35)";
+    ctx.fillRect(0, top + 2.5, size, 1.5);
   }
-  ctx.putImageData(image, 0, 0);
-  bctx.putImageData(bump, 0, 0);
-  const map = texture(canvas);
-  const bumpMap = texture(bumpCanvas, false);
-  for (const t of [map, bumpMap]) {
-    t.wrapS = t.wrapT = RepeatWrapping;
-    t.repeat.set(3, 3);
-  }
-  wood = { map, bump: bumpMap };
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = grainPattern(ctx);
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalAlpha = 1;
+  wood = texture(canvas);
+  wood.wrapS = wood.wrapT = RepeatWrapping;
+  wood.repeat.set(3, 3);
   return wood;
 }
 
@@ -376,10 +418,16 @@ export function woodTextures(): { map: Texture; bump: Texture } {
 const mats = new Map<string, CanvasTexture>();
 const PX = 24;
 
-export const NAVY = "#24304a";
-export const GOLD_INK = "#e3b65c";
+/** Printed card stock: seat mats, shared supply boards and the board's slab, and their cut edges. */
+export const PARCHMENT = "#f6ead0";
+export const SUPPLY = "#ecdbb3";
+export const BOARD = "#ecdcb3";
+export const KRAFT = "#c9a46c";
 
-/** Seat mats are pastel cloth with a band in the seat color; shared supplies are a navy board with gold trim. */
+/**
+ * Seat mats are parchment with a header in the seat color; shared supplies are a kraft-toned board
+ * with an inked rule under the name. Both have an inked border, like a printed player board.
+ */
 export function matTexture(width: number, depth: number, color: string, title: string, shared: boolean): CanvasTexture {
   const key = [width.toFixed(1), depth.toFixed(1), color, title, shared].join("|");
   return cached(mats, key, () => {
@@ -391,53 +439,38 @@ export function matTexture(width: number, depth: number, color: string, title: s
     roundRect(ctx, 0, 0, w, h, 0.7 * u);
     ctx.save();
     ctx.clip();
-    const base = shared ? NAVY : mix(color, "#f6f1e7", 0.82);
-    const bg = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
-    bg.addColorStop(0, mix(base, "#ffffff", shared ? 0.08 : 0.25));
-    bg.addColorStop(1, mix(base, "#000000", shared ? 0.18 : 0.04));
+    const base = shared ? SUPPLY : mix(color, PARCHMENT, 0.86);
+    const bg = ctx.createRadialGradient(w * 0.5, h * 0.45, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
+    bg.addColorStop(0, mix(base, "#ffffff", 0.18));
+    bg.addColorStop(1, mix(base, "#8a6a40", 0.06));
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-    // Woven cloth.
-    ctx.strokeStyle = shared ? "rgba(255, 255, 255, 0.025)" : "rgba(60, 40, 20, 0.035)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i < w + h; i += 5) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i - h, h);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = shared ? 0.5 : 0.35;
+    ctx.globalAlpha = 0.45;
     ctx.fillStyle = grainPattern(ctx);
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
-    if (shared) {
-      ctx.fillStyle = "rgba(227, 182, 92, 0.85)";
-      ctx.fillRect(1.2 * u, 3 * u - 1, w - 2.4 * u, 2);
-    } else {
-      const band = ctx.createLinearGradient(0, 0, 0, 3 * u);
-      band.addColorStop(0, mix(color, "#ffffff", 0.08));
-      band.addColorStop(1, mix(color, "#000000", 0.06));
-      ctx.fillStyle = band;
+    const rule = Math.max(2, 0.07 * u);
+    if (!shared) {
+      ctx.fillStyle = color;
       ctx.fillRect(0, 0, w, 3 * u);
     }
+    ctx.fillStyle = INK;
+    if (shared) ctx.fillRect(1.2 * u, 3 * u - rule / 2, w - 2.4 * u, rule);
+    else ctx.fillRect(0, 3 * u - rule / 2, w, rule);
     ctx.restore();
-    // Stitched edge.
+    // Inked border.
     roundRect(ctx, 0.45 * u, 0.45 * u, w - 0.9 * u, h - 0.9 * u, 0.45 * u);
-    ctx.setLineDash([0.45 * u, 0.3 * u]);
-    ctx.lineWidth = Math.max(2, 0.08 * u);
-    ctx.strokeStyle = shared ? alpha(GOLD_INK, 0.7) : alpha(mix(color, "#000000", 0.15), 0.45);
+    ctx.lineWidth = Math.max(2, 0.06 * u);
+    ctx.strokeStyle = alpha(INK, 0.75);
     ctx.stroke();
-    ctx.setLineDash([]);
     // Name.
-    ctx.fillStyle = shared ? GOLD_INK : "#ffffff";
     ctx.font = `600 ${1.25 * u}px ${FONT_DISPLAY}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-    ctx.shadowBlur = 0.15 * u;
-    ctx.shadowOffsetY = 0.05 * u;
-    ctx.fillText(title, 1.4 * u, 1.58 * u);
-    ctx.shadowColor = "transparent";
+    if (shared) {
+      ctx.fillStyle = INK;
+      ctx.fillText(title, 1.4 * u, 1.58 * u);
+    } else inkedText(ctx, title, 1.4 * u, 1.58 * u, Math.max(3, 0.16 * u));
     return texture(canvas);
   });
 }
@@ -494,8 +527,8 @@ const centroid = (polygon: [number, number][]): [number, number] => [
 ];
 
 /**
- * Printed over the whole board slab: a gold inlay line in the margin, then cell labels (ink on
- * tiles, cream on the board itself for text-only cells). `margin` is in geometry units.
+ * Printed over the whole board slab: an inked frame in the margin, then cell labels, in ink on the
+ * tiles and on the board itself for text-only cells. `margin` is in geometry units.
  */
 /** Line height of two-line board labels, in font sizes. */
 const LINE = 1.1;
@@ -507,12 +540,12 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
   const [canvas, ctx] = canvas2d(w * scale, h * scale);
   const inset = margin * 0.45 * scale;
   roundRect(ctx, inset, inset, canvas.width - 2 * inset, canvas.height - 2 * inset, inset * 0.6);
-  ctx.lineWidth = Math.max(2, scale * 0.025);
-  ctx.strokeStyle = "rgba(233, 190, 98, 0.55)";
+  ctx.lineWidth = Math.max(2.5, scale * 0.03);
+  ctx.strokeStyle = alpha(INK, 0.7);
   ctx.stroke();
   roundRect(ctx, inset * 1.35, inset * 1.35, canvas.width - 2.7 * inset, canvas.height - 2.7 * inset, inset * 0.4);
-  ctx.lineWidth = Math.max(1, scale * 0.01);
-  ctx.strokeStyle = "rgba(233, 190, 98, 0.25)";
+  ctx.lineWidth = Math.max(1.5, scale * 0.012);
+  ctx.strokeStyle = alpha(INK, 0.35);
   ctx.stroke();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -540,7 +573,7 @@ export function boardPrint(geometry: Geometry, margin: number): CanvasTexture {
       if (size > best.size * 1.15) best = { lines, size };
     }
     ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
-    ctx.fillStyle = isLabel ? CREAM : alpha(INK, 0.85);
+    ctx.fillStyle = isLabel ? INK : alpha(INK, 0.85);
     best.lines.forEach((line, i) => {
       const dy = (i - (best.lines.length - 1) / 2) * LINE * best.size;
       ctx.fillText(line, (cx + margin) * scale, (cy + margin) * scale + dy);
@@ -554,11 +587,10 @@ const pieceLabels = new Map<string, CanvasTexture>();
 export function pieceLabel(label: string): CanvasTexture {
   return cached(pieceLabels, label, () => {
     const [canvas, ctx] = canvas2d(128, 128);
-    ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    fitFont(ctx, label, 104, 84, 30, (size) => `700 ${size}px ${FONT_DISPLAY}`);
-    ctx.fillText(label, 64, 70);
+    fitFont(ctx, label, 96, 80, 30, (size) => `700 ${size}px ${FONT_DISPLAY}`);
+    inkedText(ctx, label, 64, 70, 10);
     return texture(canvas);
   });
 }

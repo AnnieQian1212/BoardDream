@@ -15,7 +15,8 @@ import { Mat3D } from "./Mat3D";
 import { reducedMotion, step } from "./motion";
 import { Pile3D } from "./Pile3D";
 import type { Quality } from "./quality";
-import { textureUpdates, woodTextures } from "./textures";
+import { InkViewport } from "./Ink";
+import { tableTexture, textureUpdates } from "./textures";
 
 export type { Insets } from "./camera";
 
@@ -58,6 +59,7 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
     <>
       <color attach="background" args={["#e6dac8"]} />
       <CameraRig layout={layout} insets={insets} />
+      <InkViewport />
       <FrameMonitor onSlow={onSlow} />
       <Lights center={center} extent={extent} quality={quality} />
       <Environment resolution={128} environmentIntensity={0.5}>
@@ -174,11 +176,10 @@ function Lights({ center, extent, quality }: { center: Vec3; extent: number; qua
 }
 
 function TableSurface({ center }: { center: Vec3 }) {
-  const { map, bump } = woodTextures();
   return (
     <mesh rotation-x={-Math.PI / 2} position={[center[0], 0, center[2]]} receiveShadow raycast={() => null}>
       <planeGeometry args={[420, 420]} />
-      <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.4} roughness={0.62} envMapIntensity={0.4} />
+      <meshStandardMaterial map={tableTexture()} roughness={0.85} envMapIntensity={0.3} />
     </mesh>
   );
 }

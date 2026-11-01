@@ -1,8 +1,8 @@
 import type { GeometryCell, GeometryPiece } from "@boarddream/engine";
-import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import {
   BufferGeometry,
   Color,
@@ -29,7 +29,8 @@ import { setCursor } from "./hover";
 import type { BoardItem } from "./layout";
 import { reducedMotion, step } from "./motion";
 import { hash, mix } from "./paint";
-import { blobTexture, boardPrint, NAVY, pieceLabel } from "./textures";
+import { Ink } from "./Ink";
+import { BOARD, blobTexture, boardPrint, pieceLabel } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
 import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow } from "./growth";
@@ -253,15 +254,18 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   }, [water, labels, position[0], position[2], width, depth]);
   // Pieces on a pool stand on its jelly.
   const poolCells = useMemo(() => new Set(geometry.cells.filter((c) => !c.segments && isWaterCell(c)).map((c) => c.id)), [geometry]);
+  const slab = useMemo(() => new RoundedBoxGeometry(width, SLAB, depth, 3, 0.3), [width, depth]);
+  useEffect(() => () => slab.dispose(), [slab]);
   const glowing = useMemo(
     () => geometry.cells.filter((c) => c.glow && c.kind !== "label").map((c) => ({ at: toWorld(...centroid(c.polygon)), color: c.glow! })),
     [geometry, k],
   );
   return (
     <group position={position}>
-      <RoundedBox args={[width, SLAB, depth]} radius={0.3} smoothness={3} position={[0, SLAB / 2, 0]} castShadow receiveShadow raycast={noRaycast}>
-        <meshStandardMaterial color={NAVY} roughness={0.7} />
-      </RoundedBox>
+      <mesh geometry={slab} position={[0, SLAB / 2, 0]} castShadow receiveShadow raycast={noRaycast}>
+        <meshStandardMaterial color={BOARD} roughness={0.9} />
+        <Ink geometry={slab} width={2.5} grounded />
+      </mesh>
       {geometry.cells
         .filter((cell) => cell.kind !== "label")
         .map((cell) => (
@@ -503,9 +507,10 @@ function Tile({ cell, k, at, target, painted, water: boardWater, grass, chip, pr
         color={painted ? tint : base}
         emissive={target || !glowColor ? highlight : glowColor}
         emissiveIntensity={0}
-        roughness={painted ? 0.72 : 0.68}
+        roughness={painted ? 0.8 : 0.82}
         {...(glitter && { onBeforeCompile: glitter, defines: { GLITTER: "" } })}
       />
+      <Ink geometry={geometry} width={SPOTS.has(cell.kind ?? "") ? 1.5 : 2} grounded />
       {decal && (
         <mesh ref={decalMesh} geometry={decal} position={[0, TILE_TOP - SLAB + 0.02, 0]} visible={false} raycast={noRaycast}>
           <meshStandardMaterial map={print.texture} transparent roughness={0.8} depthWrite={false} />
@@ -570,6 +575,9 @@ const DISC = (() => {
   return new LatheGeometry(points, 40);
 })();
 
+/** A painted wooden block with softened edges, one unit across. */
+const CUBE = new RoundedBoxGeometry(1, 1, 1, 3, 0.11);
+
 /** A standing worker: wide base, waist and a round head, as tall as PAWN_HEIGHT radii. */
 const PAWN_HEIGHT = 2.4;
 const PAWN = (() => {
@@ -617,12 +625,14 @@ function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [n
         <meshBasicMaterial map={blobTexture()} color="#1a1008" transparent opacity={0.45} depthWrite={false} />
       </mesh>
       {square ? (
-        <RoundedBox args={[2 * r, 2 * r, 2 * r]} radius={r * 0.22} smoothness={4} position={[0, r, 0]} castShadow receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={color} roughness={0.35} />
-        </RoundedBox>
+        <mesh geometry={CUBE} scale={2 * r} position={[0, r, 0]} castShadow receiveShadow raycast={noRaycast}>
+          <meshStandardMaterial color={color} roughness={0.55} />
+          <Ink geometry={CUBE} width={2} grounded />
+        </mesh>
       ) : (
         <mesh geometry={pawn ? PAWN : DISC} scale={[r, height, r]} castShadow receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={color} roughness={0.3} />
+          <meshStandardMaterial color={color} roughness={0.55} />
+          <Ink geometry={pawn ? PAWN : DISC} width={2} grounded />
         </mesh>
       )}
       {piece.label && (
