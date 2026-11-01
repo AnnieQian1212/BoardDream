@@ -48,6 +48,29 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
     }
   });
 
+  test("seats rivals beside the middle and lets no mat overlap another or the board", () => {
+    for (const { layout } of playout(game, 5, 20)) {
+      const rects = [
+        ...layout.mats.map((m) => ({ id: m.id, x: m.position[0], z: m.position[2], w: m.width, d: m.depth })),
+        ...(layout.board ? [{ id: "board", x: layout.board.position[0], z: layout.board.position[2], w: layout.board.width, d: layout.board.depth }] : []),
+      ];
+      for (const [i, a] of rects.entries()) {
+        for (const b of rects.slice(i + 1)) {
+          const apart = Math.abs(a.x - b.x) >= (a.w + b.w) / 2 - 0.01 || Math.abs(a.z - b.z) >= (a.d + b.d) / 2 - 0.01;
+          expect(apart, `${a.id} overlaps ${b.id}`).toBe(true);
+        }
+      }
+      // Rival mats stand wholly to the left or right of the board and the shared supply.
+      const middle = layout.mats.filter((m) => m.shared);
+      const xs = [...middle.map((m) => [m.position[0] - m.width / 2, m.position[0] + m.width / 2]), ...(layout.board ? [[layout.board.position[0] - layout.board.width / 2, layout.board.position[0] + layout.board.width / 2]] : [])].flat();
+      if (xs.length === 0) continue;
+      const [lo, hi] = [Math.min(...xs), Math.max(...xs)];
+      for (const m of layout.mats.filter((m) => !m.shared && m.title !== "You")) {
+        expect(m.position[0] + m.width / 2 <= lo + 0.01 || m.position[0] - m.width / 2 >= hi - 0.01, `${m.title} sits beside the middle`).toBe(true);
+      }
+    }
+  });
+
   test("the camera frames the whole table inside the uncovered part of the screen", () => {
     const [width, height] = [1680, 1050];
     const insets = { left: 326, right: 326, top: 66, bottom: 92 };

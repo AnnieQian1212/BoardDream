@@ -1,6 +1,6 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { BarChart3, BookOpen, Maximize2, Minimize2, Printer, RotateCcw, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -17,6 +17,7 @@ import { RulesCard } from "./components/RulesCard";
 import { TableGuard } from "./components/TableGuard";
 import { TuningPanel } from "./components/TuningPanel";
 import { generatedSource, savedGames } from "./generated";
+import { useSidePanels } from "./sidePanels";
 import { useGeneration } from "./generation";
 import { decide, type Decision } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
@@ -37,6 +38,8 @@ const WATCH = query.has("watch");
 const FLAT = query.has("flat") || !hasWebGL();
 /** Screen space the floating side panels, top bar and move bar cover. */
 const PANEL_INSET = 326;
+/** Room left for a folded panel's tab at the screen's edge. */
+const TAB_INSET = 44;
 const TOP_INSET = 66;
 const BOTTOM_INSET = 92;
 
@@ -131,17 +134,18 @@ export function App() {
     };
   }, []);
 
-  // Focus mode hides the side panels so the table fills the screen (press F).
-  const [focus, setFocus] = useState(WATCH || window.innerWidth < 1100);
+  // Each side panel folds to a tab at the screen's edge, giving the table its room; F folds or
+  // opens both.
+  const { open: sides, toggle: toggleSide, toggleBoth: toggleSides } = useSidePanels(!WATCH && window.innerWidth >= 1100);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-      if (!typing && e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey) setFocus((f) => !f);
+      if (!typing && e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey) toggleSides();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [toggleSides]);
 
   // A game being made. Once it is ready it joins the picker and opens.
   const onReady = useCallback((g: GameModule) => {
@@ -183,9 +187,11 @@ export function App() {
   // While a game is made, its steps take the left column, the stage the rest; the right panels,
   // about the game that was on the table, step aside until the new one is ready.
   const making = Boolean(generation);
+  const leftOpen = sides.left || making;
+  const rightOpen = sides.right && !making;
   const insets = useMemo(
-    () => ({ left: focus && !making ? 0 : PANEL_INSET, right: focus || making ? 0 : PANEL_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
-    [focus, making],
+    () => ({ left: leftOpen ? PANEL_INSET : TAB_INSET, right: rightOpen ? PANEL_INSET : making ? 0 : TAB_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
+    [leftOpen, rightOpen, making],
   );
 
   // Bots take their turns one at a time. Muse Spark may take a few seconds on a social move; a
@@ -270,7 +276,7 @@ export function App() {
   const showDraft = Boolean(preview) && !draftFailed;
 
   return (
-    <div className={["app", focus && "focus", making && "making"].filter(Boolean).join(" ")}>
+    <div className={["app", !leftOpen && "left-folded", !rightOpen && "right-folded", making && "making"].filter(Boolean).join(" ")}>
       {generation && <GenerationStage generation={generation} previewing={showDraft} draftFailed={draftFailed} />}
       {/* Until a draft runs without a fault, the stage stands in for the table. */}
       {(!generation || showDraft || generation.done?.ok) && (
@@ -336,13 +342,36 @@ export function App() {
         <button type="button" className="ghost" onClick={() => setResults(true)} title="Every benchmark and measurement on one page">
           <BarChart3 size={15} /> Results
         </button>
-        <button type="button" className="ghost" onClick={() => setFocus(!focus)} title="Toggle the side panels (F)">
-          {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />} {focus ? "Panels" : "Focus"}
+        <button type="button" className="ghost" onClick={toggleSides} title="Fold or open both side panels (F)">
+          {sides.left || sides.right ? <Maximize2 size={15} /> : <Minimize2 size={15} />} {sides.left || sides.right ? "Focus" : "Panels"}
         </button>
         <button type="button" className="ghost" onClick={() => setMatch(startMatch(game, numPlayers, params))}>
           <RotateCcw size={15} /> New game
         </button>
       </header>
+
+      {!making &&
+        (leftOpen ? (
+          <button type="button" className="side-fold left" onClick={() => toggleSide("left")} title="Fold the panel away" aria-label="Fold the create panel away">
+            <ChevronsLeft size={16} />
+          </button>
+        ) : (
+          <button type="button" className="side-tab left" onClick={() => toggleSide("left")} title="Open the create panel">
+            <Sparkles size={15} />
+            <span>Dream up a game</span>
+          </button>
+        ))}
+      {!making &&
+        (rightOpen ? (
+          <button type="button" className="side-fold right" onClick={() => toggleSide("right")} title="Fold the panels away" aria-label="Fold the tuning panels away">
+            <ChevronsRight size={16} />
+          </button>
+        ) : (
+          <button type="button" className="side-tab right" onClick={() => toggleSide("right")} title="Open the tuning, balance and log panels">
+            <SlidersHorizontal size={15} />
+            <span>Tune the rules</span>
+          </button>
+        ))}
 
       <aside className="sidebar left">
         {generation ? (

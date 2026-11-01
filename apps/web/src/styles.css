@@ -231,16 +231,100 @@ button {
   right: 18px;
 }
 
-.app.focus .sidebar.left {
+.app.left-folded .sidebar.left {
   transform: translateX(calc(-100% - 30px));
   opacity: 0;
   pointer-events: none;
 }
 
-.app.focus .sidebar.right {
+.app.right-folded .sidebar.right {
   transform: translateX(calc(100% + 30px));
   opacity: 0;
   pointer-events: none;
+}
+
+/* A folded side panel leaves a tab at the screen's edge; an open one has a fold button beside it. */
+.side-tab {
+  position: absolute;
+  z-index: 26;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 8px;
+  border: var(--edge);
+  background: var(--panel);
+  box-shadow: var(--lift-panel);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-soft);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  animation: side-tab-in 0.35s ease 0.15s both;
+  transition: background 0.2s, padding 0.15s;
+}
+
+.side-tab span {
+  writing-mode: vertical-rl;
+}
+
+.side-tab.left {
+  left: 0;
+  border-left: none;
+  border-radius: 0 14px 14px 0;
+}
+
+.side-tab.left span {
+  transform: rotate(180deg);
+}
+
+.side-tab.right {
+  right: 0;
+  border-right: none;
+  border-radius: 14px 0 0 14px;
+}
+
+.side-tab:hover {
+  background: var(--card);
+  padding-inline: 11px;
+}
+
+@keyframes side-tab-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.side-fold {
+  position: absolute;
+  z-index: 26;
+  top: 80px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: var(--edge);
+  background: var(--panel);
+  box-shadow: var(--lift);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.side-fold:hover {
+  background: var(--card);
+  transform: translateY(-1px);
+}
+
+.side-fold.left {
+  left: 314px;
+}
+
+.side-fold.right {
+  right: 314px;
 }
 
 @media (max-width: 1280px) {
@@ -1326,6 +1410,15 @@ button.card {
   font-variant-numeric: tabular-nums;
 }
 
+/* A supply with more chips than its header holds: they wrap in rows down from the header. */
+.mat-badge.wrap {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 6px;
+  width: var(--room, auto);
+  transform: translate(-100%, 0);
+}
+
 .badge-chip,
 .badge-note,
 .turn-pill {
@@ -2211,12 +2304,6 @@ button.pile-count.target {
   transform: translateX(calc(100% + 30px));
   opacity: 0;
   pointer-events: none;
-}
-
-.app.focus.making .sidebar.left {
-  transform: none;
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .panel.making {

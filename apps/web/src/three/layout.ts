@@ -4,8 +4,9 @@ import { playerColor } from "../colors";
 
 /**
  * Places a game's panels and board on the 3D table. Everything is in table units (one unit is a
- * centimeter): rival mats along the far edge, the board and shared supply in the middle, the
- * viewer's mat in front and their hand held up toward the camera.
+ * centimeter): the board in the middle with the shared supply standing upright beside it, rival
+ * mats in columns on either side, the viewer's mat in front and their hand held up toward the
+ * camera. The table is wide, like the screen, so everything on it can be drawn large.
  */
 
 export const CARD_W = 6.3;
@@ -17,6 +18,12 @@ const ROW_GAP = 2.6;
 const PILE = 4.6;
 const HAND_TILT = 0.62;
 const HAND_SCALE = 1.2;
+/** Rival mats, in the columns either side of the middle. */
+const SIDE_W = 30;
+const SIDE_GAP = 3;
+/** The board's longer side with panels around it, and alone. */
+const BOARD = 48;
+const BOARD_ALONE = 52;
 
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
@@ -75,6 +82,8 @@ export interface BadgeItem {
   active: boolean;
   you: boolean;
   seat?: number;
+  /** Too many chips for the header: they wrap in rows from `position` down across the mat. */
+  wrap?: boolean;
 }
 
 export interface BoardItem {
@@ -220,6 +229,183 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
   };
 }
 
+/**
+ * Header chips are HTML, a fixed size on screen, so their width in table units depends on the
+ * camera. Measured at a conservative 7 screen pixels per unit (the table with both side panels
+ * open), they fit at any closer view.
+ */
+const PX_PER_UNIT = 7;
+const CHIP_GAP = 6 / PX_PER_UNIT;
+/** A wrapped row of chips: 26 px tall with 6 px between rows. */
+const CHIP_ROW = 32 / PX_PER_UNIT;
+const chipWidth = (c: Counter) => (24 + 7.2 * c.label.length + 8 * String(c.value).length) / PX_PER_UNIT;
+const noteWidth = (note: string) => (24 + 6.6 * Math.min(note.length, 44)) / PX_PER_UNIT;
+
+/** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
+function wrapRows(widths: number[], room: number): number {
+  let rows = 1;
+  let used = 0;
+  for (const w of widths) {
+    if (used > 0 && used + CHIP_GAP + w > room) {
+      rows++;
+      used = w;
+    } else used += (used > 0 ? CHIP_GAP : 0) + w;
+  }
+  return rows;
+}
+
+/**
+ * A shared supply standing upright beside the board: its piles in rows under the header, then its
+ * deck and cards in a grid one to three cards wide, so a market runs down the table instead of
+ * across it.
+ */
+function supplyBlock(panel: Panel, input: LayoutInput): Block {
+  const title = panel.title;
+  const counters = panel.counters ?? [];
+  const piles = counters.filter((c) => c.resource);
+  const decks = counters.filter(isDeck);
+  const plain = counters.filter((c) => !c.resource && !decks.includes(c));
+  const cards = panel.cards ?? [];
+  const gap = 0.6;
+  const slots = decks.length + cards.length;
+  const cols = slots > 8 ? 3 : slots > 3 ? 2 : 1;
+  const rows = Math.ceil(slots / cols);
+  // The header holds the title and, when they fit beside it, the counters' chips and the note.
+  // Too many for that, and they wrap in rows across the top of the mat's body instead.
+  const titleW = 2.4 + 0.7 * title.length;
+  const chips = [...plain.map(chipWidth), ...(panel.note ? [noteWidth(panel.note)] : [])];
+  const chipsW = chips.reduce((sum, w) => sum + w + CHIP_GAP, 0);
+  const width = Math.max(slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0, Math.min(36, titleW + 1 + chipsW), 16);
+  const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
+  const chipRows = wrap ? wrapRows(chips, width - 2) : 0;
+  const chipsDepth = chipRows * CHIP_ROW;
+  const perRow = Math.max(1, Math.floor((width - 2 * PAD) / PILE));
+  const pileRows = Math.ceil(piles.length / perRow);
+  const pilesDepth = pileRows * PILE + (pileRows > 0 && slots > 0 ? 0.6 : 0);
+  const bodyDepth = Math.max(chipsDepth + pilesDepth + (rows > 0 ? rows * CARD_H + (rows - 1) * gap : 0), 2);
+  const depth = HEADER + bodyDepth + PAD;
+  return {
+    width,
+    depth,
+    place(x, z, out) {
+      out.mats.push({ id: panel.id, title, color: "#e6b64a", position: [x, 0, z], width, depth, active: false, shared: true });
+      const top = z - depth / 2;
+      const body = top + HEADER + chipsDepth;
+      out.badges.push(
+        wrap
+          ? {
+              id: panel.id,
+              position: [x + width / 2 - 1, MAT_TOP, top + HEADER - 0.4],
+              left: [x - width / 2 + 1, MAT_TOP, top + HEADER - 0.4],
+              counters: plain,
+              note: panel.note,
+              active: false,
+              you: false,
+              wrap: true,
+            }
+          : {
+              id: panel.id,
+              position: [x + width / 2 - 1, MAT_TOP, top + 1.6],
+              left: [x - width / 2 + titleW, MAT_TOP, top + 1.6],
+              counters: plain,
+              note: panel.note,
+              active: false,
+              you: false,
+            },
+      );
+      const pileLeft = x - (Math.min(piles.length, perRow) * PILE) / 2;
+      piles.forEach((counter, i) => {
+        out.piles.push({
+          id: counter.id,
+          counter,
+          resource: input.resources.get(counter.resource!),
+          position: [pileLeft + ((i % perRow) + 0.5) * PILE, MAT_TOP, body + (Math.floor(i / perRow) + 0.5) * PILE],
+          scale: 1,
+          target: input.targets.has(counter.id),
+        });
+      });
+      const gridLeft = x - (cols * CARD_W + (cols - 1) * gap) / 2;
+      const slot = (i: number): Vec3 => [
+        gridLeft + (i % cols) * (CARD_W + gap) + CARD_W / 2,
+        MAT_TOP + 0.1,
+        body + pilesDepth + Math.floor(i / cols) * (CARD_H + gap) + CARD_H / 2,
+      ];
+      decks.forEach((counter, i) => {
+        const [dx, , dz] = slot(i);
+        out.decks.push({ id: counter.id, label: counter.label, count: counter.value, position: [dx, MAT_TOP, dz], scale: 1, target: input.targets.has(counter.id) });
+      });
+      const deck = out.decks.at(-1);
+      cards.forEach((card, i) => {
+        const position = slot(decks.length + i);
+        out.cards.push({
+          id: card.id,
+          card,
+          position,
+          quaternion: card.faceDown ? (FLIP.toArray() as Quat) : IDENTITY,
+          scale: 1,
+          spawn: deck ? [deck.position[0], MAT_TOP + 1, deck.position[2]] : [position[0], 8, position[2]],
+          target: input.targets.has(card.id),
+          zone: "shared",
+        });
+      });
+    },
+  };
+}
+
+/** Blocks side by side, each centered on the row's middle line. */
+function across(blocks: Block[], gap: number): Block {
+  const width = blocks.reduce((sum, b) => sum + b.width, 0) + gap * Math.max(0, blocks.length - 1);
+  const depth = Math.max(0, ...blocks.map((b) => b.depth));
+  return {
+    width,
+    depth,
+    place(x, z, out) {
+      let left = x - width / 2;
+      for (const block of blocks) {
+        block.place(left + block.width / 2, z, out);
+        left += block.width + gap;
+      }
+    },
+  };
+}
+
+/** Blocks one under another, each centered on the column's middle line. */
+function down(blocks: Block[], gap: number): Block {
+  const width = Math.max(0, ...blocks.map((b) => b.width));
+  const depth = blocks.reduce((sum, b) => sum + b.depth, 0) + gap * Math.max(0, blocks.length - 1);
+  return {
+    width,
+    depth,
+    place(x, z, out) {
+      let top = z - depth / 2;
+      for (const block of blocks) {
+        block.place(x, top + block.depth / 2, out);
+        top += block.depth + gap;
+      }
+    },
+  };
+}
+
+/** Upright supplies in as few columns as keep each no taller than `height`, unless one alone is. */
+function supplyColumns(blocks: Block[], height: number): Block | undefined {
+  if (blocks.length === 0) return undefined;
+  const columns: Block[][] = [];
+  let used = Infinity;
+  for (const block of blocks) {
+    if (used + 2 + block.depth > height) {
+      columns.push([block]);
+      used = block.depth;
+    } else {
+      columns.at(-1)!.push(block);
+      used += 2 + block.depth;
+    }
+  }
+  return across(
+    columns.map((column) => down(column, 2)),
+    2.5,
+  );
+}
+
 function boardBlock(geometry: Geometry, size: number): Block {
   const scale = size / Math.max(geometry.width, geometry.height);
   const width = geometry.width * scale + 2.4;
@@ -231,19 +417,6 @@ function boardBlock(geometry: Geometry, size: number): Block {
       out.board = { geometry, position: [x, 0, z], scale, width, depth };
     },
   };
-}
-
-/** Places blocks side by side, centered on x = 0, vertically centered in a row starting at `top`. */
-function row(blocks: Block[], top: number, gap: number, out: TableLayout): number {
-  if (blocks.length === 0) return top;
-  const total = blocks.reduce((sum, b) => sum + b.width, 0) + gap * (blocks.length - 1);
-  const depth = Math.max(...blocks.map((b) => b.depth));
-  let x = -total / 2;
-  for (const block of blocks) {
-    block.place(x + block.width / 2, top + depth / 2, out);
-    x += block.width + gap;
-  }
-  return top + depth + ROW_GAP;
 }
 
 export function layoutTable(input: LayoutInput): TableLayout {
@@ -261,25 +434,48 @@ export function layoutTable(input: LayoutInput): TableLayout {
 
   const seats = panels.filter((p) => p.zone === "players");
   const mine = seats.find((p) => p.owner === human);
+  // Rivals in turn order after the viewer, as if seated round the table: the first half up the
+  // left side, the rest down the right.
   const rivals = seats
     .filter((p) => p !== mine)
     .sort((a, b) => (((a.owner ?? 0) - human + 99) % 99) - (((b.owner ?? 0) - human + 99) % 99));
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
+  const rivalMat = (p: Panel) => matBlock(p, input, { cardScale: 0.66, pileScale: 0.8, width: SIDE_W, title: p.title, you: false });
+  const half = Math.ceil(rivals.length / 2);
+  const leftSide = rivals.slice(0, half).reverse().map(rivalMat);
+  const rightSide = rivals.slice(half).map(rivalMat);
 
-  let z = 0;
-  if (rivals.length > 0) {
-    const width = Math.min(36, (74 - 2 * (rivals.length - 1)) / rivals.length);
-    const blocks = rivals.map((p) => matBlock(p, input, { cardScale: 0.66, pileScale: 0.8, width, title: p.title, you: false }));
-    z = row(blocks, z, 2, out);
+  // The middle: the board with the shared supply upright beside it or, with no board, the shared
+  // mats in a row.
+  let middle: Block | undefined;
+  if (geometry) {
+    const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
+    const supply = supplyColumns(
+      shared.map((p) => supplyBlock(p, input)),
+      Math.max(board.depth, 40),
+    );
+    middle = supply ? across([board, supply], 3) : board;
+  } else if (shared.length > 0) {
+    middle = across(
+      shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false })),
+      3,
+    );
   }
-
-  const center: Block[] = [];
-  if (geometry) center.push(boardBlock(geometry, panels.length > 0 ? 34 : 46));
-  center.push(...shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false })));
-  z = row(center, z, 3, out);
-
-  if (mine) z = row([matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: 66, title: "You", you: true })], z, 0, out);
+  const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true }) : undefined;
+  const center = down(
+    [middle, you].filter((b): b is Block => b !== undefined),
+    ROW_GAP,
+  );
+  const table = across(
+    [leftSide.length > 0 ? down(leftSide, 2) : undefined, center, rightSide.length > 0 ? down(rightSide, 2) : undefined].filter(
+      (b): b is Block => b !== undefined,
+    ),
+    SIDE_GAP,
+  );
+  table.place(0, table.depth / 2, out);
+  // The viewer's hand is held up in front of the middle.
+  let z = table.depth / 2 + center.depth / 2 + ROW_GAP;
 
   // The hand is held up toward the camera and fanned.
   const held = hand?.cards ?? [];

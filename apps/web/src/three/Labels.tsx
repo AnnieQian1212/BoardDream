@@ -60,7 +60,7 @@ export function Labels({ layout, resources, layer, targets, speech, onPick }: La
         const rest = badge.counters.filter((c) => c !== score);
         return (
           <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`} data-room={`room:${badge.id}`}>
-            <div className="mat-badge">
+            <div className={badge.wrap ? "mat-badge wrap" : "mat-badge"}>
               {badge.active && <span className="turn-pill">{badge.you ? "Your turn" : "Thinking…"}</span>}
               {badge.note && (
                 <span className="badge-note" title={badge.note}>
@@ -128,6 +128,8 @@ function fitNote(label: HTMLElement, room: number) {
   const row = label.firstElementChild;
   const note = row?.querySelector<HTMLElement>(".badge-note");
   if (!row || !note) return;
+  // A wrapping row gives the note a line of its own.
+  if (row.classList.contains("wrap")) return void (note.style.display = "");
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
   const used = Array.from(row.children).reduce((sum, child) => (child === note ? sum : sum + (child as HTMLElement).offsetWidth + gap), 0);
   note.style.display = room - used < MIN_NOTE ? "none" : "";
