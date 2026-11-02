@@ -122,7 +122,7 @@ button {
 .brand-mark {
   width: 30px;
   height: 30px;
-  filter: drop-shadow(0 2px 8px rgba(230, 182, 74, 0.35));
+  flex-shrink: 0;
 }
 
 .field select {

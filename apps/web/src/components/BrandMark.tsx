@@ -1,15 +1,29 @@
-/** BoardDream's mark: a gold hexagon with a four-pointed star. */
+import { useId } from "react";
+
+/**
+ * BoardDream's mark: a teal tile, inked like the table's pieces, with a cream crescent moon (the
+ * dream) cradling a gold die (the board game) and a star. It reads at favicon size; index.html
+ * carries the same drawing as the favicon.
+ */
 export function BrandMark() {
+  const moon = useId();
   return (
     <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
       <defs>
-        <linearGradient id="brand-gold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f6d98b" />
-          <stop offset="100%" stopColor="#d99a2b" />
-        </linearGradient>
+        <mask id={moon}>
+          <rect width="32" height="32" fill="white" />
+          <circle cx="18.6" cy="11.6" r="7.4" fill="black" />
+        </mask>
       </defs>
-      <path d="M16 2.5 27.7 9.25v13.5L16 29.5 4.3 22.75V9.25Z" fill="url(#brand-gold)" />
-      <path d="M16 9.5l1.9 4.6 4.6 1.9-4.6 1.9L16 22.5l-1.9-4.6-4.6-1.9 4.6-1.9Z" fill="#2a2520" />
+      <rect x="1.5" y="1.5" width="29" height="29" rx="8" fill="#178e9c" stroke="#2a2520" strokeWidth="2" />
+      <circle cx="13.6" cy="15.6" r="9.2" fill="#fbf1dc" mask={`url(#${moon})`} />
+      <path d="M24.2 5.6l.75 1.75 1.75.75-1.75.75-.75 1.75-.75-1.75-1.75-.75 1.75-.75Z" fill="#fbf1dc" />
+      <g transform="rotate(-13 21.2 20.6)">
+        <rect x="16.4" y="15.8" width="9.6" height="9.6" rx="2.4" fill="#f2b632" stroke="#2a2520" strokeWidth="1.7" />
+        <circle cx="19" cy="18.4" r="1.05" fill="#2a2520" />
+        <circle cx="21.2" cy="20.6" r="1.05" fill="#2a2520" />
+        <circle cx="23.4" cy="22.8" r="1.05" fill="#2a2520" />
+      </g>
     </svg>
   );
 }
