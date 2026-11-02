@@ -47,6 +47,34 @@ export const TILE_TOP = SLAB + TILE + 2 * BEVEL;
 /** Building spots (kind "vertex") and roads (kind "edge") stand above the tiles they sit between. */
 const SPOT = 0.55;
 export const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
+/** A path between places that stand apart lies low on the board, under the tiles' tops. */
+const PATH = 0.12;
+export const PATH_TOP = SLAB + PATH + BEVEL;
+
+/**
+ * Edges that are paths, not roads. A road (kind "edge" on a border two tiles share, as in a game of
+ * settling an island) stands above the tiles so it shows in the narrow gap between them. An edge
+ * whose middle lies on no tile joins two places that stand apart, like a channel on a ring of
+ * spaces: raised, it looked like a bar floating over the board, so it lies low instead.
+ */
+export function pathCells(cells: GeometryCell[]): Set<string> {
+  const tiles = cells
+    .filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""))
+    .map((c) => {
+      const [cx, cy] = centroid(c.polygon);
+      // A little larger than the tile, so a road on the border between two still counts as on them.
+      return c.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * 1.06, cy + (y - cy) * 1.06]);
+    });
+  return new Set(
+    cells
+      .filter((c) => c.kind === "edge")
+      .filter((c) => {
+        const [x, y] = centroid(c.polygon);
+        return !tiles.some((t) => inside(t, x, y));
+      })
+      .map((c) => c.id),
+  );
+}
 const SPOTS = new Set(["vertex", "edge"]);
 /** A building spot or road that can be clicked. */
 const TARGET_SPOT = "#3cc6d6";
@@ -236,7 +264,8 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   const labels = print.texture;
   useEffect(() => () => labels.dispose(), [labels]);
   const toWorld = (x: number, y: number): [number, number] => [(x - geometry.width / 2) * k, (y - geometry.height / 2) * k];
-  const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "")).map((c) => c.id)), [geometry]);
+  const paths = useMemo(() => pathCells(geometry.cells), [geometry]);
+  const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "") && !paths.has(c.id)).map((c) => c.id)), [geometry, paths]);
   // Scenery that places lie inside (a sea around its harbors) is drawn low, as ground, so the places
   // stand on it instead of flickering through it.
   const sceneryKey = geometry.cells.map((c) => (c.kind === "label" || SPOTS.has(c.kind ?? "") ? "" : `${c.id}:${c.polygon.flat().join(",")}`)).join("|");
@@ -301,6 +330,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             at={toWorld(...centroid(cell.polygon))}
             target={targets.has(cell.id)}
             low={scenery.has(cell.id)}
+            path={paths.has(cell.id)}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water}
             zone={zones.get(cell.id)}
@@ -325,7 +355,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
           piece={piece}
           k={k}
           at={toWorld(piece.x, piece.y)}
-          base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : TILE_TOP + (poolCells.has(piece.cellId ?? "") ? DOME * k : 0)}
+          base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : paths.has(piece.cellId ?? "") ? PATH_TOP : TILE_TOP + (poolCells.has(piece.cellId ?? "") ? DOME * k : 0)}
           exit={exit}
         />
       ))}
@@ -403,6 +433,8 @@ const EXIT_SECONDS = 0.8;
 
 interface TileProps {
   cell: GeometryCell;
+  /** An edge that lies low as a path between places, rather than standing up as a road. */
+  path?: boolean;
   /** The names of the pieces on it, for its hover tip: printed on a piece, they are too small to read. */
   holding?: string;
   k: number;
@@ -429,7 +461,7 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
+function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
   const rest = low ? SLAB - TILE + 0.03 : SLAB;
   const segmentsKey = cell.segments?.join(",");
@@ -454,7 +486,7 @@ function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box,
     const shrink = (p: number, c: number) => (p - c) * k * (spot ? 0.85 : TILE_SHARE);
     const shape = new Shape(cell.polygon.map(([x, y]) => new Vector2(shrink(x, cx), -shrink(y, cy))));
     const bevel = spot ? BEVEL * 0.5 : BEVEL;
-    const g = new ExtrudeGeometry(shape, { depth: spot ? SPOT : TILE, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 1 });
+    const g = new ExtrudeGeometry(shape, { depth: path ? PATH : spot ? SPOT : TILE, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 1 });
     g.rotateX(-Math.PI / 2).translate(0, BEVEL, 0);
     if (painted) paintUvs(g, painted, k);
     else {
@@ -467,7 +499,7 @@ function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box,
     }
     return g;
     // The painted prop is rebuilt every render; only its content matters here.
-  }, [cell.polygon, k, groundScale, painted?.paint, painted?.source[0], painted?.source[1]]);
+  }, [cell.polygon, k, groundScale, path, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   // Where a tile holds water its top is a slab of jelly, a little inside the tile (or over its
   // water wedges) so a rim of shore shows.

@@ -6,7 +6,7 @@ import { Vector3 } from "three";
 import { iconFor } from "../icons";
 import { CARD_H, CARD_W, deckHeight, type TableLayout, type Vec3 } from "./layout";
 import type { TargetKind } from "../instructions";
-import { SPOT_TOP, TILE_TOP } from "./Board3D";
+import { PATH_TOP, pathCells, SPOT_TOP, TILE_TOP } from "./Board3D";
 
 /**
  * Live numbers on the table (scores, resource counts, deck size) are HTML, pinned to 3D points.
@@ -52,6 +52,7 @@ export interface TargetMark {
 export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<string, Vec3> {
   const anchors = new Map<string, Vec3>();
   const board = layout.board;
+  const paths = board ? pathCells(board.geometry.cells) : new Set<string>();
   for (const mark of marks) {
     const cell = board?.geometry.cells.find((c) => c.id === mark.id);
     if (board && cell) {
@@ -60,7 +61,8 @@ export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<strin
       const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / cell.polygon.length;
       const spot = cell.kind === "vertex" || cell.kind === "edge";
       const reach = Math.max(...cell.polygon.map(([x, y]) => Math.hypot(x - cx, y - cy))) * k * (spot ? 1.15 : 0.8);
-      const at: Vec3 = [board.position[0] + (cx - board.geometry.width / 2) * k, board.position[1] + (spot ? SPOT_TOP : TILE_TOP), board.position[2] + (cy - board.geometry.height / 2) * k];
+      const top = paths.has(cell.id) ? PATH_TOP : spot ? SPOT_TOP : TILE_TOP;
+      const at: Vec3 = [board.position[0] + (cx - board.geometry.width / 2) * k, board.position[1] + top, board.position[2] + (cy - board.geometry.height / 2) * k];
       anchors.set(`mark:${mark.id}`, at);
       anchors.set(`markspan:${mark.id}`, [at[0] + reach, at[1], at[2]]);
       continue;
