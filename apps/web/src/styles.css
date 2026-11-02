@@ -3133,8 +3133,9 @@ button.pile-count.target {
   gap: clamp(40px, 8vh, 80px);
 }
 
+/* As wide as the row of games under it. */
 .home-hero {
-  width: min(760px, 100%);
+  width: 100%;
   margin: 0 auto;
   text-align: center;
 }
@@ -3150,8 +3151,9 @@ button.pile-count.target {
 }
 
 .home-lede {
-  max-width: 540px;
+  max-width: 920px;
   margin: 0 auto 28px;
+  text-wrap: balance;
   color: var(--muted);
   font-size: 17px;
   line-height: 1.5;
@@ -3368,7 +3370,7 @@ button.pile-count.target {
   border: var(--edge);
   border-radius: 18px;
   background: var(--panel);
-  box-shadow: var(--lift-panel);
+  box-shadow: 0 2px 6px rgba(70, 48, 25, 0.08), 0 14px 30px rgba(70, 48, 25, 0.16);
   animation: rise 0.3s ease;
 }
 
