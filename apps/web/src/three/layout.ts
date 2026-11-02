@@ -141,7 +141,11 @@ interface Block {
   place(x: number, z: number, out: TableLayout): void;
 }
 
-function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; pileScale: number; width?: number; title: string; you: boolean }): Block {
+function matBlock(
+  panel: Panel,
+  input: LayoutInput,
+  opts: { cardScale: number; pileScale: number; width?: number; title: string; you: boolean; sizes?: ChipSizes },
+): Block {
   const { cardScale, pileScale } = opts;
   const counters = panel.counters ?? [];
   const piles = counters.filter((c) => c.resource);
@@ -151,8 +155,10 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
 
   const cw = CARD_W * cardScale;
   const ch = CARD_H * cardScale;
-  const pile = PILE * pileScale;
-  const pileRows = piles.length === 0 ? 0 : Math.min(2, piles.length);
+  // Piles stand a count chip's width apart, in one row when there are few, so their chips never
+  // touch a neighbor.
+  const pile = Math.max(PILE * pileScale, opts.sizes?.pile ?? 0);
+  const pileRows = piles.length === 0 ? 0 : piles.length <= 4 ? 1 : 2;
   const pileCols = Math.ceil(piles.length / Math.max(1, pileRows));
   const deckW = decks.length > 0 ? cw + 1.2 : 0;
   const pilesW = pileCols * pile;
@@ -572,7 +578,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
   let table: Block;
   if (geometry && input.arrangement === "right") {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
-    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, board.width), title: "You", you: true }) : undefined;
+    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, board.width), title: "You", you: true, sizes }) : undefined;
     center = down(
       [board, you].filter((b): b is Block => b !== undefined),
       ROW_GAP,
@@ -589,11 +595,11 @@ export function layoutTable(input: LayoutInput): TableLayout {
       middle = supply ? across([board, supply], 3) : board;
     } else if (shared.length > 0) {
       middle = across(
-        shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false })),
+        shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false, sizes })),
         3,
       );
     }
-    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true }) : undefined;
+    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes }) : undefined;
     center = down(
       [middle, you].filter((b): b is Block => b !== undefined),
       ROW_GAP,
