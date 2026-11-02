@@ -1,6 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import type { ModelClient } from "../meta/client";
-import { HOUSE_STYLE } from "./cards";
 
 /**
  * Box covers from Muse Image: one wide painting per game of its world, in the house style, so a
@@ -21,6 +20,15 @@ export interface CoverRequest {
 const safeId = (id: string) => /^[a-z0-9-]+$/.test(id);
 
 /**
+ * How a cover is drawn. The storybook house style alone came back busy and glowing: crowds of tiny
+ * figures, golden backlight, fine hatching, a deckled paper edge. That reads as machine-made. A
+ * hobby box cover reads as drawn by hand: a few large figures, flat colour, one ink weight, calm
+ * empty space.
+ */
+export const COVER_STYLE =
+  "Flat graphic illustration with the hand-drawn look of a modern hobby board game box: bold dark-brown ink outlines of one even weight; big simple shapes with clean silhouettes and slightly chunky, whimsical proportions; flat colour fills with at most one hard-edged shadow tone per colour; a limited palette of about six colours (warm cream, ochre, rust red, moss green, slate blue, deep brown) with one bright accent; two or three large characters in the foreground with simple expressive faces and clear poses, against a simple background of layered flat shapes with calm empty space; no gradients, no glow, no sunbeams or backlight, no airbrushing, no tiny crowds, no clutter, no fine hatching, no photorealism; matte paper with a faint grain";
+
+/**
  * What the cover shows: a scene from the game's world, never the game's own parts. Told it paints
  * a "box cover", the painter letters a title on it; told about boards and cards, it paints them. So
  * the subject is described as a scene, and lettering of every kind is ruled out. Its people are
@@ -29,12 +37,12 @@ const safeId = (id: string) => /^[a-z0-9-]+$/.test(id);
 export function coverPrompt(req: CoverRequest): string {
   const world = req.summary.trim().replace(/\.$/, "");
   return [
-    `A wide storybook painting of the world of ${req.game}: ${world}.`,
-    "Show one inviting scene from that world: its people (humans, not animals in clothes) busy in their own landscape, with depth, a clear focal point and warm light.",
-    "The painting fills the whole picture edge to edge, with no paper margin, border or frame.",
+    `A wide illustration of the world of ${req.game}: ${world}.`,
+    "Show one moment from that world: two or three of its people (humans, not animals in clothes) at work in the foreground, the place they work in simply drawn behind them.",
+    "The picture fills the whole frame edge to edge, with no paper margin, border or frame.",
     "Never a game board, a map, playing cards, tokens or a diagram.",
-    "The painting carries no title, caption, logo, lettering, numbers or signs of any kind.",
-    `${HOUSE_STYLE}.`,
+    "The picture carries no title, caption, logo, lettering, numbers or signs of any kind.",
+    `${COVER_STYLE}.`,
   ].join(" ");
 }
 
