@@ -2,7 +2,8 @@ import { createRng, fitBounds, resolveParams, type GameModule } from "@boarddrea
 import { fixtureGames, glasshouse, referenceGames } from "@boarddream/library";
 import { describe, expect, test } from "vitest";
 import { tidyPanels } from "./panels";
-import { kindOf, moveButtons, turnOf } from "./turn";
+import { modelName } from "./opponents";
+import { kindOf, moveButtons, thinkingLine, turnOf } from "./turn";
 
 const human = 0;
 
@@ -79,5 +80,15 @@ describe("the move bar", () => {
     // Without a type, the first word is the kind.
     const words = ["north", "south", "east", "west", "up", "down"].map((d) => `sail ${d}`);
     expect(moveButtons(words, (m) => m as string).map((b) => b.label)).toEqual(["Sail…"]);
+  });
+});
+
+describe("the status line while another seat moves", () => {
+  test("names the seat, and the model when one plays the rivals", () => {
+    expect(thinkingLine(1)).toBe("Player 2 is thinking…");
+    expect(thinkingLine(2, ["Ada", "Bo", "Cy"])).toBe("Cy is thinking…");
+    expect(thinkingLine(1, undefined, modelName("meta-models/muse-spark-open-1026"))).toBe("Player 2 (Muse Spark Open) is thinking…");
+    expect(thinkingLine(1, undefined, modelName("muse-spark-1.3"))).toBe("Player 2 (Muse Spark) is thinking…");
+    expect(thinkingLine(undefined)).toBe("");
   });
 });

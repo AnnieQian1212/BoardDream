@@ -11,6 +11,13 @@ const TIMEOUT_MS = 20_000;
 
 export type { Decision };
 
+/** A model id as a player would name it: "meta-models/muse-spark-open-1026" is Muse Spark Open. */
+export function modelName(id: string): string {
+  if (/muse-spark-open/i.test(id)) return "Muse Spark Open";
+  if (/muse-spark/i.test(id)) return "Muse Spark";
+  return id;
+}
+
 /** Asks the server's opponent model; rejects on a failed request or after TIMEOUT_MS. */
 export const serverChooser: Chooser = async (request) => {
   const controller = new AbortController();

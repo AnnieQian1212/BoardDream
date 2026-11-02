@@ -28,7 +28,7 @@ import { useGeneration, type Dials } from "./generation";
 import { goalOf } from "./instructions";
 import { battleStarted, historyFor, isOver, latestSpeech, nextSeat, playMove, randomStep, restartMatch, startMatch, type Match } from "./match";
 import { rulesFor } from "./rules";
-import { decide } from "./opponents";
+import { decide, modelName } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
 import { BATTLE_SECONDS } from "./three/Battle3D";
@@ -303,6 +303,7 @@ export function App() {
         human: HUMAN,
         onMove: (move: unknown) => setMatch(playMove(match, HUMAN, move)),
         onRestart: () => setMatch(restartMatch(match)),
+        rivalModel: muse && opponentModel ? modelName(opponentModel) : undefined,
       };
   const tableKey = preview ? `draft-${preview.match.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}-${match.id}`;
   // A draft with a fault (the playtest failed it, it threw while bots played it, or the table could

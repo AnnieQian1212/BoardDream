@@ -29,6 +29,16 @@ export interface Turn {
 }
 
 /** A button in the move bar: one move, or several of one kind behind a menu. */
+/**
+ * The status line while another seat moves: "Player 2 is thinking…", with the model that plays the
+ * rivals when one does ("Player 2 (Muse Spark Open) is thinking…"), so a viewer can see it at work.
+ */
+export function thinkingLine(active: number | undefined, names?: (string | undefined)[], rivalModel?: string): string {
+  if (active === undefined) return "";
+  const name = names?.[active] ?? `Player ${active + 1}`;
+  return `${name}${rivalModel ? ` (${rivalModel})` : ""} is thinking…`;
+}
+
 export interface MoveButton {
   label: string;
   moves: unknown[];

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Hint, useHint } from "../components/Hint";
-import { turnOf, type MoveButton } from "../turn";
+import { thinkingLine, turnOf, type MoveButton } from "../turn";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
 import { tidyPanels } from "../panels";
@@ -37,6 +37,8 @@ interface Props {
   onRestart?(): void;
   /** Players' names by seat, at a table shared with friends. */
   names?: (string | undefined)[];
+  /** The model playing the other seats, when one does, named while it thinks. */
+  rivalModel?: string;
 }
 
 export interface Guide {
@@ -111,7 +113,7 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names, rivalModel }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
@@ -266,7 +268,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
                 {todo && <span className="todo">{todo}</span>}
               </span>
             ) : (
-              <span className="status">{active !== undefined ? `${names?.[active] ?? `Player ${active + 1}`} is thinking…` : ""}</span>
+              <span className="status">{thinkingLine(active, names, rivalModel)}</span>
             )}
             {myTurn && <Hint hint={hint} onAsk={ask} onMove={onMove} />}
             {buttons.map((button) => (

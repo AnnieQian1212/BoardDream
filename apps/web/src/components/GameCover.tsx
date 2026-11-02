@@ -1,5 +1,7 @@
-import type { GameModule } from "@boarddream/engine";
+import type { GameModule, Geometry } from "@boarddream/engine";
 import { useState, type CSSProperties } from "react";
+import { startingGeometry } from "../art";
+import { Board } from "./Board";
 
 /** Printed-cover colors: an ink for the pattern and a paper under it, one pair per game. */
 const LOOKS = [
@@ -19,20 +21,45 @@ export const coverLook = (game: GameModule) => LOOKS[hash(game.meta.id) % LOOKS.
 /**
  * A game's box cover: Muse Image's painting when there is one; until it loads, or for a game with
  * none, a printed cover in the game's own colors with a pattern of what it is played with (hexes
- * for a map, a fan of cards for an engine, a grid of tiles, masks for bluffing).
+ * for a map, a fan of cards for an engine, a grid of tiles, masks for bluffing). With the pointer
+ * on it, the cover fades into the game's opening board, drawn flat, so a shelf of games shows how
+ * each is played as well as what it is about.
  */
 export function GameCover({ game, cover, title }: { game: GameModule; cover?: string; title?: boolean }) {
   const [loaded, setLoaded] = useState<string>();
+  // The board is laid out the first time the pointer comes over the cover, not for every game on the shelf.
+  const [board, setBoard] = useState<Geometry | null>();
   const look = coverLook(game);
   const painted = cover !== undefined && loaded === cover;
+  const showBoard = () => {
+    if (board !== undefined) return;
+    try {
+      const geometry = startingGeometry(game);
+      setBoard(geometry && geometry.cells.some((c) => c.kind !== "label") ? geometry : null);
+    } catch {
+      setBoard(null);
+    }
+  };
   return (
-    <div className={["cover", painted && "painted"].filter(Boolean).join(" ")} style={{ "--cover-ink": look.ink, "--cover-paper": look.paper } as CSSProperties} aria-hidden>
+    <div
+      className={["cover", painted && "painted", board && "has-board"].filter(Boolean).join(" ")}
+      style={{ "--cover-ink": look.ink, "--cover-paper": look.paper } as CSSProperties}
+      onPointerEnter={showBoard}
+      aria-hidden
+    >
       {!painted && <Motif family={game.meta.family} id={game.meta.id} />}
       {cover && <img src={cover} alt="" loading="lazy" decoding="async" onLoad={() => setLoaded(cover)} />}
+      {board && (
+        <div className="cover-board">
+          <Board geometry={board} targets={NO_TARGETS} onCell={() => {}} />
+        </div>
+      )}
       {title && <span className="cover-title">{game.meta.name}</span>}
     </div>
   );
 }
+
+const NO_TARGETS = new Set<string>();
 
 function Motif({ family, id }: { family: string; id: string }) {
   const pattern = `motif-${id}`;

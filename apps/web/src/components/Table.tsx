@@ -6,7 +6,7 @@ import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
 import { tidyPanels } from "../panels";
 import { Board } from "./Board";
-import { turnOf, type MoveButton } from "../turn";
+import { thinkingLine, turnOf, type MoveButton } from "../turn";
 import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
@@ -22,6 +22,8 @@ interface Props {
   onRestart?(): void;
   /** Players' names by seat, at a table shared with friends. */
   names?: (string | undefined)[];
+  /** The model playing the other seats, when one does, named while it thinks. */
+  rivalModel?: string;
 }
 
 interface Menu {
@@ -33,7 +35,7 @@ interface Menu {
 }
 
 /** The play area: rival mats, board and market, your mat and hand, and the moves you can make. */
-export function Table({ game, state, numPlayers, human, onMove, onRestart, names }: Props) {
+export function Table({ game, state, numPlayers, human, onMove, onRestart, names, rivalModel }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null);
   useEffect(() => setMenu(null), [state]);
   const { hint, ask } = useHint(game, state, human);
@@ -63,7 +65,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart, names
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
 
-  const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : active !== undefined ? `${names?.[active] ?? `Player ${active + 1}`} is thinking…` : "";
+  const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : thinkingLine(active, names, rivalModel);
 
   return (
     <div className="table">

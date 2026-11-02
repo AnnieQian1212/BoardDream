@@ -90,7 +90,11 @@ const Dots = () => (
 
 type State = "done" | "now" | "later" | "warn";
 
-function Item({ state, icon, title, time, children }: { state: State; icon: ReactNode; title: string; time?: string; children?: ReactNode }) {
+/** The model that does a step's work, named beside it; steps run here (the playtest) name none. */
+const DESIGNER = "Muse Spark";
+
+function Item(props: { state: State; icon: ReactNode; title: string; model?: string; time?: string; children?: ReactNode }) {
+  const { state, icon, title, model, time, children } = props;
   return (
     <li className={`gen-item ${state}`}>
       <span className="gen-mark">{state === "done" ? <Check size={13} /> : state === "warn" ? <AlertTriangle size={12} /> : icon}</span>
@@ -99,6 +103,11 @@ function Item({ state, icon, title, time, children }: { state: State; icon: Reac
           <strong>{title}</strong>
           {time && <span>{time}</span>}
         </div>
+        {model && (
+          <em className="gen-model">
+            <i aria-hidden /> {model}
+          </em>
+        )}
         {children}
       </div>
     </li>
@@ -117,6 +126,7 @@ function RoundItems({ round, g, now }: { round: Round; g: Generation; now: numbe
         state={writing ? (live ? "now" : "later") : "done"}
         icon={round.answers ? <Wrench size={13} /> : <Code2 size={13} />}
         title={fixing ?? "Write the rules"}
+        model={DESIGNER}
         time={writing ? (live ? seconds(now - round.writingSince) : undefined) : seconds(round.writtenAt! - round.writingSince)}
       >
         {reason && <p className="gen-reason">{reason}</p>}
@@ -188,13 +198,14 @@ export function GenerationSteps({ generation: g, onCancel, onClose, onDiscard }:
       </div>
       <blockquote className="gen-idea">{g.idea}</blockquote>
       <ol className="gen-timeline">
-        <Item state={g.plan ? "done" : running ? "now" : "later"} icon={<ClipboardList size={13} />} title="Design the game" time={g.planAt ? seconds(g.planAt - g.started) : undefined}>
+        <Item state={g.plan ? "done" : running ? "now" : "later"} icon={<ClipboardList size={13} />} title="Design the game" model={DESIGNER} time={g.planAt ? seconds(g.planAt - g.started) : undefined}>
           <p>{g.plan ? g.plan.title : "Players, components, rules and how to win"}</p>
         </Item>
         <Item
           state={g.mechanics ? "done" : running ? "now" : "later"}
           icon={<Library size={13} />}
           title="Pick tested mechanics"
+          model={DESIGNER}
           time={g.mechanicsAt ? seconds(g.mechanicsAt - g.started) : undefined}
         >
           <p>{g.mechanics ? g.mechanics.map((m) => m.title).join(" · ") : g.asked?.length ? `Starting with yours: ${g.asked.join(" · ")}` : `From the library of ${LIBRARY_SIZE} modules`}</p>
@@ -204,7 +215,7 @@ export function GenerationSteps({ generation: g, onCancel, onClose, onDiscard }:
         ))}
         {g.rounds.length === 0 && (
           <>
-            <Item state="later" icon={<Code2 size={13} />} title="Write the rules" />
+            <Item state="later" icon={<Code2 size={13} />} title="Write the rules" model={DESIGNER} />
             <Item state="later" icon={<Dices size={13} />} title="Playtest" />
           </>
         )}
