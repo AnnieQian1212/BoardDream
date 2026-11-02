@@ -30,6 +30,13 @@ npx wrangler pages deploy dist --project-name boarddream
 
 - Secrets reach the deployments made after they are set, so they go in before the first deploy; after changing one, deploy again.
 
+### Deploying on every push
+
+`.github/workflows/deploy-demo.yml` typechecks, tests, builds and deploys the demo on every push to `main`. It needs two repository secrets (GitHub: Settings, Secrets and variables, Actions); until they are there it skips the deploy.
+
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token (My Profile, API Tokens, Create Token, Custom token) with the one permission Account, Cloudflare Pages, Edit.
+- `CLOUDFLARE_ACCOUNT_ID`: the account's id, which `npx wrangler whoami` prints.
+
 - `OPEN_MODEL` picks another model (default `meta-models/muse-spark-open-1026`); `OPPONENTS_ENABLED=0` turns the AI opponents off without a redeploy, and the bots play instead.
 - Requests are size-checked and rate-limited (`apps/server/src/guard.ts`: 120 opponent moves per client per 10 minutes, 5,000 a day). The limits live in memory, per edge instance, so they stop casual abuse rather than a determined attacker; a rate-limiting rule on the Cloudflare dashboard adds a hard per-address cap.
 - To add or refresh the bundled games: `npm run demo:games -- eval/generation/out/g05.js data/games/<id>.js`. Each is fuzzed again first.
