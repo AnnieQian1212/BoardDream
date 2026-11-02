@@ -1,6 +1,7 @@
 import type { CardView, Counter, Geometry, Panel, ResourceSpec } from "@boarddream/engine";
 import { Quaternion, Vector3 } from "three";
 import { playerColor } from "../colors";
+import { isDeck } from "../turn";
 
 /**
  * Places a game's panels and board on the 3D table. Everything is in table units (one unit is a
@@ -134,7 +135,7 @@ export interface LayoutInput {
 
 const IDENTITY: Quat = [0, 0, 0, 1];
 const FLIP = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI);
-const isDeck = (c: Counter) => !c.resource && /deck|draw|pile|stack/i.test(c.label);
+
 
 /** A mat's contents measured before it is placed. */
 interface Block {

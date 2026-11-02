@@ -47,17 +47,6 @@ export interface TargetMark {
   ring: boolean;
 }
 
-/** What a target id is on the table, as the player would call it. */
-export function targetKind(layout: TableLayout, id: string): TargetKind | undefined {
-  const cell = layout.board?.geometry.cells.find((c) => c.id === id);
-  if (cell) return cell.kind === "vertex" ? "corner" : cell.kind === "edge" ? "edge" : "space";
-  if (layout.cards.some((c) => c.id === id)) return "card";
-  if (layout.piles.some((p) => p.id === id)) return "pile";
-  if (layout.decks.some((d) => d.id === id)) return "deck";
-  if (layout.badges.some((b) => b.counters.some((c) => c.id === id))) return "counter";
-  return undefined;
-}
-
 /**
  * Where each mark sits: over a board cell's middle (with a second point a cell's radius away, so
  * the ring is as wide as the cell on screen), a card's middle or a pile's top.

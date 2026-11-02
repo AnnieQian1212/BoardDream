@@ -272,9 +272,9 @@ function checkPanels(panels: Panel[]): string | null {
   return null;
 }
 
-/** Everything a move may point at: board cells, panel cards and counters. */
+/** Everything a move may point at: board cells (not label cells, which are print), panel cards and counters. */
 function targetIds(geometry: Geometry | undefined, panels: Panel[] | undefined): Set<string> {
-  const ids = new Set<string>(geometry?.cells.map((cell) => cell.id) ?? []);
+  const ids = new Set<string>(geometry?.cells.filter((cell) => cell.kind !== "label").map((cell) => cell.id) ?? []);
   for (const panel of panels ?? []) {
     for (const item of [...(panel.cards ?? []), ...(panel.counters ?? [])]) ids.add(item.id);
   }

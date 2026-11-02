@@ -4,12 +4,12 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Hint, useHint } from "../components/Hint";
-import { instruction } from "../instructions";
+import { turnOf } from "../turn";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
 import { tidyPanels } from "../panels";
 import { setCursor, setHover, useHover } from "./hover";
-import { labelAnchors, Labels, markAnchors, targetKind, type TargetMark } from "./Labels";
+import { labelAnchors, Labels, markAnchors, type TargetMark } from "./Labels";
 import { tableScale } from "./camera";
 import { layoutTable, type Arrangement } from "./layout";
 import { FONT_DISPLAY, FONT_UI } from "./paint";
@@ -121,35 +121,24 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     setCursor(false);
   }, [state]);
 
-  const over = game.isTerminal(state);
-  const active = over ? undefined : game.activePlayers(state)[0];
-  const myTurn = active === human;
-  const mover = useMover(state, active);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
-  const label = (move: unknown) => game.describeMove?.(state, move, human) ?? JSON.stringify(move);
-
-  const { byTarget, loose } = useMemo(() => {
-    const byTarget = new Map<string, unknown[]>();
-    const loose: unknown[] = [];
-    for (const move of myTurn ? game.legalMoves(state, human) : []) {
-      const target = game.moveTarget?.(state, move);
-      if (target === undefined) loose.push(move);
-      else byTarget.set(target, [...(byTarget.get(target) ?? []), move]);
-    }
-    return { byTarget, loose };
-  }, [game, state, human, myTurn]);
-  const targets = useMemo(() => new Set(byTarget.keys()), [byTarget]);
-
   const panels = useMemo(() => {
     const raw = tidyPanels(game.panels?.(state, human) ?? []);
     if (!art?.size) return raw;
     return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
   }, [game, state, human, art]);
+  const geometry = useMemo(() => {
+    const raw = game.geometry?.(state, human);
+    return raw && fitBounds(raw);
+  }, [game, state, human]);
+  // Whose turn, what glows and what each click does: shared with the flat table.
+  const turn = useMemo(() => turnOf(game, state, human, panels, geometry), [game, state, human, panels, geometry]);
+  const { over, active, mine: myTurn, byTarget, targets, loose, label } = turn;
+  const mover = useMover(state, active);
   const viewport = useViewport();
   const arranged = useRef<Arrangement>("sides");
   const { layout, chipScale } = useMemo(() => {
-    const geometry = game.geometry?.(state, human);
-    const input = { panels, geometry: geometry && fitBounds(geometry), human, active, targets, resources };
+    const input = { panels, geometry, human, active, targets, resources };
     // The room mats leave for HTML chips depends on how large the table is drawn, which depends on
     // the layout: lay it out once, fit the camera to it, then lay it out at the scale that gives.
     // The arrangements that suit the screen are tried and the one that draws the table larger
@@ -177,7 +166,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     // they keep to their mats instead of covering the board.
     const final = layout === first ? drawn : tableScale(layout, viewport.width, viewport.height, insets);
     return { layout, chipScale: Number.isFinite(final) ? Math.min(1, Math.max(0.4, final / MIN_PX)) : 1 };
-  }, [game, state, panels, human, active, targets, resources, viewport, insets]);
+  }, [panels, geometry, human, active, targets, resources, viewport, insets]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const { hint, ask } = useHint(game, state, human);
   const hinted = hint && hint !== "thinking" ? game.moveTarget?.(state, hint.move) : undefined;
@@ -186,22 +175,12 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const marks = useMemo(() => {
     const out: TargetMark[] = [];
     for (const id of targets) {
-      const kind = targetKind(layout, id);
+      const kind = turn.kindOf(id);
       if (kind) out.push({ id, kind, hint: id === hinted, ring: kind === "corner" || kind === "edge" });
     }
     return out;
-  }, [layout, targets, hinted]);
-  // What to do this turn, from the moves the glowing things allow.
-  const todo = useMemo(
-    () =>
-      instruction(
-        [...byTarget.entries()].flatMap(([id, moves]) => {
-          const kind = targetKind(layout, id);
-          return kind ? moves.map((move) => ({ kind, description: label(move) })) : [];
-        }),
-      ),
-    [byTarget, layout],
-  );
+  }, [turn, targets, hinted]);
+  const todo = turn.instruction;
   const labelLayer = useRef<HTMLDivElement>(null);
   const labels = useMemo(() => ({ anchors: new Map([...labelAnchors(layout), ...markAnchors(layout, marks)]), layer: labelLayer }), [layout, marks]);
   // The guide counts the player's moves and steps aside after a few.

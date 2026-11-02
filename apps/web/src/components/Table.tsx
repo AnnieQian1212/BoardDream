@@ -6,7 +6,7 @@ import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
 import { tidyPanels } from "../panels";
 import { Board } from "./Board";
-import { instruction, type TargetKind } from "../instructions";
+import { turnOf } from "../turn";
 import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
@@ -33,24 +33,12 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   useEffect(() => setMenu(null), [state]);
   const { hint, ask } = useHint(game, state, human);
 
-  const over = game.isTerminal(state);
-  const active = over ? undefined : game.activePlayers(state)[0];
-  const myTurn = active === human;
   const resources = resourceById(game.meta.resources);
   const raw = game.geometry?.(state, human);
   const geometry = raw && fitBounds(raw);
   const panels = tidyPanels(game.panels?.(state, human) ?? []);
-  const label = (move: unknown) => game.describeMove?.(state, move, human) ?? JSON.stringify(move);
-
-  // Group my legal moves by what they act on; the rest become buttons.
-  const byTarget = new Map<string, unknown[]>();
-  const loose: unknown[] = [];
-  for (const move of myTurn ? game.legalMoves(state, human) : []) {
-    const target = game.moveTarget?.(state, move);
-    if (target === undefined) loose.push(move);
-    else byTarget.set(target, [...(byTarget.get(target) ?? []), move]);
-  }
-  const targets = new Set(byTarget.keys());
+  // Whose turn, what glows and what each click does: shared with the 3D table.
+  const { over, active, mine: myTurn, byTarget, targets, loose, label, instruction: todo } = turnOf(game, state, human, panels, geometry);
   const pick = (id: string, event: React.MouseEvent) => {
     const options = byTarget.get(id);
     if (!options) return;
@@ -64,13 +52,6 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
 
-  // What to do this turn, from the moves the glowing things allow (as on the 3D table).
-  const kindOf = (id: string): TargetKind => {
-    const cell = geometry?.cells.find((c) => c.id === id);
-    if (cell) return cell.kind === "vertex" ? "corner" : cell.kind === "edge" ? "edge" : "space";
-    return panels.some((p) => p.cards?.some((c) => c.id === id)) ? "card" : "counter";
-  };
-  const todo = myTurn ? instruction([...byTarget.entries()].flatMap(([id, moves]) => moves.map((move) => ({ kind: kindOf(id), description: label(move) })))) : undefined;
   const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : active !== undefined ? `Player ${active + 1} is thinking…` : "";
 
   return (
