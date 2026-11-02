@@ -6,6 +6,7 @@ import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
 import { tidyPanels } from "../panels";
 import { Board } from "./Board";
+import { instruction, type TargetKind } from "../instructions";
 import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
@@ -63,8 +64,14 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
 
-  let status = myTurn ? "Your turn" : active !== undefined ? `Player ${active + 1} is thinking…` : "";
-  if (myTurn && targets.size > 0) status += " · pick something that glows";
+  // What to do this turn, from the moves the glowing things allow (as on the 3D table).
+  const kindOf = (id: string): TargetKind => {
+    const cell = geometry?.cells.find((c) => c.id === id);
+    if (cell) return cell.kind === "vertex" ? "corner" : cell.kind === "edge" ? "edge" : "space";
+    return panels.some((p) => p.cards?.some((c) => c.id === id)) ? "card" : "counter";
+  };
+  const todo = myTurn ? instruction([...byTarget.entries()].flatMap(([id, moves]) => moves.map((move) => ({ kind: kindOf(id), description: label(move) })))) : undefined;
+  const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : active !== undefined ? `Player ${active + 1} is thinking…` : "";
 
   return (
     <div className="table">
