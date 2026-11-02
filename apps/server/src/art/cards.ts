@@ -55,9 +55,14 @@ export function artFile(gameId: string, name: string): Buffer | undefined {
 }
 
 /** What to paint for one card: its name, in the game's world, without any rules text. */
+/**
+ * What a card's painting shows: its subject as a scene or a character from the game's world. Given
+ * as "Name (tags): an illustration for this card", the painter letters the name across the top;
+ * told it is "a card", it paints cards and maps. So the subject is described, never framed.
+ */
 export function subjectFor(req: ArtRequest, card: ArtCard): string {
-  const tags = card.tags?.length ? ` (${card.tags.join(", ")})` : "";
-  return `${card.title}${tags}: an illustration for this card in "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}`;
+  const tags = card.tags?.length ? ` (${card.tags.join(", ").toLowerCase()})` : "";
+  return `An illustration of ${card.title}${tags} from the world of ${req.game}, where ${req.summary.replace(/\.$/, "")}. Show it as one scene, a character at work or an object in its place; never as a playing card, a game board, a map or a diagram. The picture carries no caption, title, name, label or lettering of any kind`;
 }
 
 interface ImageReply {

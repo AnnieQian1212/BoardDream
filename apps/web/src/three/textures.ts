@@ -2,6 +2,7 @@ import type { CardView, Geometry, ResourceSpec } from "@boarddream/engine";
 import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import { iconFor, tagStyle } from "../icons";
+import { motifFor } from "../motifs";
 import { growthsOf, inside, type PrintBox } from "./growth";
 import {
   alpha,
@@ -101,7 +102,7 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
     const s = Math.max(aw / art.width, ah / art.height) * 1.3;
     ctx.drawImage(art, ax + (aw - art.width * s) / 2, ay + (ah - art.height * s) / 2, art.width * s, art.height * s);
   } else {
-    paintWash(ctx, tag, icon, ax, ay, aw, ah, hash(card.title));
+    paintVignette(ctx, tag, motifFor(card.title) ?? icon, ax, ay, aw, ah, hash(card.title));
   }
   const vignette = ctx.createRadialGradient(ax + aw / 2, ay + ah / 2, ah * 0.4, ax + aw / 2, ay + ah / 2, aw * 0.75);
   vignette.addColorStop(0, "rgba(45, 32, 22, 0)");
@@ -205,44 +206,164 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
   }
 }
 
-/** Placeholder illustration until card art is painted: a watercolor wash behind an ink drawing. */
-function paintWash(ctx: CanvasRenderingContext2D, tag: string, icon: LucideIcon, x: number, y: number, w: number, h: number, seed: number) {
+/**
+ * Placeholder illustration until card art is painted, in the table's storybook style: a little
+ * inked landscape (sky, a sun or a moon, a cloud, two rolling hills with grass) in the card's tag
+ * color, and in front of it a round emblem with the card's motif (motifs.ts: a ship for a ferry, a
+ * crown for a baron) drawn in ink and color, with a few sparkles. Seeded by the title, so every
+ * card differs and stays the same.
+ */
+function paintVignette(ctx: CanvasRenderingContext2D, tag: string, icon: LucideIcon, x: number, y: number, w: number, h: number, seed: number) {
   const rand = seeded(seed);
-  const base = ctx.createLinearGradient(x, y, x, y + h);
-  base.addColorStop(0, mix(tag, "#fbf6ea", 0.7));
-  base.addColorStop(1, mix(tag, "#efe2c6", 0.42));
-  ctx.fillStyle = base;
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  // Sky.
+  const sky = ctx.createLinearGradient(x, y, x, y + h);
+  sky.addColorStop(0, mix(tag, "#fff9ea", 0.8));
+  sky.addColorStop(0.7, mix(tag, "#f6ead0", 0.62));
+  ctx.fillStyle = sky;
   ctx.fillRect(x, y, w, h);
-  ctx.globalCompositeOperation = "multiply";
-  for (let i = 0; i < 8; i++) {
-    const bx = x + rand() * w;
-    const by = y + rand() * h;
-    const br = (0.2 + rand() * 0.4) * w;
-    const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    g.addColorStop(0, alpha(mix(tag, "#ffffff", 0.15), 0.25 + rand() * 0.3));
-    g.addColorStop(1, alpha(tag, 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, w, h);
+  // A sun with short rays, or a crescent moon.
+  const night = rand() < 0.35;
+  const [sx, sy, sr] = [x + w * (rand() < 0.5 ? 0.18 + rand() * 0.12 : 0.7 + rand() * 0.12), y + h * (0.2 + rand() * 0.06), h * 0.085];
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  if (night) {
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.arc(sx + sr * 0.45, sy - sr * 0.2, sr * 0.85, 0, Math.PI * 2, true);
+    ctx.fillStyle = "#f6ebc9";
+    ctx.fill("evenodd");
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) sparkle(ctx, x + w * (0.1 + rand() * 0.8), y + h * (0.08 + rand() * 0.25), 5 + rand() * 4, "#fbf3e1");
+  } else {
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + Math.cos(a) * sr * 1.3, sy + Math.sin(a) * sr * 1.3);
+      ctx.lineTo(sx + Math.cos(a) * sr * 1.65, sy + Math.sin(a) * sr * 1.65);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fillStyle = "#f2c95e";
+    ctx.fill();
+    ctx.stroke();
   }
-  const ground = ctx.createLinearGradient(0, y + h * 0.55, 0, y + h);
-  ground.addColorStop(0, alpha(tag, 0));
-  ground.addColorStop(1, alpha(mix(tag, INK, 0.25), 0.5));
-  ctx.fillStyle = ground;
-  ctx.fillRect(x, y, w, h);
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 0.6;
+  // A cloud on the other side of the sky.
+  const cloudX = sx < x + w / 2 ? x + w * (0.62 + rand() * 0.18) : x + w * (0.12 + rand() * 0.16);
+  cloud(ctx, cloudX, y + h * (0.16 + rand() * 0.1), h * 0.07);
+  // Two rolling hills, inked along their tops; the near one has tufts of grass.
+  const hill = (base: number, amp: number, fill: string, tufts: boolean) => {
+    const phase = rand() * Math.PI * 2;
+    const k = 1 + rand() * 1.5;
+    const top = (px: number) => base + Math.sin(((px - x) / w) * Math.PI * k + phase) * amp + Math.sin(((px - x) / w) * Math.PI * 5 + phase * 2) * amp * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y + h + 4);
+    for (let px = x - 4; px <= x + w + 4; px += 6) ctx.lineTo(px, top(px));
+    ctx.lineTo(x + w + 4, y + h + 4);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.beginPath();
+    for (let px = x - 4; px <= x + w + 4; px += 6) (px === x - 4 ? ctx.moveTo(px, top(px)) : ctx.lineTo(px, top(px)));
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    if (!tufts) return;
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = alpha(INK, 0.55);
+    for (let i = 0; i < 16; i++) {
+      const px = x + rand() * w;
+      const py = top(px) + 10 + rand() * (y + h - top(px) - 14);
+      for (const a of [-0.5, 0, 0.5]) {
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.sin(a) * 9, py - Math.cos(a) * 11);
+        ctx.stroke();
+      }
+    }
+  };
+  hill(y + h * 0.58, h * 0.07, mix(tag, "#e8d9b4", 0.45), false);
+  hill(y + h * 0.74, h * 0.05, mix(mix(tag, "#6f9a55", 0.35), "#efe2c4", 0.15), true);
+  // The emblem: a cream medallion ringed in ink and the tag color, with a soft shadow.
+  const [cx, cy, r] = [x + w / 2, y + h * 0.5, h * 0.31];
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.08, cy + r * 1.02, r * 0.95, r * 0.2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = alpha(INK, 0.16);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbf3e1";
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 11, 0, Math.PI * 2);
+  ctx.lineWidth = 9;
+  ctx.strokeStyle = mix(tag, "#ffffff", 0.15);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 17, 0, Math.PI * 2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = alpha(INK, 0.6);
+  ctx.stroke();
+  const glow = ctx.createRadialGradient(cx, cy - r * 0.3, 0, cx, cy, r - 18);
+  glow.addColorStop(0, "rgba(255, 252, 240, 0.9)");
+  glow.addColorStop(1, alpha(mix(tag, "#fbf3e1", 0.75), 0.9));
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 18, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+  // The motif, inked thick with the color inside, like a hand-colored print.
+  const size = r * 1.12;
+  drawIcon(ctx, icon, cx + 2, cy + 3, size, alpha(INK, 0.18), 3.6);
+  drawIcon(ctx, icon, cx, cy, size, INK, 3.4);
+  drawIcon(ctx, icon, cx, cy, size, mix(tag, "#ffffff", 0.08), 1.7);
+  // Sparkles about the emblem.
+  for (let i = 0; i < 3; i++) {
+    const a = -Math.PI * (0.15 + rand() * 0.7) + (i === 2 ? Math.PI : 0);
+    sparkle(ctx, cx + Math.cos(a) * r * (1.3 + rand() * 0.2), cy + Math.sin(a) * r * (1.05 + rand() * 0.2), 7 + rand() * 5, "#f6dc8a");
+  }
+  ctx.globalAlpha = 0.5;
   ctx.fillStyle = grainPattern(ctx);
   ctx.fillRect(x, y, w, h);
-  ctx.globalAlpha = 1;
-  const cx = x + w / 2;
-  const cy = y + h * 0.5;
-  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * 0.48);
-  halo.addColorStop(0, "rgba(255, 252, 240, 0.6)");
-  halo.addColorStop(1, "rgba(255, 252, 240, 0)");
-  ctx.fillStyle = halo;
-  ctx.fillRect(x, y, w, h);
-  drawIcon(ctx, icon, cx + 3, cy + 4, h * 0.6, alpha(mix(tag, INK, 0.3), 0.25), 1.6);
-  drawIcon(ctx, icon, cx, cy, h * 0.6, mix(tag, INK, 0.55), 1.3);
+  ctx.restore();
+}
+
+/** A four-pointed sparkle, inked. */
+function sparkle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fill: string) {
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const d = i % 2 === 0 ? r : r * 0.32;
+    if (i === 0) ctx.moveTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+    else ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+}
+
+/** A small inked cloud: a flat bottom under three bumps. */
+function cloud(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x - r * 2.2, y + r * 0.6);
+  ctx.arc(x - r * 1.2, y + r * 0.1, r * 0.75, Math.PI * 0.9, Math.PI * 1.75);
+  ctx.arc(x, y - r * 0.2, r, Math.PI * 1.15, Math.PI * 1.95);
+  ctx.arc(x + r * 1.25, y + r * 0.15, r * 0.7, Math.PI * 1.3, Math.PI * 0.1);
+  ctx.lineTo(x - r * 2.2, y + r * 0.6);
+  ctx.closePath();
+  ctx.fillStyle = "#fffaf0";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
 }
 
 let back: CanvasTexture | undefined;
