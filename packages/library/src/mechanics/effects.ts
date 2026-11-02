@@ -115,15 +115,17 @@ export function costOf(card: CardDef, tableau: readonly string[], cardOf: (insta
 }
 
 /**
- * Plays a card into its owner's tableau, after they have paid for it: its own onPlay effects, then the
+ * Plays a card into its owner's tableau, after they have paid for it: it leaves their hand (if it
+ * was there) and joins the end of their tableau, then its own onPlay effects apply, then the
  * standing orders (whenever) of every card already in their tableau that its tags set off, in the
- * order those were played. The card joins the tableau, and the seat records which cards fired.
- * Triggers do not set each other off: one play fires each matching card once per matching trigger.
+ * order those were played; the seat records which cards fired. Triggers do not set each other off:
+ * one play fires each matching card once per matching trigger.
  */
 export function playToTableau(seat: EffectSeat, instance: string, ctx: EffectContext): EffectSeat {
   const card = ctx.cardOf(instance);
   const before = seat.tableau.filter((played) => played !== instance);
-  let next = applyEffects({ ...seat, tableau: [...before, instance] }, card.onPlay, ctx);
+  const hand = seat.hand.filter((held) => held !== instance);
+  let next = applyEffects({ ...seat, hand, tableau: [...before, instance] }, card.onPlay, ctx);
   const fired = [instance];
   for (const played of before) {
     for (const trigger of ctx.cardOf(played).whenever ?? []) {

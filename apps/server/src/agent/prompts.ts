@@ -145,12 +145,11 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
   undefined for moves shown as buttons (end turn, pass). Several moves may share a target.
 - Card games: write cards as data with the effects module (CardDef: cost, points, tags, onPlay, income,
   endgame, whenever, discount), build the deck with buildDeck so every copy has a stable id like "fern#2",
-  show text from rulesText, and keep a card's id the same in every zone so the UI can animate it. Give
-  cards abilities that set each other off: whenever (a played card's standing order, fired when its owner
-  plays another card with a tag) and discount (cards with a tag cost less), besides tags that end-game
-  bonuses count. Pay costOf, then play the card with playToTableau (its onPlay and the standing orders it
-  sets off); pay income with applyIncome; keep each seat's fired and firedAt in state and set every card
-  view's pulse with pulseOf, so the table flashes the cards whose abilities fire.
+  show text from rulesText, and keep a card's id the same in every zone so the UI can animate it; a card
+  is in exactly one place at a time. Cards may set each other off with whenever (fires when its owner
+  plays another card with a tag) and discount (cards with a tag cost less). To play a card: pay costOf,
+  then playToTableau, which moves it from the seat's hand to its tableau and applies its effects; pay
+  income with applyIncome. Optionally set each card view's pulse with pulseOf(seat, id) so it flashes.
 - Drafting: keep a drafting.Draft in state. Picks are simultaneous: activePlayers returns drafting.waiting,
   view hides rival hands and picks with drafting.hideDraft, and the applyMove that records the last pick also
   calls drafting.resolve to reveal the picks and pass the hands. Open drafts from a shared row use snakeOrder.

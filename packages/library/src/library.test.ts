@@ -898,10 +898,12 @@ describe("mechanics", () => {
     };
     const cardOf = (i: string) => cards[i.split("#")[0]];
     const ctx = { cardOf, draw: () => [] };
-    const seat = { resources: {}, points: 0, hand: [], tableau: ["hive#1", "press#1", "nursery#1", "pump#1"] };
+    const seat = { resources: {}, points: 0, hand: ["rose#1", "hive#2"], tableau: ["hive#1", "press#1", "nursery#1", "pump#1"] };
 
     const played = playToTableau(seat, "rose#1", ctx);
     expect(played.tableau).toEqual(["hive#1", "press#1", "nursery#1", "pump#1", "rose#1"]);
+    // Played from the hand, it is no longer held: a card is never in two places.
+    expect(played.hand).toEqual(["hive#2"]);
     expect(played.resources).toEqual({ light: 1, honey: 1 });
     expect(played.points).toBe(1);
     expect(played.fired).toEqual(["rose#1", "hive#1", "press#1"]);
