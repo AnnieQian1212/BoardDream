@@ -18,11 +18,11 @@ const ROW_GAP = 2.6;
 const PILE = 4.6;
 const HAND_TILT = 0.62;
 const HAND_SCALE = 1.2;
-/** Rival mats, in the columns either side of the middle. */
-const SIDE_W = 30;
+/** Rival mats stand upright in the columns either side of the middle, this wide. */
+const SEAT_W = 18;
 const SIDE_GAP = 3;
 /** The board's longer side with panels around it, and alone. */
-const BOARD = 48;
+const BOARD = 54;
 const BOARD_ALONE = 52;
 
 export type Vec3 = [number, number, number];
@@ -116,6 +116,11 @@ export interface LayoutInput {
   active?: number;
   targets: Set<string>;
   resources: Map<string, ResourceSpec>;
+  /**
+   * Screen pixels per table unit where the table will be drawn, which sizes the room left for HTML
+   * chips. A first layout's camera fit gives it (tableScale); about 7 if left out.
+   */
+  pxPerUnit?: number;
 }
 
 const IDENTITY: Quat = [0, 0, 0, 1];
@@ -229,37 +234,49 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
   };
 }
 
-/**
- * Header chips are HTML, a fixed size on screen, so their width in table units depends on the
- * camera. Measured at a conservative 7 screen pixels per unit (the table with both side panels
- * open), they fit at any closer view.
- */
+/** Screen pixels per table unit when none is given: about the scale with both side panels open. */
 const PX_PER_UNIT = 7;
-const CHIP_GAP = 6 / PX_PER_UNIT;
-/** A wrapped row of chips: 26 px tall with 6 px between rows. */
-const CHIP_ROW = 32 / PX_PER_UNIT;
-const chipWidth = (c: Counter) => (24 + 7.2 * c.label.length + 8 * String(c.value).length) / PX_PER_UNIT;
-const noteWidth = (note: string) => (24 + 6.6 * Math.min(note.length, 44)) / PX_PER_UNIT;
 
-/** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
-function wrapRows(widths: number[], room: number): number {
-  let rows = 1;
-  let used = 0;
-  for (const w of widths) {
-    if (used > 0 && used + CHIP_GAP + w > room) {
-      rows++;
-      used = w;
-    } else used += (used > 0 ? CHIP_GAP : 0) + w;
-  }
-  return rows;
+/**
+ * The HTML chips drawn over mats (counters, notes, the turn pill) in table units. They are a fixed
+ * size on screen, so their size on the table depends on how large the table is drawn: `px` screen
+ * pixels per table unit.
+ */
+function chipSizes(px: number) {
+  const gap = 6 / px;
+  return {
+    gap,
+    /** A wrapped row of chips: 26 px tall with 6 px between rows. */
+    row: 32 / px,
+    counter: (c: Counter) => (24 + 7.2 * c.label.length + 8 * String(c.value).length) / px,
+    note: (note: string) => (24 + 6.6 * Math.min(note.length, 44)) / px,
+    /** A resource pile's count chip: piles stand at least this far apart, so their chips never touch. */
+    pile: 52 / px,
+    /** The "Thinking…" pill at the head of a rival's chips. */
+    turnPill: (24 + 7 * 10) / px,
+    /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
+    rows(widths: number[], room: number): number {
+      let rows = 1;
+      let used = 0;
+      for (const w of widths) {
+        if (used > 0 && used + gap + w > room) {
+          rows++;
+          used = w;
+        } else used += (used > 0 ? gap : 0) + w;
+      }
+      return rows;
+    },
+  };
 }
+
+type ChipSizes = ReturnType<typeof chipSizes>;
 
 /**
  * A shared supply standing upright beside the board: its piles in rows under the header, then its
  * deck and cards in a grid one to three cards wide, so a market runs down the table instead of
  * across it.
  */
-function supplyBlock(panel: Panel, input: LayoutInput): Block {
+function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block {
   const title = panel.title;
   const counters = panel.counters ?? [];
   const piles = counters.filter((c) => c.resource);
@@ -273,15 +290,16 @@ function supplyBlock(panel: Panel, input: LayoutInput): Block {
   // The header holds the title and, when they fit beside it, the counters' chips and the note.
   // Too many for that, and they wrap in rows across the top of the mat's body instead.
   const titleW = 2.4 + 0.7 * title.length;
-  const chips = [...plain.map(chipWidth), ...(panel.note ? [noteWidth(panel.note)] : [])];
-  const chipsW = chips.reduce((sum, w) => sum + w + CHIP_GAP, 0);
+  const chips = [...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
+  const chipsW = chips.reduce((sum, w) => sum + w + sizes.gap, 0);
   const width = Math.max(slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0, Math.min(36, titleW + 1 + chipsW), 16);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
-  const chipRows = wrap ? wrapRows(chips, width - 2) : 0;
-  const chipsDepth = chipRows * CHIP_ROW;
-  const perRow = Math.max(1, Math.floor((width - 2 * PAD) / PILE));
+  const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
+  const chipsDepth = chipRows * sizes.row;
+  const pile = Math.max(PILE, sizes.pile);
+  const perRow = Math.max(1, Math.floor((width - 2 * PAD) / pile));
   const pileRows = Math.ceil(piles.length / perRow);
-  const pilesDepth = pileRows * PILE + (pileRows > 0 && slots > 0 ? 0.6 : 0);
+  const pilesDepth = pileRows * pile + (pileRows > 0 && slots > 0 ? 0.6 : 0);
   const bodyDepth = Math.max(chipsDepth + pilesDepth + (rows > 0 ? rows * CARD_H + (rows - 1) * gap : 0), 2);
   const depth = HEADER + bodyDepth + PAD;
   return {
@@ -313,13 +331,13 @@ function supplyBlock(panel: Panel, input: LayoutInput): Block {
               you: false,
             },
       );
-      const pileLeft = x - (Math.min(piles.length, perRow) * PILE) / 2;
+      const pileLeft = x - (Math.min(piles.length, perRow) * pile) / 2;
       piles.forEach((counter, i) => {
         out.piles.push({
           id: counter.id,
           counter,
           resource: input.resources.get(counter.resource!),
-          position: [pileLeft + ((i % perRow) + 0.5) * PILE, MAT_TOP, body + (Math.floor(i / perRow) + 0.5) * PILE],
+          position: [pileLeft + ((i % perRow) + 0.5) * pile, MAT_TOP, body + (Math.floor(i / perRow) + 0.5) * pile],
           scale: 1,
           target: input.targets.has(counter.id),
         });
@@ -346,6 +364,87 @@ function supplyBlock(panel: Panel, input: LayoutInput): Block {
           spawn: deck ? [deck.position[0], MAT_TOP + 1, deck.position[2]] : [position[0], 8, position[2]],
           target: input.targets.has(card.id),
           zone: "shared",
+        });
+      });
+    },
+  };
+}
+
+/**
+ * A rival's mat standing upright in a side column: the seat's name in its header, its chips (turn,
+ * note, counters, score) in rows under it, then its resource piles and its cards in grids. It is
+ * narrow, so the board in the middle gets the room.
+ */
+function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block {
+  const title = panel.title;
+  const counters = panel.counters ?? [];
+  const piles = counters.filter((c) => c.resource);
+  const plain = counters.filter((c) => !c.resource);
+  const cards = panel.cards ?? [];
+  const showCards = cards.length > 0 || panel.cards !== undefined;
+  const [cw, ch, gap] = [CARD_W * 0.66, CARD_H * 0.66, 0.4];
+  const pile = Math.max(PILE * 0.8, sizes.pile);
+  const width = SEAT_W;
+  const inner = width - 2 * PAD;
+  // Room for the turn pill whether or not it shows, so a mat keeps its size between turns.
+  const chips = [sizes.turnPill, ...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
+  const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + 0.4;
+  const perRow = Math.max(1, Math.floor(inner / pile));
+  const pileRows = Math.ceil(piles.length / perRow);
+  const pilesDepth = pileRows * pile + (pileRows > 0 ? 0.4 : 0);
+  const cols = Math.max(1, Math.floor((inner + gap) / (cw + gap)));
+  const rows = showCards ? Math.max(1, Math.ceil(cards.length / cols)) : 0;
+  const cardsDepth = rows > 0 ? rows * ch + (rows - 1) * gap : 0;
+  const depth = HEADER + chipsDepth + pilesDepth + cardsDepth + PAD;
+  return {
+    width,
+    depth,
+    place(x, z, out) {
+      const seat = panel.owner ?? 0;
+      const active = seat === input.active;
+      out.mats.push({ id: panel.id, title, color: playerColor(seat), position: [x, 0, z], width, depth, active, shared: false });
+      const top = z - depth / 2;
+      const anchor: Vec3 = [x - width / 2 + 4, 3, top + 1.6];
+      out.seatAnchors.set(seat, anchor);
+      out.badges.push({
+        id: panel.id,
+        position: [x + width / 2 - 1, MAT_TOP, top + HEADER - 0.4],
+        left: [x - width / 2 + 1, MAT_TOP, top + HEADER - 0.4],
+        counters: plain,
+        note: panel.note,
+        active,
+        you: false,
+        seat,
+        wrap: true,
+      });
+      const body = top + HEADER + chipsDepth;
+      const pileLeft = x - (Math.min(piles.length, perRow) * pile) / 2;
+      piles.forEach((counter, i) => {
+        out.piles.push({
+          id: counter.id,
+          counter,
+          resource: input.resources.get(counter.resource!),
+          position: [pileLeft + ((i % perRow) + 0.5) * pile, MAT_TOP, body + (Math.floor(i / perRow) + 0.5) * pile],
+          scale: 0.8,
+          target: input.targets.has(counter.id),
+        });
+      });
+      const gridLeft = x - (cols * cw + (cols - 1) * gap) / 2;
+      cards.forEach((card, i) => {
+        const position: Vec3 = [
+          gridLeft + (i % cols) * (cw + gap) + cw / 2,
+          MAT_TOP + 0.1 + i * 0.012,
+          body + pilesDepth + Math.floor(i / cols) * (ch + gap) + ch / 2,
+        ];
+        out.cards.push({
+          id: card.id,
+          card,
+          position,
+          quaternion: card.faceDown ? (FLIP.toArray() as Quat) : IDENTITY,
+          scale: 0.66,
+          spawn: anchor,
+          target: input.targets.has(card.id),
+          zone: "seat",
         });
       });
     },
@@ -441,7 +540,8 @@ export function layoutTable(input: LayoutInput): TableLayout {
     .sort((a, b) => (((a.owner ?? 0) - human + 99) % 99) - (((b.owner ?? 0) - human + 99) % 99));
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
-  const rivalMat = (p: Panel) => matBlock(p, input, { cardScale: 0.66, pileScale: 0.8, width: SIDE_W, title: p.title, you: false });
+  const sizes = chipSizes(input.pxPerUnit ?? PX_PER_UNIT);
+  const rivalMat = (p: Panel) => seatColumnBlock(p, input, sizes);
   const half = Math.ceil(rivals.length / 2);
   const leftSide = rivals.slice(0, half).reverse().map(rivalMat);
   const rightSide = rivals.slice(half).map(rivalMat);
@@ -452,7 +552,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
   if (geometry) {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
     const supply = supplyColumns(
-      shared.map((p) => supplyBlock(p, input)),
+      shared.map((p) => supplyBlock(p, input, sizes)),
       Math.max(board.depth, 40),
     );
     middle = supply ? across([board, supply], 3) : board;

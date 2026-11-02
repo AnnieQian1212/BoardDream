@@ -9,6 +9,7 @@ import { resourceById } from "../icons";
 import { tidyPanels } from "../panels";
 import { setCursor, setHover, useHover } from "./hover";
 import { labelAnchors, Labels } from "./Labels";
+import { tableScale } from "./camera";
 import { layoutTable } from "./layout";
 import { FONT_DISPLAY, FONT_UI } from "./paint";
 import { initialTier, settings, stepDown } from "./quality";
@@ -60,6 +61,17 @@ interface Menu {
   x: number;
   y: number;
   moves: unknown[];
+}
+
+/** The window's size, which the table fills. */
+function useViewport() {
+  const [size, setSize] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  useEffect(() => {
+    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return size;
 }
 
 /** Canvas text needs the web fonts loaded before the first card is painted. */
@@ -117,10 +129,15 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     if (!art?.size) return raw;
     return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
   }, [game, state, human, art]);
+  const viewport = useViewport();
   const layout = useMemo(() => {
     const geometry = game.geometry?.(state, human);
-    return layoutTable({ panels, geometry: geometry && fitBounds(geometry), human, active, targets, resources });
-  }, [game, state, panels, human, active, targets, resources]);
+    const input = { panels, geometry: geometry && fitBounds(geometry), human, active, targets, resources };
+    // The room mats leave for HTML chips depends on how large the table is drawn, which depends on
+    // the layout: lay it out once, fit the camera to it, then lay it out at the scale that gives.
+    const scale = tableScale(layoutTable(input), viewport.width, viewport.height, insets);
+    return layoutTable({ ...input, pxPerUnit: Math.min(24, Math.max(5, scale)) });
+  }, [game, state, panels, human, active, targets, resources, viewport, insets]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const labelLayer = useRef<HTMLDivElement>(null);
   const labels = useMemo(() => ({ anchors: labelAnchors(layout), layer: labelLayer }), [layout]);

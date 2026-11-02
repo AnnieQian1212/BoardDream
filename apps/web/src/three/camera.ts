@@ -55,3 +55,13 @@ export function fitCamera(layout: TableLayout, width: number, height: number, in
   return { target, position: target.clone().addScaledVector(dir, d) };
 }
 
+/**
+ * Screen pixels per table unit at the middle of the table once the camera frames `layout`: how
+ * large HTML labels are next to what is on the table. Slightly low, since the far side of the table
+ * is drawn smaller than the middle.
+ */
+export function tableScale(layout: TableLayout, width: number, height: number, insets: Insets): number {
+  const { target, position } = fitCamera(layout, width, height, insets);
+  const distance = position.distanceTo(target);
+  return (0.9 * height) / (2 * distance * Math.tan((FOV * Math.PI) / 360));
+}
