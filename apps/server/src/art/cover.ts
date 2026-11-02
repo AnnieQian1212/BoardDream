@@ -21,13 +21,30 @@ const safeId = (id: string) => /^[a-z0-9-]+$/.test(id);
 
 /**
  * How a cover is drawn. The storybook house style alone came back busy and glowing: crowds of tiny
- * figures, golden backlight, fine hatching, a deckled paper edge. That reads as machine-made. A
- * hobby box cover reads as drawn by hand: a few large figures, flat colour, one ink weight, calm
- * empty space. The author then found even three figures with their tools and crates too busy to
- * take in at a glance, so a cover holds at most five things.
+ * figures, golden backlight, fine hatching, a deckled paper edge, which read as machine-made. A
+ * flat graphic style with at most five things then read as too empty. The author asked for the
+ * warm, hand-painted look of classic animated fantasy films; the prompt describes its qualities
+ * rather than naming a studio: painted backgrounds, soft daylight, lush nature, simple clean
+ * figures, and a handful of things to look at.
  */
 export const COVER_STYLE =
-  "Flat graphic illustration with the hand-drawn look of a modern hobby board game box: bold dark-brown ink outlines of one even weight; big simple shapes with clean silhouettes and slightly chunky, whimsical proportions; flat colour fills with at most one hard-edged shadow tone per colour; a limited palette of about five colours (warm cream, ochre, rust red, moss green, slate blue) with one bright accent; very few elements, at most five things in the whole picture, each large and easy to read; a background of two or three plain flat colour bands with wide empty areas; no gradients, no glow, no sunbeams or backlight, no airbrushing, no crowds, no props scattered around, no clutter, no fine hatching or texture lines, no photorealism; matte paper with a faint grain";
+  "Hand-painted illustration with the warm look of a classic hand-drawn animated fantasy film: soft watercolour and gouache backgrounds with visible brush texture; lush, gently detailed nature (grass, trees, water, big cumulus clouds in a clear sky); calm, soft natural daylight with soft shadows, no dramatic backlight, no glow or lens flare; characters drawn with clean simple linework and soft cel shading, with friendly, natural faces and relaxed everyday poses; a gentle palette of fresh greens, sky blues, warm creams and earthy browns; a moderate amount of detail: two or three people, a few objects that show what they do, and a clear landscape with a few landmarks, but no crowds and no clutter; a cozy, hopeful mood";
+
+/**
+ * Framings, one per game (by its id), so a shelf of covers is not the same three figures in the
+ * middle every time.
+ */
+export const COMPOSITIONS = [
+  "a wide view of the landscape, the people small in the middle distance",
+  "one person close up in the foreground, looking out over the landscape where the others work",
+  "the people seen from behind, walking toward the landmark",
+  "a view from above, looking down on the people at work",
+  "two people facing each other across their work, the landscape between them",
+  "the people at work on the left, the landscape opening wide to the right",
+];
+
+/** A game's framing: the same every time it is painted. */
+export const compositionFor = (gameId: string) => [...gameId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % COMPOSITIONS.length;
 
 /**
  * What the cover shows: a scene from the game's world, never the game's own parts. Told it paints
@@ -35,11 +52,12 @@ export const COVER_STYLE =
  * the subject is described as a scene, and lettering of every kind is ruled out. Its people are
  * people: animals in clothes would read as another game's woodland factions.
  */
-export function coverPrompt(req: CoverRequest): string {
+export function coverPrompt(req: CoverRequest, composition = 0): string {
   const world = req.summary.trim().replace(/\.$/, "");
   return [
     `A wide illustration of the world of ${req.game}: ${world}.`,
-    "Show one simple moment from that world: one or two of its people (humans, not animals in clothes) with the one object that matters most to them, large in the foreground, and the place reduced to a simple silhouette behind them.",
+    "Show one quiet moment from that world: two or three of its people (humans, not animals in clothes) busy with what they do, with a few of the objects of their trade, in their landscape with one or two landmarks.",
+    `Composition: ${COMPOSITIONS[composition % COMPOSITIONS.length]}.`,
     "The picture fills the whole frame edge to edge, with no paper margin, border or frame.",
     "Never a game board, a map, playing cards, tokens or a diagram.",
     "The picture carries no title, caption, logo, lettering, numbers or signs of any kind.",
@@ -81,7 +99,7 @@ export async function paintCover(client: ModelClient, model: string, gameId: str
     n: 1,
     size: "1536x1024",
     reasoning_strength: "low",
-    prompt: coverPrompt(req),
+    prompt: coverPrompt(req, compositionFor(gameId)),
   })) as ImageReply;
   const b64 = reply.data?.[0]?.b64_json;
   if (!b64) throw new Error("Muse Image returned no image");
