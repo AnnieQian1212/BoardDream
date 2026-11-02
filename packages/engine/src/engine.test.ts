@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { fitBounds, fuzz, isDeck, isScore, overlappingCells, playMatch, randomBot, rectPolygon, scoreOf, simulate, squareGridGeometry, type Bot, type Counter, type GameModule } from "./index";
+import { fitBounds, fuzz, isDeck, isScore, overlappingCells, playMatch, randomBot, randomPlayout, rectPolygon, sampleSeats, scoreOf, simulate, squareGridGeometry, type BalanceStats, type Bot, type Counter, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -183,5 +183,39 @@ describe("the table's vocabulary", () => {
     for (const label of ["Deck", "Draw pile", "Discard pile", "Event stack"]) expect(isDeck(counter(label)), label).toBe(true);
     expect(isDeck(counter("Coins"))).toBe(false);
     expect(isDeck(counter("Stacked stone", "stone"))).toBe(false);
+  });
+});
+
+describe("looking at a game", () => {
+  test("seats three when the game allows it", () => {
+    expect(sampleSeats(nim)).toBe(3);
+    expect(sampleSeats({ ...nim, meta: { ...nim.meta, maxPlayers: 2 } })).toBe(2);
+    expect(sampleSeats({ ...nim, meta: { ...nim.meta, minPlayers: 4, maxPlayers: 5 } })).toBe(4);
+  });
+
+  test("a random playout is the same game for the same seed, and stops when asked", () => {
+    const play = (seed: number) => {
+      const turns: number[] = [];
+      const end = randomPlayout(nim, { seed, maxTurns: 100 }, ({ turn, move }) => void turns.push(turn * 10 + (move as number)));
+      return { turns, end };
+    };
+    expect(play(4)).toEqual(play(4));
+    const { turns, end } = play(4);
+    expect(turns.map((t) => Math.floor(t / 10))).toEqual(turns.map((_, i) => i));
+    expect(nim.isTerminal(end as NimState)).toBe(true);
+    expect((end as NimState).numPlayers).toBe(3);
+
+    let seen = 0;
+    const stopped = randomPlayout(nim, { seed: 4, maxTurns: 100 }, () => (++seen === 2 ? false : undefined));
+    expect(seen).toBe(2);
+    expect((stopped as NimState).pile).toBeGreaterThan(0);
+    expect(nim.isTerminal(randomPlayout(nim, { seed: 4, maxTurns: 1 }) as NimState)).toBe(false);
+  });
+
+  test("simulate reports running statistics, ending with what it returns", () => {
+    const heard: BalanceStats[] = [];
+    const stats = simulate(nim, { numPlayers: 2, games: 45, statsEvery: 20, onStats: (s) => heard.push(s) });
+    expect(heard.map((s) => s.games)).toEqual([20, 40, 45]);
+    expect(heard.at(-1)).toEqual(stats);
   });
 });

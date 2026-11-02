@@ -1,4 +1,4 @@
-import { createRng, resolveParams, type CardView, type GameModule, type Geometry, type Params } from "@boarddream/engine";
+import { randomPlayout, type CardView, type GameModule, type Geometry, type Params } from "@boarddream/engine";
 import { Printer, X } from "lucide-react";
 import { useMemo } from "react";
 import { startingGeometry } from "../art";
@@ -21,9 +21,7 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
   const views = new Map<string, CardView>();
   const players = game.meta.maxPlayers;
   for (let seed = 1; seed <= games; seed++) {
-    const rng = createRng(seed);
-    let state = game.setup({ numPlayers: players, params: resolveParams(game.params), rng });
-    for (let step = 0; step < 800 && !game.isTerminal(state); step++) {
+    randomPlayout(game, { numPlayers: players, seed, maxTurns: 800 }, ({ state }) => {
       for (let seat = 0; seat < players; seat++) {
         for (const panel of game.panels?.(state, seat) ?? []) {
           for (const card of panel.cards ?? []) {
@@ -34,9 +32,7 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
           }
         }
       }
-      const [seat] = game.activePlayers(state);
-      state = game.applyMove(state, seat, rng.pick(game.legalMoves(state, seat)), rng);
-    }
+    });
   }
   return [...views.entries()].map(([design, card]) => ({ card, copies: ids.get(design)!.size }));
 }

@@ -1,4 +1,4 @@
-import { resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params } from "@boarddream/engine";
+import { resolveParams, sampleSeats, type BalanceStats, type GameModule, type GameProfile, type Params } from "@boarddream/engine";
 import { demoGames } from "@boarddream/library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
@@ -82,7 +82,7 @@ function useWindowWidth(): number {
 /** Genre games read best with three at the table; abstracts with their minimum. */
 const defaultPlayers = (game: GameModule) =>
   game.meta.family === "engine" || game.meta.family === "map"
-    ? Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3))
+    ? sampleSeats(game)
     : game.meta.minPlayers;
 
 export function App() {

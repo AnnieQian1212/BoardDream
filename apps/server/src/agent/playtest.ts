@@ -1,4 +1,4 @@
-import { createRng, heuristicBot, plannerWinRate, randomBot, resolveParams, simulate, type GameModule } from "@boarddream/engine";
+import { heuristicBot, plannerWinRate, randomBot, randomPlayout, sampleSeats, simulate, type GameModule } from "@boarddream/engine";
 import type { PlayStats } from "./protocol";
 
 /**
@@ -32,7 +32,7 @@ const kindOf = (move: unknown): string =>
 const skillMeasurable = (game: GameModule) => game.meta.mode === "competitive" && game.meta.family !== "bluff";
 
 /** Playtests seat three players when the game allows it. */
-export const playtestPlayers = (game: GameModule) => Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
+export const playtestPlayers = sampleSeats;
 
 export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStats {
   const { games = 100, plannerGames = 30, onGame, plannerMs = 30_000 } = opts;
@@ -43,17 +43,11 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
   let turns = 0;
   let choices = 0;
   for (let seed = 1; seed <= 10; seed++) {
-    const rng = createRng(seed);
-    let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
-    for (let step = 0; step < 1000 && !game.isTerminal(state); step++) {
-      const [seat] = game.activePlayers(state);
-      const moves = game.legalMoves(state, seat);
+    randomPlayout(game, { numPlayers, seed, maxTurns: 1000 }, ({ moves, move }) => {
       turns++;
       if (moves.length > 1) choices++;
-      const move = rng.pick(moves);
       kinds.add(kindOf(move));
-      state = game.applyMove(state, seat, move, rng);
-    }
+    });
   }
   const measurable = skillMeasurable(game) && plannerGames > 0;
   let planned = 0;

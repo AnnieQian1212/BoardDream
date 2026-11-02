@@ -1,5 +1,5 @@
 import * as engine from "@boarddream/engine";
-import { createRng, resolveParams, type GameModule, type Geometry } from "@boarddream/engine";
+import { randomPlayout, type GameModule, type Geometry } from "@boarddream/engine";
 import * as mechanics from "@boarddream/library/mechanics";
 
 const MODULES: Record<string, unknown> = {
@@ -151,14 +151,11 @@ function trimFor(game: GameModule, first: Geometry, viewer?: number): { dx: numb
     const deadline = performance.now() + 120;
     for (let numPlayers = game.meta.minPlayers; numPlayers <= game.meta.maxPlayers; numPlayers++) {
       for (let seed = 1; seed <= 2 && performance.now() < deadline; seed++) {
-        const rng = createRng(seed);
-        let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
-        for (let step = 0; step < 400 && !game.isTerminal(state) && performance.now() < deadline; step++) {
-          if (step % 3 === 0) reach(game.geometry!(state, viewer), box);
-          const [seat] = game.activePlayers(state);
-          state = game.applyMove(state, seat, rng.pick(game.legalMoves(state, seat)), rng);
-        }
-        reach(game.geometry!(state, viewer), box);
+        const end = randomPlayout(game, { numPlayers, seed, maxTurns: 400 }, ({ turn, state }) => {
+          if (performance.now() >= deadline) return false;
+          if (turn % 3 === 0) reach(game.geometry!(state, viewer), box);
+        });
+        reach(game.geometry!(end, viewer), box);
       }
     }
   } catch {

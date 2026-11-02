@@ -1,4 +1,4 @@
-import { createRng, fitBounds, resolveParams, type CardView, type GameModule } from "@boarddream/engine";
+import { createRng, fitBounds, randomPlayout, resolveParams, sampleSeats, type CardView, type GameModule } from "@boarddream/engine";
 import { useEffect, useState } from "react";
 import { readEvents } from "./sse";
 import type { BoardPaint } from "./three/Board3D";
@@ -27,8 +27,7 @@ const boardArt = (gameId: string, report: BoardReport, version: string): BoardAr
 
 /** The board a game starts with: what the painter paints over. */
 export function startingGeometry(game: GameModule) {
-  const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
-  const geometry = game.geometry?.(game.setup({ numPlayers: players, params: resolveParams(game.params), rng: createRng(1) }));
+  const geometry = game.geometry?.(game.setup({ numPlayers: sampleSeats(game), params: resolveParams(game.params), rng: createRng(1) }));
   return geometry && fitBounds(geometry);
 }
 
@@ -44,21 +43,16 @@ const url = (gameId: string, file: string) => `/api/art/${gameId}/${file}`;
 /** Every distinct card a game shows, found by playing a few quick random games and reading the panels. */
 export function collectCards(game: GameModule, games = 4): CardView[] {
   const cards = new Map<string, CardView>();
-  const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
+  const players = sampleSeats(game);
   for (let seed = 1; seed <= games; seed++) {
-    const rng = createRng(seed);
-    let state = game.setup({ numPlayers: players, params: resolveParams(game.params), rng });
-    for (let step = 0; step < 600 && !game.isTerminal(state); step++) {
-      if (step % 3 === 0) {
-        for (let seat = 0; seat < players; seat++) {
-          for (const panel of game.panels?.(state, seat) ?? []) {
-            for (const card of panel.cards ?? []) if (!card.faceDown && !cards.has(card.title)) cards.set(card.title, card);
-          }
+    randomPlayout(game, { numPlayers: players, seed, maxTurns: 600 }, ({ turn, state }) => {
+      if (turn % 3 !== 0) return;
+      for (let seat = 0; seat < players; seat++) {
+        for (const panel of game.panels?.(state, seat) ?? []) {
+          for (const card of panel.cards ?? []) if (!card.faceDown && !cards.has(card.title)) cards.set(card.title, card);
         }
       }
-      const [seat] = game.activePlayers(state);
-      state = game.applyMove(state, seat, rng.pick(game.legalMoves(state, seat)), rng);
-    }
+    });
   }
   return [...cards.values()];
 }

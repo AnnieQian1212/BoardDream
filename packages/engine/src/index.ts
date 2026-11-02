@@ -5,6 +5,7 @@ export * from "./geometry";
 export * from "./match";
 export * from "./fuzz";
 export * from "./sim";
+export * from "./playout";
 export * from "./heuristic";
 export * from "./table";
 export * from "./profile";

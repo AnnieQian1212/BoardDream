@@ -1,4 +1,4 @@
-import { createRng, resolveParams } from "@boarddream/engine";
+import { createRng, resolveParams, sampleSeats } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
 import { describe, expect, test } from "vitest";
 import { actionOf, goalOf, instruction } from "./instructions";
@@ -70,7 +70,7 @@ describe("the instruction for a turn", () => {
 
   test.each(referenceGames.map((g) => [g.meta.id, g] as const))("%s gives an instruction on its first turns", (_id, game) => {
     const rng = createRng(5);
-    const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
+    const players = sampleSeats(game);
     let state = game.setup({ numPlayers: players, params: resolveParams(game.params), rng });
     for (let step = 0; step < 30 && !game.isTerminal(state); step++) {
       const [seat] = game.activePlayers(state);

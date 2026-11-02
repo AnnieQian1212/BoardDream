@@ -10,6 +10,10 @@ export interface SimOptions {
   maxTurns?: number;
   /** Called with each game's seed before it starts (heartbeats for a watchdog). */
   onGame?(seed: number): void;
+  /** Running statistics every statsEvery games and after the last, for a live view of a long run. */
+  onStats?(stats: BalanceStats): void;
+  /** How many games between onStats calls (default 20). */
+  statsEvery?: number;
 }
 
 export interface BalanceStats {
@@ -31,13 +35,29 @@ export interface BalanceStats {
 }
 
 export function simulate(game: GameModule, opts: SimOptions): BalanceStats {
-  const { numPlayers, params, games = 200, seed = 1, bots, maxTurns = 1000, onGame } = opts;
+  const { numPlayers, params, games = 200, seed = 1, bots, maxTurns = 1000, onGame, onStats, statsEvery = 20 } = opts;
   const wins = new Array<number>(numPlayers).fill(0);
   const turns: number[] = [];
   let draws = 0;
   let truncated = 0;
   let errors = 0;
   let firstError: string | undefined;
+
+  const stats = (): BalanceStats => {
+    const played = Math.max(1, turns.length);
+    const sorted = turns.slice().sort((a, b) => a - b);
+    return {
+      games: turns.length,
+      winRateBySeat: wins.map((w) => w / played),
+      drawRate: draws / played,
+      firstPlayerEdge: wins[0] / played - wins.reduce((a, b) => a + b, 0) / played / numPlayers,
+      avgTurns: turns.reduce((a, b) => a + b, 0) / played,
+      medianTurns: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
+      truncatedRate: truncated / played,
+      errors,
+      firstError,
+    };
+  };
 
   for (let i = 0; i < games; i++) {
     onGame?.(seed + i);
@@ -51,21 +71,9 @@ export function simulate(game: GameModule, opts: SimOptions): BalanceStats {
       errors++;
       firstError ??= err instanceof Error ? err.message : String(err);
     }
+    if (onStats && ((i + 1) % statsEvery === 0 || i === games - 1)) onStats(stats());
   }
-
-  const played = Math.max(1, turns.length);
-  const sorted = turns.slice().sort((a, b) => a - b);
-  return {
-    games: turns.length,
-    winRateBySeat: wins.map((w) => w / played),
-    drawRate: draws / played,
-    firstPlayerEdge: wins[0] / played - wins.reduce((a, b) => a + b, 0) / played / numPlayers,
-    avgTurns: turns.reduce((a, b) => a + b, 0) / played,
-    medianTurns: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
-    truncatedRate: truncated / played,
-    errors,
-    firstError,
-  };
+  return stats();
 }
 
 /** Balance stats at each value of one parameter, with the other parameters held fixed. */
