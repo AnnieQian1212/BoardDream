@@ -132,11 +132,12 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const viewport = useViewport();
   const arranged = useRef<Arrangement>("sides");
   // Laid out for this screen; the arrangement in use is kept unless another is clearly better.
+  // Laid out again once the fonts are in: chips are measured in them.
   const { layout, chipScale } = useMemo(() => {
     const fitted = fitTable({ panels, geometry, human, active, targets, resources }, { ...viewport, insets }, arranged.current);
     arranged.current = fitted.arrangement;
     return fitted;
-  }, [panels, geometry, human, active, targets, resources, viewport, insets]);
+  }, [panels, geometry, human, active, targets, resources, viewport, insets, fonts]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const { hint, ask } = useHint(game, state, human);
   const hinted = hint && hint !== "thinking" ? game.moveTarget?.(state, hint.move) : undefined;

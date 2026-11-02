@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import { iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
+import { RIM_INK, TILE_SHARE, zoneColors } from "./ground";
 import { growthsOf, inside, type PrintBox } from "./growth";
 import { MAT_TITLE } from "./layout";
 import {
@@ -778,7 +779,14 @@ export function matTexture(width: number, depth: number, color: string, title: s
     ctx.strokeStyle = alpha(INK, 0.75);
     ctx.stroke();
     // Name, large enough to read across the table; the layout leaves its header room by MAT_TITLE.
-    ctx.font = `650 ${MAT_TITLE.size * u}px ${FONT_DISPLAY}`;
+    // A supply hugs its cards, so a title longer than they are wide is printed smaller to fit.
+    let titleSize = MAT_TITLE.size * u;
+    ctx.font = `650 ${titleSize}px ${FONT_DISPLAY}`;
+    const titleRoom = w - (MAT_TITLE.x + 1) * u;
+    for (let i = 0; i < 12 && ctx.measureText(title).width > titleRoom; i++) {
+      titleSize *= Math.max(0.8, (titleRoom / ctx.measureText(title).width) * 0.99);
+      ctx.font = `650 ${titleSize}px ${FONT_DISPLAY}`;
+    }
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     if (shared) {
@@ -864,8 +872,9 @@ export interface BoardPrint {
 
 /**
  * Printed over the whole board slab: an inked frame in the margin, then cell names, in ink on the
- * tiles and on the board itself for text-only cells, with a cell's badge on a round token under its
- * name. `margin` is in geometry units.
+ * tiles and on the board itself for text-only cells. A cell's badge (a yield, a cost) is not
+ * printed: at the table's size its token could not be read, so the table shows it on hover. Names
+ * keep clear of the pieces standing on their cell. `margin` is in geometry units.
  */
 export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
   const w = geometry.width + 2 * margin;
@@ -890,39 +899,74 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
   const tiles = geometry.cells.filter((c) => c.kind !== "label").map(widthOf).sort((a, b) => a - b);
   const unit = Math.max(1, tiles[Math.floor(tiles.length / 2)] ?? 1);
   const boxes = new Map<string, PrintBox>();
+  const rimmed = zoneColors(geometry.cells);
+  // Each place's area and bounds, to find the smaller places lying over part of a larger one (a pier
+  // inside a stall's plot, a bridge across a river), whose tiles would hide its name.
+  const areaOf = (polygon: [number, number][]) => Math.abs(polygon.reduce((sum, [x, y], i) => {
+    const [nx, ny] = polygon[(i + 1) % polygon.length];
+    return sum + x * ny - nx * y;
+  }, 0)) / 2;
+  const places = geometry.cells
+    .filter((c) => c.kind !== "label")
+    .map((c) => {
+      const xs = c.polygon.map(([x]) => x);
+      const ys = c.polygon.map(([, y]) => y);
+      return { cell: c, area: areaOf(c.polygon), x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    });
+  const overlap = (a: (typeof places)[number], b: (typeof places)[number]) =>
+    Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
   for (const cell of geometry.cells) {
     const isLabel = cell.kind === "label";
-    const badge = cell.badge === undefined || isLabel ? undefined : String(cell.badge);
-    if (!cell.label && !badge) continue;
-    const label = cell.label ?? "";
+    if (!cell.label) continue;
+    const label = cell.label;
     const [cx, cy] = centroid(cell.polygon);
-    // The text stays inside the cell's own shape (a wedge, a hex), shrunk toward its center, not
-    // merely inside its bounding box.
-    const share = isLabel ? 0.95 : 0.8;
+    // The text stays inside the cell's own shape (a wedge, a hex), not merely its bounding box, and
+    // inside its color: the tile, or within a group's rim the field inside the rim's inked line,
+    // with a little margin. Text-only cells are the board itself.
+    const share = isLabel ? 0.95 : TILE_SHARE * (rimmed.has(cell.id) ? RIM_INK : 1) * 0.92;
     const area = cell.polygon.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
     const [px, py] = [(cx + margin) * scale, (cy + margin) * scale];
     const within = (x: number, y: number, hw: number, hh: number) => BOX.every(([sx, sy]) => inside(area, x + sx * hw, y + sy * hh));
-    // The token: about a sixth of a typical cell across, smaller if the cell cannot hold it.
-    let radius = badge ? Math.min(0.09 * unit, 0.14 * widthOf(cell)) * scale : 0;
-    while (badge && radius > 3 && !within(px, py, radius, radius)) radius *= 0.9;
-    const gap = badge && label ? 0.04 * unit * scale : 0;
-    // The name above the token, the pair centered `drop` below the cell's center: their middles for
-    // a name `size` tall.
+    // The pieces on this cell, as the ground they cover: a disc its own round, a standing figure
+    // also the space behind it, which it hides from the camera.
+    const pieces = isLabel
+      ? []
+      : geometry.pieces
+          .filter((p) => p.cellId === cell.id || inside(cell.polygon, p.x, p.y))
+          .map((p) => ({ x: (p.x + margin) * scale, y: (p.y + margin) * scale, r: p.r * 1.25 * scale, back: p.shape === "pawn" ? p.r * 2.6 * scale : 0 }));
+    // Smaller places over a good part of this one, as boxes the name must keep off.
+    const self = places.find((p) => p.cell === cell);
+    const covers = !self
+      ? []
+      : places
+          // Roads and building spots run along edges and corners, between places, not over their middles.
+          .filter((o) => o !== self && o.cell.kind !== "edge" && o.cell.kind !== "vertex" && o.area < self.area && overlap(o, self) > 0.2 * (o.x1 - o.x0) * (o.y1 - o.y0))
+          .map((o) => ({ x0: (o.x0 + margin) * scale, x1: (o.x1 + margin) * scale, y0: (o.y0 + margin) * scale, y1: (o.y1 + margin) * scale }));
+    const clear = (x: number, y: number, hw: number, hh: number) =>
+      covers.every((o) => x + hw < o.x0 || x - hw > o.x1 || y + hh < o.y0 || y - hh > o.y1) &&
+      pieces.every((p) => {
+        // Nearest point of the name's box to the piece's foot, and of the box to the space behind it.
+        const dx = Math.max(Math.abs(p.x - x) - hw, 0);
+        const dy = Math.max(Math.abs(p.y - y) - hh, 0);
+        const behind = p.back > 0 && Math.abs(p.x - x) < hw + p.r && y + hh > p.y - p.back && y - hh < p.y;
+        return dx * dx + dy * dy > p.r * p.r && !behind;
+      });
+    // The name's middle `drop` below the cell's center, for a name `size` tall.
     const place = (lines: string[], size: number, drop: number) => {
-      const half = label ? ((lines.length - 1) * LINE * size) / 2 + 0.42 * size : 0;
-      const total = 2 * half + gap + 2 * radius;
-      return { half, name: drop - total / 2 + half, token: drop + total / 2 - radius };
+      const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
+      return { half, name: drop };
     };
     const measure = (lines: string[]) => Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
-    const fits = (lines: string[], size: number, drop: number) => {
+    const fits = (lines: string[], size: number, drop: number, avoid = true) => {
       ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
       const at = place(lines, size, drop);
-      return within(px, py + at.name, measure(lines), at.half) && (!badge || within(px, py + at.token, radius, radius));
+      const hw = measure(lines);
+      return within(px, py + at.name, hw, at.half) && (!avoid || clear(px, py + at.name, hw, at.half));
     };
     // Measured at the size it is drawn: the display font's letters widen as they get smaller.
-    const largest = (lines: string[], from: number, drop: number) => {
+    const largest = (lines: string[], from: number, drop: number, avoid: boolean) => {
       let size = from;
-      while (size > 4 && !fits(lines, size, drop)) size *= 0.94;
+      while (size > 4 && !fits(lines, size, drop, avoid)) size *= 0.94;
       return size;
     };
     // A tile's name leaves its sides for what grows there.
@@ -932,13 +976,13 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     // As big as the cap allows inside the cell, on one line or split in two at a space.
     ctx.font = `600 100px ${FONT_DISPLAY}`;
     const guess = (lines: string[]) => Math.min(cap, (width / Math.max(1, ...lines.map((line) => ctx.measureText(line).width))) * 100);
-    const layout = (drop: number) => {
-      let best = { lines: [label], size: label ? largest([label], guess([label]), drop) : 0, drop };
+    const layout = (drop: number, avoid = true) => {
+      let best = { lines: [label], size: largest([label], guess([label]), drop, avoid), drop };
       const words = label.split(" ");
       for (let i = 1; i < words.length; i++) {
         const lines = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
         ctx.font = `600 100px ${FONT_DISPLAY}`;
-        const size = largest(lines, guess(lines), drop);
+        const size = largest(lines, guess(lines), drop, avoid);
         if (size > best.size * 1.15) best = { lines, size, drop };
       }
       return best;
@@ -947,7 +991,23 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     // for trees and boulders, unless that would cost the name much of its size.
     const centered = layout(0);
     const lowered = !isLabel && growthsOf(cell).length > 0 ? layout(0.12 * unit * scale) : undefined;
-    const best = lowered && lowered.size >= centered.size * 0.9 && fits(lowered.lines, lowered.size, lowered.drop) ? lowered : centered;
+    let best = lowered && lowered.size >= centered.size * 0.9 && fits(lowered.lines, lowered.size, lowered.drop) ? lowered : centered;
+    if (pieces.length > 0 || covers.length > 0) {
+      // A name a piece or another place would cover moves up or down its cell, to wherever it can
+      // be largest. If nowhere leaves it half its size: under pieces it stays in the middle at full
+      // size, partly hidden rather than too small to read; under other places' tiles, which would
+      // print one name over another, it is left out (hovering the place still shows it).
+      const tall = span(cell.polygon.map(([, y]) => y)) * scale;
+      for (const share of [-0.3, 0.3, -0.2, 0.2, -0.38, 0.38]) {
+        const moved = layout(share * tall);
+        if (moved.size > best.size) best = moved;
+      }
+      const free = layout(0, false);
+      if (best.size < free.size * 0.55) {
+        if (covers.length > 0) continue;
+        best = free;
+      }
+    }
     const at = place(best.lines, best.size, best.drop);
     if (label) {
       ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
@@ -964,39 +1024,14 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
         ctx.fillText(line, px, y);
       });
     }
-    if (badge) token(ctx, badge, px, py + at.token, radius);
     ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
-    const halfWidth = Math.max(label ? measure(best.lines) : 0, radius);
     boxes.set(cell.id, {
-      halfWidth: halfWidth / scale,
-      top: (label ? at.name - at.half : at.token - radius) / scale,
-      bottom: (badge ? at.token + radius * 1.14 : at.name + at.half) / scale,
+      halfWidth: measure(best.lines) / scale,
+      top: (at.name - at.half) / scale,
+      bottom: (at.name + at.half) / scale,
     });
   }
   return { texture: texture(canvas), boxes };
-}
-
-/** A round card token with an inked rim and a hard shadow, like the table's stickers. */
-function token(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, r: number) {
-  ctx.beginPath();
-  ctx.arc(x, y + r * 0.14, r, 0, Math.PI * 2);
-  ctx.fillStyle = INK;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = TOKEN;
-  ctx.fill();
-  ctx.lineWidth = Math.max(1.5, r * 0.12);
-  ctx.strokeStyle = INK;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.76, 0, Math.PI * 2);
-  ctx.lineWidth = Math.max(1, r * 0.045);
-  ctx.strokeStyle = alpha(INK, 0.35);
-  ctx.stroke();
-  fitFont(ctx, text, r * 1.3, r * 1.1, r * 0.45, (size) => `700 ${size}px ${FONT_DISPLAY}`);
-  ctx.fillStyle = INK;
-  ctx.fillText(text, x, y + r * 0.04);
 }
 
 const pieceLabels = new Map<string, CanvasTexture>();

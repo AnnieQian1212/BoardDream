@@ -1458,6 +1458,8 @@ button.badge-chip {
   -webkit-line-clamp: 4;
   overflow: hidden;
   white-space: normal;
+  /* Lines of about even length, so a wrapped note never ends on a lone word ("Player / 1"). */
+  text-wrap: balance;
   line-height: 13px;
 }
 

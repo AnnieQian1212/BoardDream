@@ -1,7 +1,8 @@
 import { isDeck, type CardView, type Counter, type Geometry, type Panel, type ResourceSpec } from "@boarddream/engine";
 import { Quaternion, Vector3 } from "three";
 import { playerColor } from "../colors";
-import { tableScale, type Insets } from "./camera";
+import { ELEVATION, tableScale, type Insets } from "./camera";
+import { FONT_UI } from "./paint";
 
 /**
  * Places a game's panels and board on the 3D table. Everything is in table units (one unit is a
@@ -32,6 +33,8 @@ const BOARD_ALONE = 52;
  * header room this measure gives, so chips stop short of the title.
  */
 export const MAT_TITLE = { size: 1.6, x: 1.4, y: 1.58, perLetter: 0.9 };
+/** A deck's height on its mat, by how many cards are in it. */
+export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 24) * 0.04);
 /** Where a mat's header room for chips starts: past its title, with a unit to spare. */
 const titleEnd = (title: string) => MAT_TITLE.x + 1 + MAT_TITLE.perLetter * title.length;
 
@@ -269,6 +272,48 @@ const PX_PER_UNIT = 7;
  */
 export const CHIP = { height: 26, gap: 6, noteLines: 4, noteLine: 13 };
 
+let measurer: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Text's width in screen pixels, in a chip's font, measured as the browser draws it. Estimated by
+ * letter count where there is no canvas (tests): the estimate ran short of real notes, so a note
+ * that wrapped onto a second line overlapped the cards under it.
+ */
+function textWidth(text: string, font: string, perLetter: number): number {
+  if (measurer === undefined) {
+    try {
+      measurer = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+    } catch {
+      measurer = null;
+    }
+  }
+  if (!measurer) return perLetter * text.length;
+  measurer.font = font;
+  return measurer.measureText(text).width;
+}
+
+/** A note chip's text: 12px semibold (.badge-note), at most 300px across with 26px of padding and border. */
+const NOTE_FONT = `600 12px ${FONT_UI}`;
+const NOTE_MAX = 300;
+const NOTE_PAD = 26;
+const noteWidth = (note: string) => textWidth(note, NOTE_FONT, 6.6);
+
+/** How many lines a note takes in a chip `room` pixels wide, wrapping between words as the browser does. */
+function noteLineCount(note: string, room: number): number {
+  const width = Math.min(NOTE_MAX, room) - NOTE_PAD;
+  if (!(width > 0)) return CHIP.noteLines;
+  let lines = 1;
+  let line = "";
+  for (const word of note.split(/\s+/)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && noteWidth(next) > width) {
+      lines++;
+      line = word;
+    } else line = next;
+  }
+  return Math.min(CHIP.noteLines, lines);
+}
+
 /**
  * The HTML chips drawn over mats (counters, notes, the turn pill) in table units. They are a fixed
  * size on screen, so their size on the table depends on how large the table is drawn: `px` screen
@@ -276,12 +321,16 @@ export const CHIP = { height: 26, gap: 6, noteLines: 4, noteLine: 13 };
  */
 function chipSizes(px: number) {
   const gap = CHIP.gap / px;
+  // Chips are a fixed height on screen, but the table's depth is foreshortened under the tilted
+  // camera: a pixel of height covers more of the table, front to back, than a pixel of width.
+  const deep = px * Math.sin(ELEVATION);
   return {
     gap,
     /** A wrapped row of chips, with the gap below it. */
-    row: (CHIP.height + CHIP.gap) / px,
-    counter: (c: Counter) => (24 + 7.2 * c.label.length + 8 * String(c.value).length) / px,
-    note: (note: string) => (24 + 6.6 * Math.min(note.length, 44)) / px,
+    row: (CHIP.height + CHIP.gap) / deep,
+    counter: (c: Counter) => (24 + textWidth(c.label, `700 13px ${FONT_UI}`, 7.2) + textWidth(String(c.value), `700 13px ${FONT_UI}`, 8)) / px,
+    // A little over the measure, so a note that only just fits is not wrapped by rounding.
+    note: (note: string) => Math.min(NOTE_MAX, NOTE_PAD + noteWidth(note) * 1.04) / px,
     /** A resource pile's count chip: piles stand at least this far apart, so their chips never touch. */
     pile: 52 / px,
     /** The "Thinking…" pill at the head of a rival's chips. */
@@ -289,8 +338,7 @@ function chipSizes(px: number) {
     /** Extra depth for a note too long for one line across `room`: it wraps, up to CHIP.noteLines lines. */
     noteLines(note: string | undefined, room: number): number {
       if (!note || !(room > 0)) return 0;
-      const lines = Math.min(CHIP.noteLines, Math.ceil((24 + 6.6 * note.length) / px / room));
-      return (Math.max(1, lines) - 1) * (CHIP.noteLine / px);
+      return (noteLineCount(note, room * px) - 1) * (CHIP.noteLine / deep);
     },
     /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
     rows(widths: number[], room: number): number {
@@ -336,11 +384,15 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const pilesW = 2 * PAD + Math.min(piles.length, 3) * Math.max(PILE, sizes.pile);
   // A supply of counters alone is wide enough for two chips to a row.
   const chipsOnly = slots === 0 && piles.length === 0 && chips.length > 1 ? Math.min(26, 2 * Math.max(...chips) + sizes.gap + 2) : 0;
-  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleW + 2, 14);
+  // A long title does not widen a mat with cards or piles: it is printed smaller to fit (matTexture).
+  const titleRoom = slots > 0 || piles.length > 0 ? 0 : titleW + 2;
+  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, 14);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
   // Wrapped chips start a little way into the body, clear of the header.
-  const chipsDepth = wrap ? chipRows * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4 : 0;
+  // A deck stands up from the mat, toward the camera, so the chips over it need room for its height too.
+  const deckRise = wrap && decks.length > 0 ? Math.max(...decks.map((d) => deckHeight(d.value))) / Math.tan(ELEVATION) : 0;
+  const chipsDepth = wrap ? chipRows * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4 + deckRise : 0;
   const pile = Math.max(PILE, sizes.pile);
   const perRow = Math.max(1, Math.floor((width - 2 * PAD) / pile));
   const pileRows = Math.ceil(piles.length / perRow);

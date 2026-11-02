@@ -18,8 +18,7 @@ import {
 import { setCursor, setHover } from "./hover";
 import { step } from "./motion";
 import { Ink } from "./Ink";
-import { deckHeight } from "./Labels";
-import { CARD_H, CARD_W, MAT_TOP, type CardItem, type DeckItem } from "./layout";
+import { CARD_H, CARD_W, deckHeight, MAT_TOP, type CardItem, type DeckItem } from "./layout";
 import { cardBack, cardFace, glowTexture } from "./textures";
 
 const THICK = 0.05;

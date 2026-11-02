@@ -4,6 +4,15 @@ import { growthOf, type Growth } from "./growth";
 import { hash, mix } from "./paint";
 import { isWaterCell, isWaterKind } from "./water";
 
+/** Tiles shrink to this share of their cell, leaving a gap between them. */
+export const TILE_SHARE = 0.9;
+/**
+ * A group's rim (zoneColors) runs from the tile's edge in to this share of it, with an inked line
+ * inside; grass grows and water pools within it.
+ */
+export const RIM = 0.86;
+export const RIM_INK = 0.845;
+
 /**
  * The colors a board's tiles are drawn in, shared by the 3D table and the flat board: a kind's own
  * color, else its ground's (a meadow green, a lake blue), else a soft color picked from the kind's

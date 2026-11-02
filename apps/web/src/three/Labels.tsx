@@ -4,7 +4,7 @@ import { Star } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Vector3 } from "three";
 import { iconFor } from "../icons";
-import { CARD_H, CARD_W, type TableLayout, type Vec3 } from "./layout";
+import { CARD_H, CARD_W, deckHeight, type TableLayout, type Vec3 } from "./layout";
 import type { TargetKind } from "../instructions";
 import { SPOT_TOP, TILE_TOP } from "./Board3D";
 
@@ -16,7 +16,6 @@ import { SPOT_TOP, TILE_TOP } from "./Board3D";
 
 
 /** Stacks stop growing at 24 cards: taller ones hide the title of their mat in perspective. */
-export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 24) * 0.04);
 
 /** Screen anchor of every label, keyed like the label elements' data-anchor. */
 export function labelAnchors(layout: TableLayout): Map<string, Vec3> {

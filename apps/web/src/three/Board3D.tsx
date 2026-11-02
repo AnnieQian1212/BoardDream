@@ -24,9 +24,9 @@ import {
   type Texture,
 } from "three";
 import { playerColor, TILE_COLORS } from "../colors";
-import { groundOf, kindColor, ownColor, SHORE, tileColor, zoneColors } from "./ground";
+import { groundOf, kindColor, ownColor, RIM, RIM_INK, SHORE, TILE_SHARE, tileColor, zoneColors } from "./ground";
 import { HIGHLIGHT } from "./Card3D";
-import { setCursor } from "./hover";
+import { setCursor, setHover } from "./hover";
 import type { BoardItem } from "./layout";
 import { reducedMotion, step } from "./motion";
 import { hash, INK, mix } from "./paint";
@@ -51,17 +51,10 @@ const SPOTS = new Set(["vertex", "edge"]);
 /** A building spot or road that can be clicked. */
 const TARGET_SPOT = "#3cc6d6";
 const noRaycast = () => null;
-/** Tiles shrink to this share of their cell; water fills a little less, leaving a rim of shore. */
-const TILE_SHARE = 0.9;
+/** Water fills a little less of its cell than a tile, leaving a rim of shore. */
 const WATER_SHARE = 0.86;
 /** Edge-matched tiles show their terrain as wedges inset this far, so a rim of the tile shows. */
 const WEDGE_SHARE = TILE_SHARE * 0.84;
-/**
- * A group's rim (zoneColors) runs from the tile's edge in to this share of it, with an inked line
- * inside; grass grows and water pools within it.
- */
-const RIM = 0.86;
-const RIM_INK = 0.845;
 /** Where a cell's water pools, as a share of the cell: inside the rim when it has one. */
 const poolShare = (rimmed: boolean) => (rimmed ? TILE_SHARE * 0.8 : WATER_SHARE);
 
@@ -225,8 +218,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
       t.dispose();
     };
   }, [paint, invalidate]);
-  // Rebuild the printed names only when their text changes, not on every move.
-  const labelKey = geometry.cells.map((c) => (c.label || c.badge !== undefined ? `${c.id}:${c.label}:${c.badge}` : "")).join("|");
+  // Rebuild the printed names only when their text changes, or a piece moves on a named cell they
+  // keep clear of; not on every move.
+  const named = new Set(geometry.cells.filter((c) => c.label && c.kind !== "label").map((c) => c.id));
+  const labelKey = [
+    ...geometry.cells.map((c) => (c.label ? `${c.id}:${c.label}` : "")),
+    ...geometry.pieces.filter((p) => p.cellId && named.has(p.cellId)).map((p) => `${p.cellId}@${p.x.toFixed(2)},${p.y.toFixed(2)}:${p.shape ?? ""}`),
+  ].join("|");
   const margin = (width - geometry.width * k) / 2 / k;
   const print = useMemo(() => boardPrint(geometry, margin), [labelKey, geometry.width, geometry.height, margin]);
   const labels = print.texture;
@@ -436,6 +434,9 @@ function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box,
   const [hovered, setHovered] = useState(false);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [target, hovered, invalidate]);
+  // The cell's value (a yield, a cost), shown beside its name while the pointer is on it: printed,
+  // its token was too small to read at the table's size.
+  const tip = cell.badge !== undefined && cell.badge !== "" ? `${cell.label ? `${cell.label}: ` : ""}${cell.badge}` : cell.label;
   const geometry = useMemo(() => {
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel. Spots are already small.
@@ -628,19 +629,19 @@ function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box,
         setHovered(true);
         setCursor(target);
         poke(0.3, e.point);
+        if (tip) setHover({ text: tip, x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
       }}
       onPointerOut={() => {
         setHovered(false);
         setCursor(false);
+        if (tip) setHover(null);
         if (growth) grass?.field.release();
       }}
-      onPointerMove={
-        (water || growth) &&
-        ((e: ThreeEvent<PointerEvent>) => {
-          water?.wake(e.point.x, e.point.z);
-          if (growth) grass?.field.push(e.point.x, e.point.z);
-        })
-      }
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+        water?.wake(e.point.x, e.point.z);
+        if (growth) grass?.field.push(e.point.x, e.point.z);
+        if (tip) setHover({ text: tip, x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
+      }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         water?.splash(e.point.x, e.point.z);
