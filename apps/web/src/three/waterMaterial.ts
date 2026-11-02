@@ -172,7 +172,9 @@ material.roughness = mix(material.roughness, 1.0, printed.a);
  */
 const LIFT = /* glsl */ `
 #include <begin_vertex>
-float jellyHeight = uJelly.x * (1.0 + uJelly.y + dot(uJelly.zw, position.xz));
+// Never below a third of its height: a sway tipping a long pool far enough would sink its far end
+// under its own shore, and the water there would vanish.
+float jellyHeight = uJelly.x * max(0.35, 1.0 + uJelly.y + dot(uJelly.zw, position.xz));
 transformed.y += jelly * jellyHeight;
 vJellySlope = jellySlope * jellyHeight + jelly * uJelly.x * uJelly.zw;
 vJelly = jelly * (1.0 + uJelly.y);

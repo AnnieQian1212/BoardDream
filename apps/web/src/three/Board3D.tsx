@@ -67,8 +67,10 @@ export function pathCells(cells: GeometryCell[]): Set<string> {
         const [nx, ny] = c.polygon[(i + 1) % c.polygon.length];
         return Math.hypot(nx - x, ny - y);
       }));
-      // A little larger than the tile, so a road on the border between two still counts as on them.
-      return { side, outline: c.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * 1.06, cy + (y - cy) * 1.06]) };
+      const scaled = (f: number) => c.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * f, cy + (y - cy) * f]);
+      // A band about the tile's border: a little outside it, so a road on the border between two
+      // tiles counts, and not far in, so an edge across the tile's middle (over a sea) does not.
+      return { side, outline: scaled(1.06), core: scaled(0.8) };
     });
   return new Set(
     cells
@@ -76,7 +78,7 @@ export function pathCells(cells: GeometryCell[]): Set<string> {
       .filter((c) => {
         const [x, y] = centroid(c.polygon);
         const length = Math.max(...c.polygon.flatMap(([ax, ay]) => c.polygon.map(([bx, by]) => Math.hypot(bx - ax, by - ay))));
-        const on = tiles.filter((t) => inside(t.outline, x, y));
+        const on = tiles.filter((t) => inside(t.outline, x, y) && !inside(t.core, x, y));
         return on.length === 0 || length > 1.6 * Math.max(...on.map((t) => t.side));
       })
       .map((c) => c.id),
@@ -470,9 +472,16 @@ interface TileProps {
 
 function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
-  const rest = low ? SLAB - TILE + 0.03 : SLAB;
+  // Ground that places stand on (a sea round its harbors) is sunk so they stand clear above it, but
+  // only part way: sunk to the board, a sea was a film of water.
+  const rest = low ? SLAB - TILE * 0.45 : SLAB;
   const segmentsKey = cell.segments?.join(",");
   const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE, TILE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
+  // A large pool sways less: the tilt is per board unit, so across a long sea it grew with its length.
+  const swayScale = useMemo(() => {
+    const reach = Math.max(0.5, ...pools.flat().map(([x, y]) => Math.hypot(x, y)));
+    return 1 / Math.max(1, (reach / 0.9) ** 2);
+  }, [pools]);
   // Unpainted ground is painted in its color: grass and flowers, moss and ferns, furrows or pebbles.
   const ground = groundOf(cell);
   const groundMap = !painted && ground && ground !== "water" ? groundTexture(ground, ownColor(cell)) : undefined;
@@ -660,7 +669,7 @@ function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone
     moving = easing.damp(mesh.current.position, "y", rest + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
     if (!wobble.still) {
       moving = wobble.step(dt) || moving;
-      jelly.uJelly.value.set(DOME * k, wobble.squash, wobble.sway[0] / k, wobble.sway[1] / k);
+      jelly.uJelly.value.set(DOME * k, wobble.squash, (wobble.sway[0] / k) * swayScale, (wobble.sway[1] / k) * swayScale);
     }
     if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > rest + 0.01;
     if (moving) state.invalidate();
