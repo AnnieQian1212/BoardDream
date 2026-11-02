@@ -1,4 +1,4 @@
-import type { Geometry, GeometryBattle, GeometryCell, GeometryPiece } from "@boarddream/engine";
+import { containsCell, type Geometry, type GeometryBattle, type GeometryCell, type GeometryPiece } from "@boarddream/engine";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -233,6 +233,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   useEffect(() => () => labels.dispose(), [labels]);
   const toWorld = (x: number, y: number): [number, number] => [(x - geometry.width / 2) * k, (y - geometry.height / 2) * k];
   const spotCells = useMemo(() => new Set(geometry.cells.filter((c) => SPOTS.has(c.kind ?? "")).map((c) => c.id)), [geometry]);
+  // Scenery that places lie inside (a sea around its harbors) is drawn low, as ground, so the places
+  // stand on it instead of flickering through it.
+  const sceneryKey = geometry.cells.map((c) => (c.kind === "label" || SPOTS.has(c.kind ?? "") ? "" : `${c.id}:${c.polygon.flat().join(",")}`)).join("|");
+  const scenery = useMemo(() => {
+    const tiles = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""));
+    return new Set(tiles.filter((outer) => tiles.some((inner) => inner !== outer && containsCell(outer.polygon, inner.polygon))).map((c) => c.id));
+  }, [sceneryKey]);
   // Grass: sized from a typical cell, thinned on boards with a lot of green.
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.terrain ?? ""}${c.segments?.join("") ?? ""}`).join("|");
   const zones = useMemo(() => zoneColors(geometry.cells), [greenKey]);
@@ -289,6 +296,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             k={k}
             at={toWorld(...centroid(cell.polygon))}
             target={targets.has(cell.id)}
+            low={scenery.has(cell.id)}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water}
             zone={zones.get(cell.id)}
@@ -393,6 +401,8 @@ interface TileProps {
   k: number;
   at: [number, number];
   target: boolean;
+  /** Scenery other cells lie inside: sunk into the slab, so it reads as ground under them. */
+  low?: boolean;
   /** The painted board and where this tile's art sits on it. */
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
   /** The board's water; the tile draws a surface where it holds some (waterPolygons). */
@@ -412,7 +422,9 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, groundScale, grass, chip, print, onPick }: TileProps) {
+function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, onPick }: TileProps) {
+  // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
+  const rest = low ? SLAB - TILE + 0.03 : SLAB;
   const segmentsKey = cell.segments?.join(",");
   const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
   // Unpainted ground is painted in its color: grass and flowers, moss and ferns, furrows or pebbles.
@@ -595,12 +607,12 @@ function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, grou
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (rimMaterial.current) rimMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (surfaceMaterial.current) surfaceMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
-    moving = easing.damp(mesh.current.position, "y", SLAB + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
+    moving = easing.damp(mesh.current.position, "y", rest + (target && hovered ? 0.5 : 0), 0.1, dt) || moving;
     if (!wobble.still) {
       moving = wobble.step(dt) || moving;
       jelly.uJelly.value.set(DOME * k, wobble.squash, wobble.sway[0] / k, wobble.sway[1] / k);
     }
-    if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > SLAB + 0.01;
+    if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > rest + 0.01;
     if (moving) state.invalidate();
   });
 
@@ -608,7 +620,7 @@ function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, grou
     <mesh
       ref={mesh}
       geometry={geometry}
-      position={[at[0], SLAB, at[1]]}
+      position={[at[0], rest, at[1]]}
       castShadow
       receiveShadow
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {

@@ -218,9 +218,20 @@ function insidePolygon(x: number, y: number, polygon: [number, number][]): boole
 }
 
 /**
- * Board cells (all but building spots, roads and labels) must not cover one another: the table
- * draws each as a raised tile, so overlapping ones flicker through each other and their names print
- * on top of each other. A cell whose middle lies inside another cell covers it.
+ * Whether every corner of `inner`, pulled a hair toward its middle, lies inside `outer`: scenery
+ * under places, like a sea around its harbors. The table draws such a cell low, as ground.
+ */
+export function containsCell(outer: [number, number][], inner: [number, number][]): boolean {
+  const mx = inner.reduce((sum, [x]) => sum + x, 0) / inner.length;
+  const my = inner.reduce((sum, [, y]) => sum + y, 0) / inner.length;
+  return inner.every(([x, y]) => insidePolygon(x + (mx - x) * 0.02, y + (my - y) * 0.02, outer));
+}
+
+/**
+ * Board cells (all but building spots, roads and labels) must not partly cover one another: the
+ * table draws each as a raised tile, so a bridge laid across a river flickers through it and both
+ * names print on top of each other. A cell whose middle lies inside another covers it, unless it
+ * lies wholly inside, which is scenery under places and drawn beneath them.
  */
 export function overlappingCells(cells: Geometry["cells"]): string | null {
   const tiles = cells
@@ -235,9 +246,9 @@ export function overlappingCells(cells: Geometry["cells"]): string | null {
     for (let j = i + 1; j < tiles.length; j++) {
       const [a, b] = [tiles[i], tiles[j]];
       if (a.box[2] <= b.box[0] || b.box[2] <= a.box[0] || a.box[3] <= b.box[1] || b.box[3] <= a.box[1]) continue;
-      if (insidePolygon(...a.mid, b.cell.polygon) || insidePolygon(...b.mid, a.cell.polygon)) {
-        return `cells "${a.cell.id}" and "${b.cell.id}" overlap; board cells must not cover each other (draw a bridge or route as an "edge" cell between the places it joins, and give every space its own area)`;
-      }
+      if (!insidePolygon(...a.mid, b.cell.polygon) && !insidePolygon(...b.mid, a.cell.polygon)) continue;
+      if (containsCell(a.cell.polygon, b.cell.polygon) || containsCell(b.cell.polygon, a.cell.polygon)) continue;
+      return `cells "${a.cell.id}" and "${b.cell.id}" partly overlap; a cell may lie wholly inside a larger one (scenery under places), but not across another's edge (draw a bridge or route as an "edge" cell between the places it joins)`;
     }
   }
   return null;

@@ -157,9 +157,10 @@ describe("board cells that cover each other", () => {
     polygon: [[x, y], [x + size, y], [x + size, y + size], [x, y + size]] as [number, number][],
   });
 
-  test("side by side is fine, one on top of another is not", () => {
+  test("side by side is fine, and so is a place wholly inside scenery; one across another's edge is not", () => {
     expect(overlappingCells([square("a", 0, 0), square("b", 1, 0), square("c", 0, 1)])).toBeNull();
-    expect(overlappingCells([square("river", 0, 0, 4), square("bridge", 1, 1, 1)])).toMatch(/cells "river" and "bridge" overlap/);
+    expect(overlappingCells([square("sea", 0, 0, 4), square("harbor", 1, 1, 1), square("isle", 2, 2, 1)])).toBeNull();
+    expect(overlappingCells([square("river", 0, 0, 2), square("bridge", 1.2, 0.5, 1.2)])).toMatch(/cells "river" and "bridge" partly overlap/);
   });
 
   test("building spots, roads and labels may sit on tiles", () => {
