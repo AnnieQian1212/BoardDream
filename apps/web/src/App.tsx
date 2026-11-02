@@ -379,6 +379,7 @@ export function App() {
           covers={covers}
           current={atTable ? game : undefined}
           busy={generating}
+          canMake={canGenerate}
           onPlay={playGame}
           onDelete={removeGame}
           onClose={() => setLibrary(false)}

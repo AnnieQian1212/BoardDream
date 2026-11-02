@@ -15,3 +15,6 @@ eval/retrieval/review*.csv
 
 # Local reference copies of the hackathon guide and proposal
 *.pdf
+
+# Cloudflare wrangler cache
+.wrangler/

@@ -17,6 +17,11 @@ interface Props {
   current?: GameModule;
   /** No other game can be opened while one is being made. */
   busy: boolean;
+  /**
+   * Whether games can be made here. Without a server that makes them (the static demo), the
+   * generated games are ones BoardDream made earlier and shipped with the page, not the visitor's.
+   */
+  canMake: boolean;
   onPlay(game: GameModule): void;
   onDelete(game: GameModule): void;
   onClose(): void;
@@ -26,7 +31,7 @@ interface Props {
  * Every game on offer on one page: the original demo games, then the games generated here, newest
  * first, each with its box cover, a button to play it and, for a generated game, one to delete it.
  */
-export function GameLibrary({ games, covers, current, busy, onPlay, onDelete, onClose }: Props) {
+export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onDelete, onClose }: Props) {
   useEscape(onClose);
   const demos = games.filter((g) => !generatedSource(g));
   const made = games
@@ -42,7 +47,7 @@ export function GameLibrary({ games, covers, current, busy, onPlay, onDelete, on
       playing={g === current}
       busy={busy}
       onPlay={() => onPlay(g)}
-      onDelete={generatedSource(g) ? () => onDelete(g) : undefined}
+      onDelete={canMake && generatedSource(g) ? () => onDelete(g) : undefined}
     />
   );
   return (
@@ -51,7 +56,10 @@ export function GameLibrary({ games, covers, current, busy, onPlay, onDelete, on
         <header className="results-head">
           <div>
             <h1>Games</h1>
-            <p className="hint">Pick one to play. The demo games were designed by hand; the rest were dreamed up here, each playtested before it was saved.</p>
+            <p className="hint">
+              Pick one to play. The demo games were designed by hand; the rest {canMake ? "were dreamed up here" : "BoardDream dreamed up from a one-line idea"}, each playtested before it was
+              saved.
+            </p>
           </div>
           <button type="button" className="ghost" onClick={onClose} aria-label="Close the game list">
             <X size={16} /> Close
@@ -63,9 +71,13 @@ export function GameLibrary({ games, covers, current, busy, onPlay, onDelete, on
         </section>
         <section>
           <h2 className="library-group">
-            Your generated games <span className="library-count">{made.length}</span>
+            {canMake ? "Your generated games" : "Made by BoardDream"} <span className="library-count">{made.length}</span>
           </h2>
-          {made.length > 0 ? <div className="library-grid">{made.map(card)}</div> : <p className="hint">Games you dream up on the home page appear here.</p>}
+          {made.length > 0 ? (
+            <div className="library-grid">{made.map(card)}</div>
+          ) : (
+            <p className="hint">{canMake ? "Games you dream up on the home page appear here." : "Games made with the full server appear here."}</p>
+          )}
         </section>
       </div>
     </div>
