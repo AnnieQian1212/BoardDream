@@ -10,6 +10,12 @@ import { GameCover } from "./GameCover";
 const MODES: Record<string, string> = { competitive: "Versus", cooperative: "Co-op", "hidden-role": "Hidden role" };
 /** Generated games shown beside the hand-made ones; the rest are a click away in Games. */
 const RECENT = 3;
+/** The hand-made games, best first: a visitor's first look should be the table at its richest. */
+const SHELF_ORDER = ["lantern-isles", "highsail", "wildmere", "fenlight", "glasshouse"];
+const shelfRank = (game: GameModule) => {
+  const rank = SHELF_ORDER.indexOf(game.meta.id);
+  return rank < 0 ? SHELF_ORDER.length : rank;
+};
 
 interface Props {
   games: GameModule[];
@@ -31,7 +37,7 @@ interface Props {
  * deal into straight away. Everything about how games are tested lives behind the scenes.
  */
 export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults }: Props) {
-  const demos = games.filter((g) => !generatedSource(g));
+  const demos = games.filter((g) => !generatedSource(g)).sort((a, b) => shelfRank(a) - shelfRank(b));
   const recent = games
     .filter((g) => generatedSource(g))
     .map((g, i) => ({ g, i, at: gameOrigin(g)?.createdAt ?? "" }))
