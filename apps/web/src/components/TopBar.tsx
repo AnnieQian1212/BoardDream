@@ -5,6 +5,8 @@ import { useEscape } from "../escape";
 import { AccountButton } from "./Account";
 import { splitVersion } from "../names";
 import { BrandMark } from "./BrandMark";
+import { FavoriteButton } from "./GameLibrary";
+import { useFavorites } from "../favorites";
 
 interface Props {
   game: GameModule;
@@ -25,6 +27,8 @@ interface Props {
   onResults(): void;
   /** Opens a table friends can join; absent where no server keeps accounts (the static demo). */
   onInvite?(): void;
+  /** A generated game can be starred from its table. */
+  generated?: boolean;
 }
 
 /**
@@ -34,6 +38,7 @@ interface Props {
  */
 export function TopBar(props: Props) {
   const { game, making, designerOpen } = props;
+  const favorites = useFavorites();
   return (
     <header className="topbar">
       <button type="button" className="brand brand-home" onClick={props.onHome} title="Home: dream up a new game">
@@ -46,6 +51,7 @@ export function TopBar(props: Props) {
           {splitVersion(game.meta.name).version && <small>{splitVersion(game.meta.name).version}</small>}
         </h1>
       )}
+      {!making && props.generated && <FavoriteButton id={game.meta.id} name={game.meta.name} on={favorites.has(game.meta.id)} />}
       <span className="topbar-gap" />
       {!making && (
         <>

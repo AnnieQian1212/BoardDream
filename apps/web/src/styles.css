@@ -1808,6 +1808,22 @@ button.pile-count.target {
   transform: none;
 }
 
+/* A starred game: gold, not the teal of other buttons that are on. */
+.ghost.favorite.on {
+  color: #c8891a;
+  background: #fbf0d6;
+  border-color: rgba(200, 137, 26, 0.5);
+}
+
+.ghost.favorite:hover:not(:disabled) {
+  color: #b7832a;
+}
+
+/* The star sits with the delete button at the card's right. */
+.game-card-foot .favorite {
+  margin-left: auto;
+}
+
 .library-count {
   padding: 1px 9px;
   border-radius: 999px;

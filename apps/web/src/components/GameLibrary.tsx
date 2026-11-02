@@ -1,7 +1,8 @@
 import type { GameModule } from "@boarddream/engine";
-import { Info, Play, Trash2, X } from "lucide-react";
+import { Info, Play, Star, Trash2, X } from "lucide-react";
 import { useId, useState } from "react";
 import { useEscape } from "../escape";
+import { toggleFavorite, useFavorites } from "../favorites";
 import { gameOrigin, generatedSource } from "../generated";
 import { splitVersion } from "../names";
 import { GameCover } from "./GameCover";
@@ -33,6 +34,7 @@ interface Props {
  */
 export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onDelete, onClose }: Props) {
   useEscape(onClose);
+  const favorites = useFavorites();
   const demos = games.filter((g) => !generatedSource(g));
   const made = games
     .filter((g) => generatedSource(g))
@@ -48,8 +50,12 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
       busy={busy}
       onPlay={() => onPlay(g)}
       onDelete={canMake && generatedSource(g) ? () => onDelete(g) : undefined}
+      favorite={generatedSource(g) ? favorites.has(g.meta.id) : undefined}
     />
   );
+  // Starred games get their own group at the top of the generated ones.
+  const starred = made.filter((g) => favorites.has(g.meta.id));
+  const rest = made.filter((g) => !favorites.has(g.meta.id));
   return (
     <div className="library" role="dialog" aria-label="Games">
       <div className="library-sheet">
@@ -63,18 +69,26 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
           <GroupHeading title="Demo games" tip="Original games we designed by hand." />
           <div className="library-grid">{demos.map(card)}</div>
         </section>
+        {starred.length > 0 && (
+          <section>
+            <GroupHeading title="Favorites" count={starred.length} tip="Generated games you starred, kept in this browser." />
+            <div className="library-grid">{starred.map(card)}</div>
+          </section>
+        )}
         <section>
           <GroupHeading
             title={canMake ? "Your generated games" : "Made by BoardDream"}
-            count={made.length}
+            count={rest.length}
             tip={
               canMake
                 ? "Games you dreamed up here."
                 : "Games BoardDream made from a one-line idea."
             }
           />
-          {made.length > 0 ? (
-            <div className="library-grid">{made.map(card)}</div>
+          {rest.length > 0 ? (
+            <div className="library-grid">{rest.map(card)}</div>
+          ) : made.length > 0 ? (
+            <p className="hint">Every game here is in your favorites.</p>
           ) : (
             <p className="hint">{canMake ? "Games you dream up on the home page appear here." : "Games made with the full server appear here."}</p>
           )}
@@ -101,8 +115,8 @@ function GroupHeading({ title, count, tip }: { title: string; count?: number; ti
   );
 }
 
-function GameCard(props: { game: GameModule; cover?: string; playing: boolean; busy: boolean; onPlay(): void; onDelete?(): void }) {
-  const { game, cover, playing, busy, onPlay, onDelete } = props;
+function GameCard(props: { game: GameModule; cover?: string; playing: boolean; busy: boolean; onPlay(): void; onDelete?(): void; favorite?: boolean }) {
+  const { game, cover, playing, busy, onPlay, onDelete, favorite } = props;
   const [asking, setAsking] = useState(false);
   const { meta } = game;
   const { name, version } = splitVersion(meta.name);
@@ -135,6 +149,7 @@ function GameCard(props: { game: GameModule; cover?: string; playing: boolean; b
             <Play size={15} /> Play
           </button>
         )}
+        {favorite !== undefined && <FavoriteButton id={meta.id} name={meta.name} on={favorite} />}
         {onDelete && (
           <button type="button" className="ghost icon-only" onClick={() => setAsking(true)} title="Delete this game" aria-label={`Delete ${meta.name}`} disabled={busy}>
             <Trash2 size={15} />
@@ -157,5 +172,21 @@ function GameCard(props: { game: GameModule; cover?: string; playing: boolean; b
         </div>
       )}
     </article>
+  );
+}
+
+/** A star that keeps a generated game in Favorites (this browser). */
+export function FavoriteButton({ id, name, on }: { id: string; name: string; on: boolean }) {
+  return (
+    <button
+      type="button"
+      className={["ghost icon-only favorite", on && "on"].filter(Boolean).join(" ")}
+      onClick={() => toggleFavorite(id)}
+      aria-pressed={on}
+      aria-label={on ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+      title={on ? "In your favorites" : "Add to favorites"}
+    >
+      <Star size={15} fill={on ? "currentColor" : "none"} />
+    </button>
   );
 }

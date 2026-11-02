@@ -435,6 +435,7 @@ export function App() {
 
       <TopBar
         game={game}
+        generated={Boolean(generatedSource(game))}
         making={making}
         designerOpen={drawerOpen}
         opponentModel={opponentModel}
