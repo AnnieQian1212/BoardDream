@@ -24,27 +24,69 @@ const safeId = (id: string) => /^[a-z0-9-]+$/.test(id);
  * figures, golden backlight, fine hatching, a deckled paper edge, which read as machine-made. A
  * flat graphic style with at most five things then read as too empty. The author asked for the
  * warm, hand-painted look of classic animated fantasy films; the prompt describes its qualities
- * rather than naming a studio: painted backgrounds, soft daylight, lush nature, simple clean
- * figures, and a handful of things to look at.
+ * rather than naming a studio. It once also asked for lush grass, a river and cumulus clouds, and
+ * every world, an undercity and an orbit among them, came back as the same green meadow. Told
+ * instead to avoid green, with a list of places to choose from and "loving detail", it painted
+ * brown canyons crammed with things. So the game's own words pick the place, and the picture stays
+ * light, open and simple.
  */
 export const COVER_STYLE =
-  "Hand-painted illustration with the warm look of a classic hand-drawn animated fantasy film: soft watercolour and gouache backgrounds with visible brush texture; lush, gently detailed nature (grass, trees, water, big cumulus clouds in a clear sky); calm, soft natural daylight with soft shadows, no dramatic backlight, no glow or lens flare; characters drawn with clean simple linework and soft cel shading, with friendly, natural faces and relaxed everyday poses; a gentle palette of fresh greens, sky blues, warm creams and earthy browns; a moderate amount of detail: two or three people, a few objects that show what they do, and a clear landscape with a few landmarks, but no crowds and no clutter; a cozy, hopeful mood";
+  "Hand-painted illustration with the warm look of a classic hand-drawn animated fantasy film: soft watercolour and gouache with visible brush texture; simple, readable shapes and generous open space (open sky, water or open ground) so the picture reads at a glance; a fresh, light palette that suits the place (sky blues, creams and the place's own colours), never muddy or brown all over; calm, natural light with soft shadows, no dramatic backlight, no glow or lens flare; characters drawn with clean simple linework and soft cel shading, with friendly, natural faces and relaxed everyday poses; a moderate amount of detail: a few objects that show what the people do and one or two landmarks, but no crowds and no clutter; a cozy, hopeful mood";
 
 /**
- * Framings, one per game (by its id), so a shelf of covers is not the same three figures in the
- * middle every time.
+ * Framings, one per game, so a shelf of covers is not the same scene over and over. None is a
+ * close-up of one person: asked for one, the painter drew the same young woman's head at the left
+ * edge of every such cover.
  */
 export const COMPOSITIONS = [
-  "a wide view of the landscape, the people small in the middle distance",
-  "one person close up in the foreground, looking out over the landscape where the others work",
+  "a wide view of the setting, the people small in the middle distance",
+  "one or two objects of their trade large and close in the foreground, the people at work a little way beyond them",
   "the people seen from behind, walking toward the landmark",
   "a view from above, looking down on the people at work",
-  "two people facing each other across their work, the landscape between them",
-  "the people at work on the left, the landscape opening wide to the right",
+  "two people facing each other across their work, seen side-on from a few steps away",
+  "the landmark tall in the middle of the picture, the people small at its foot",
+  "the scene seen through an opening in the foreground (a doorway, an arch, a window or overhanging branches), the people beyond it",
+  "the people at work on the right, the setting opening wide to the left",
 ];
 
-/** A game's framing: the same every time it is painted. */
-export const compositionFor = (gameId: string) => [...gameId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % COMPOSITIONS.length;
+/** The light and the time of year, where the setting has them; varied for the same reason. */
+export const LIGHTS = [
+  "a clear spring morning",
+  "a bright, still midsummer noon",
+  "a mild early-autumn afternoon, a few leaves turning",
+  "a soft grey overcast day",
+  "a fresh morning just after rain",
+  "a bright winter day with a light dusting of snow",
+  "the blue hour after sunset, the first lamps lit (soft light, no glare)",
+];
+
+/** People of every sort: left to itself the painter drew the same young brown-haired woman. */
+const PEOPLE =
+  "two or three of its people (humans, not animals in clothes), varied in age, build, skin tone and hair, men and women, busy with what they do; nobody's face fills the frame, and the people take up no more than a third of the picture";
+
+export interface CoverLook {
+  composition: number;
+  light: number;
+}
+
+/**
+ * FNV-1a with a final mix. A plain h * 31 + c gave two seeds a constant difference for ids of the
+ * same length, so a game's framing decided its light.
+ */
+function hash(text: string, seed: number): number {
+  let h = (0x811c9dc5 ^ seed) >>> 0;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/** A game's framing and light: the same every time it is painted, and independent of each other. */
+export const lookFor = (gameId: string): CoverLook => ({
+  composition: hash(gameId, 1) % COMPOSITIONS.length,
+  light: hash(gameId, 2) % LIGHTS.length,
+});
 
 /**
  * What the cover shows: a scene from the game's world, never the game's own parts. Told it paints
@@ -52,12 +94,14 @@ export const compositionFor = (gameId: string) => [...gameId].reduce((h, ch) => 
  * the subject is described as a scene, and lettering of every kind is ruled out. Its people are
  * people: animals in clothes would read as another game's woodland factions.
  */
-export function coverPrompt(req: CoverRequest, composition = 0): string {
+export function coverPrompt(req: CoverRequest, look: CoverLook = { composition: 0, light: 0 }): string {
   const world = req.summary.trim().replace(/\.$/, "");
   return [
     `A wide illustration of the world of ${req.game}: ${world}.`,
-    "Show one quiet moment from that world: two or three of its people (humans, not animals in clothes) busy with what they do, with a few of the objects of their trade, in their landscape with one or two landmarks.",
-    `Composition: ${COMPOSITIONS[composition % COMPOSITIONS.length]}.`,
+    "Set it in the place that world's own words describe, with that place's landscape, buildings and colours; a green meadow only when the world is one.",
+    `Show one quiet moment there: ${PEOPLE}, with a few of the objects of their trade and one or two landmarks.`,
+    `Composition: ${COMPOSITIONS[look.composition % COMPOSITIONS.length]}.`,
+    `Light: ${LIGHTS[look.light % LIGHTS.length]}, where the setting has daylight and seasons.`,
     "The picture fills the whole frame edge to edge, with no paper margin, border or frame.",
     "Never a game board, a map, playing cards, tokens or a diagram.",
     "The picture carries no title, caption, logo, lettering, numbers or signs of any kind.",
@@ -99,7 +143,7 @@ export async function paintCover(client: ModelClient, model: string, gameId: str
     n: 1,
     size: "1536x1024",
     reasoning_strength: "low",
-    prompt: coverPrompt(req, compositionFor(gameId)),
+    prompt: coverPrompt(req, lookFor(gameId)),
   })) as ImageReply;
   const b64 = reply.data?.[0]?.b64_json;
   if (!b64) throw new Error("Muse Image returned no image");
