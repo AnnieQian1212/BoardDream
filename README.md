@@ -65,7 +65,7 @@ Around the app:
 ```sh
 npm test
 npm run eval:retrieval            # replays the committed Muse Spark replies; no key needed
-npm run eval:generation -- g01    # live calls; all 24 ideas cost about $4 and take over an hour
+npm run eval:generation -- g01    # live calls; all 24 ideas, three at a time, take 30-45 minutes and $4-5
 ```
 
 ## Code
