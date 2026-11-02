@@ -62,11 +62,12 @@ export function GameCover({ game, cover, title }: { game: GameModule; cover?: st
 const NO_TARGETS = new Set<string>();
 
 /**
- * The board as the game starts, with its places' names and numbers but no pieces, which would sit
- * over the names. It is cropped to its places, since room left for pieces would show as empty board.
+ * The board as the game starts: its places and their names only. No pieces, which would sit over
+ * the names, no numbers, and no status lines ("Round 1/6"), which say nothing before a game. It is
+ * cropped to its places, since room left for those would show as empty board.
  */
 function bareBoard(geometry: Geometry): Geometry {
-  const cells = geometry.cells;
+  const cells = geometry.cells.filter((c) => c.kind !== "label").map(({ badge: _badge, ...cell }) => cell);
   const xs = cells.flatMap((c) => c.polygon.map(([x]) => x));
   const ys = cells.flatMap((c) => c.polygon.map(([, y]) => y));
   const [minX, minY] = [Math.min(...xs), Math.min(...ys)];
