@@ -3185,17 +3185,19 @@ button.pile-count.target {
   text-align: left;
 }
 
+/* One clean inked line round the box. A hard ink shadow under the border read as a second black
+   line where the two curves part at the corners. */
 .dream-box {
   padding: 16px 16px 10px;
-  border: 2px solid var(--ink);
+  border: 1.5px solid var(--ink);
   border-radius: 22px;
   background: var(--card);
-  box-shadow: 0 4px 0 var(--ink), 0 24px 60px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 2px 6px rgba(70, 48, 25, 0.08), 0 24px 60px rgba(70, 48, 25, 0.16);
   transition: box-shadow 0.2s;
 }
 
 .dream-box:focus-within {
-  box-shadow: 0 4px 0 var(--ink), 0 0 0 5px rgba(19, 143, 159, 0.18), 0 24px 60px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 0 0 5px rgba(19, 143, 159, 0.18), 0 2px 6px rgba(70, 48, 25, 0.08), 0 24px 60px rgba(70, 48, 25, 0.16);
 }
 
 .dream-box textarea {
@@ -3429,7 +3431,8 @@ button.pile-count.target {
   border: var(--edge);
   border-radius: 16px;
   background: var(--panel);
-  box-shadow: var(--lift-panel);
+  /* Soft shadows only, like the idea box: a hard ink one doubled the line at the corners. */
+  box-shadow: 0 2px 6px rgba(70, 48, 25, 0.08), 0 14px 30px rgba(70, 48, 25, 0.16);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -3442,7 +3445,7 @@ button.pile-count.target {
 
 .home-game:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 5px 0 var(--ink), 0 18px 36px rgba(70, 48, 25, 0.2);
+  box-shadow: 0 4px 10px rgba(70, 48, 25, 0.1), 0 18px 36px rgba(70, 48, 25, 0.2);
 }
 
 .home-game:disabled {
