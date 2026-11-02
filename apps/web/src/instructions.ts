@@ -68,13 +68,29 @@ export function instruction(moves: { kind: TargetKind; description: string }[]):
   const parts = [...byKind.entries()]
     .sort((a, b) => total(b[1]) - total(a[1]))
     .map(([kind, actions]) => {
-      const verbs = [...actions.entries()].sort((a, b) => b[1] - a[1]).map(([verb]) => verb);
+      const verbs = [...merged(actions).entries()].sort((a, b) => b[1] - a[1]).map(([verb]) => verb);
       const shown = verbs.length > 2 ? `${verbs.slice(0, 2).join(", ")} and more` : either(verbs);
       return { kind, shown };
     });
   const [first, second] = parts;
   const head = `Click a glowing ${NOUNS[first.kind][0]} to ${first.shown}`;
   return second ? `${head}, or a ${NOUNS[second.kind][0]} to ${second.shown}` : head;
+}
+
+/**
+ * Actions that start with the same verb read as that verb: "gather bamboo" and "gather glow-oil" are
+ * "gather", "craft a violet lantern" and "craft ember lantern" are "craft".
+ */
+function merged(actions: Map<string, number>): Map<string, number> {
+  const verb = (action: string) => action.split(" ")[0];
+  const sharing = new Map<string, number>();
+  for (const action of actions.keys()) sharing.set(verb(action), (sharing.get(verb(action)) ?? 0) + 1);
+  const out = new Map<string, number>();
+  for (const [action, count] of actions) {
+    const key = (sharing.get(verb(action)) ?? 0) > 1 ? verb(action) : action;
+    out.set(key, (out.get(key) ?? 0) + count);
+  }
+  return out;
 }
 
 /** The rule that says how the game is won, for the first-game guide; the summary if none does. */

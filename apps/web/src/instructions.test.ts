@@ -47,6 +47,14 @@ describe("the instruction for a turn", () => {
     expect(instruction(moves)).toBe("Click a glowing pile to gather or plant");
   });
 
+  test("actions that share a verb read as the verb", () => {
+    const moves = [
+      ...["gather bamboo", "gather glow-oil", "gather reeds"].map((description) => ({ kind: "space" as const, description })),
+      ...["craft a violet lantern", "craft ember lantern"].map((description) => ({ kind: "card" as const, description })),
+    ];
+    expect(instruction(moves)).toBe("Click a glowing space to gather, or a card to craft");
+  });
+
   test("too many kinds says only that glowing things can be clicked", () => {
     const moves = [
       { kind: "card" as const, description: "plant Fern" },
