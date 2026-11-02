@@ -4,7 +4,18 @@ Judges score Impact (30%), Use of Meta AI tooling (25%), Technical depth (20%) a
 
 One message to land: **a sentence becomes a board game that has been playtested a thousand times, and you can play it tonight, against Meta's models or with friends.**
 
-The narration below is about 390 words, which fills three minutes at an easy pace. Times are targets; cut words before cutting shots.
+Almost all three minutes are real footage of the product running, with Meta's models visibly at work. No code walkthrough: the video says briefly where each model is used, and the README covers how it works and the numbers.
+
+The narration below is about 370 words, which fills three minutes at an easy pace. Times are targets; cut words before cutting shots.
+
+## Where the models show on screen
+
+| Model | What it does | Where to point the camera |
+| --- | --- | --- |
+| Muse Spark | Designs the game, picks mechanics, writes and fixes the rules, changes rules on request, invents ideas | The steps panel tags each of its steps "Muse Spark", and the rules stream in line by line as it writes them; **Surprise me** shows "Muse Spark is thinking of an idea…"; **Designer**, **Rules**, **Change the rules** |
+| Muse Spark Open (Baseten) | Plays the rivals and talks at the table | The status line reads "Player 2 (Muse Spark Open) is thinking…", and its lines appear in speech bubbles over its seat |
+| Muse Image | Paints covers, cards and boards | The games page covers; **Designer**, **Art** while it paints |
+| SAM 3.1 | Checks each painted tile lines up with the real board | **Designer**, **Art**, after a board is painted |
 
 ## Before recording
 
@@ -14,7 +25,7 @@ The narration below is about 390 words, which fills three minutes at an easy pac
 - Make the hero game in advance, two or three times from the same idea, and keep the best take. A take where one check fails and the repair fixes it is the best one to show. Suggested idea: **Cafes on one busy street** (an example on the home page; worker-placement ideas passed 4 of 4 first drafts in the benchmark), with one or two Advanced settings changed on camera.
 - Record each scene on its own (OBS or similar) and cut them together. Generation takes about three minutes: show it sped up, with "sped up" on screen and the real time from the steps panel.
 - For the friends scene, two windows side by side: a normal one and an incognito one, each signed in with its own test account.
-- For the opponents scene, open Fenlight without `&bots` so Muse Spark Open plays and talks.
+- For the opponents scene, open Fenlight without `&bots`, with **Muse Spark opponents** on in the `…` menu, so Muse Spark Open plays, talks and is named in the status line.
 
 ## Scenes
 
@@ -32,13 +43,13 @@ The narration below is about 390 words, which fills three minutes at an easy pac
 
 ### 3. Making the game, sped up (0:25–1:05)
 
-**On screen:** the steps on the left and the game assembling in the middle: the box cover, mechanic cards dealt from the library, the components, the rules; lines of code; the playtest squares; a failed check and its fix; bots playing the first draft on the table. Overlay "sped up · 3 min".
+**On screen:** the steps on the left, each Muse Spark step tagged as it runs, and the game assembling in the middle: the box cover, mechanic cards dealt from the library, the components, the rules; the rules streaming in; the playtest squares filling; a failed check and its fix; bots playing the first draft on the table. Overlay "sped up · 3 min".
 
-**Say:** "Muse Spark turns the idea into a plan, then finds building blocks in a library of 27 tested mechanics, from worker placement to tile laying. It rewrites the search and reranks the results, which lifts retrieval from 0.81 to 0.97 nDCG on our benchmark. Then it writes the rules as real code on those blocks. Nothing reaches you untested: bots play a thousand random games, and any crash, endless game or dead end goes back to the model to fix. Then a planning bot plays against random ones, to check that thinking ahead wins. On 24 hobby-game ideas, every one passed within one repair, for about 17 cents each."
+**Say:** "Watch the left side: every step names the Meta model doing it. Muse Spark plans the game, picks tested mechanics from our library, and writes the rules as real code; you can see it streaming in. Nothing reaches you untested: bots play a thousand games, and any crash or dead end goes back to Muse Spark to fix. Then a planning bot checks that thinking ahead actually wins. On 24 hobby-game ideas, every one passed within one repair, for about 17 cents each."
 
 ### 4. Playing it (1:05–1:40)
 
-**On screen:** the new game on the table: the guide pulsing on the clickable spots, a move, cards setting each other off, tokens falling, the pointer rippling water. Then Fenlight: Muse Spark Open players' lines appearing, an accusation, a vote.
+**On screen:** the new game on the table: the guide pulsing on the clickable spots, a move, cards setting each other off, tokens falling, the pointer rippling water. Then Fenlight: "(Muse Spark Open) is thinking…" in the status line, its players' lines in speech bubbles, an accusation, a vote.
 
 **Say:** "Then you play it on a 3D table that runs on a laptop. A guide shows what you can do each turn, and cards that set each other off light up. Your opponents can be Muse Spark Open, Meta's open-weight model, served on Baseten. They don't just pick moves, they talk: in Fenlight, a hidden-role game, they argue from the evidence, accuse each other and vote."
 
@@ -54,11 +65,11 @@ The narration below is about 390 words, which fills three minutes at an easy pac
 
 **Say:** "Muse Image paints every cover, card and board, and SAM 3.1 checks that each painted tile lines up with the real board. You can print a game and play it on paper, or invite friends with a link: they sign in and sit down, the server referees every move, and bots fill the empty seats."
 
-### 7. The numbers (2:25–2:48)
+### 7. Where Meta's models are used (2:25–2:48)
 
-**On screen:** **Behind the scenes**, scrolling slowly: the generation benchmark, retrieval, opponents, the demo games' balance.
+**On screen:** a title card for six to eight seconds over a dimmed shot of the table, the four models and their jobs from the table above; then two seconds of **Behind the scenes** scrolling.
 
-**Say:** "Every claim here is measured: the generation benchmark, retrieval quality, the opponents and the balance of every demo game are on this page, and each number links to its eval in the repository."
+**Say:** "Four Meta models, each with a real job: Muse Spark designs and writes the games, Muse Spark Open plays and talks, Muse Image paints, and SAM 3.1 checks the painting. Every benchmark is on the Behind the scenes page and in the README."
 
 ### 8. Close (2:48–3:00)
 
@@ -71,8 +82,8 @@ The narration below is about 390 words, which fills three minutes at an easy pac
 | Rubric | Scenes |
 | --- | --- |
 | Impact (30%) | 2 (who it is for), 6 (paper and friends), 8 |
-| Use of Meta AI tooling (25%) | 3 (Muse Spark designs, searches and writes code), 4 (Muse Spark Open opponents), 5 (revisions), 6 (Muse Image and SAM 3.1) |
-| Technical depth (20%) | 3 (retrieval, a thousand test games, repair, the planner check), 7 |
+| Use of Meta AI tooling (25%) | 3 (Muse Spark designs and writes code, tagged on screen), 4 (Muse Spark Open opponents, named in the status line), 5 (revisions), 6 (Muse Image and SAM 3.1), 7 |
+| Technical depth (20%) | 3 (a thousand test games, repair, the planner check); the README carries the rest |
 | Demo (25%) | 1, 4 and 6: the live table, the AI players talking, friends at one table |
 
 ## A short cut for X
