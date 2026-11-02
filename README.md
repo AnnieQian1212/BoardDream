@@ -6,12 +6,12 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 
 ## How it works
 
-1. **Design.** Muse Spark turns your idea and settings (players, length, complexity, luck) into a game plan.
+1. **Design.** Muse Spark turns your idea and settings (players, length, complexity, luck) into a game plan. The setting decides the parts and the table (a river festival is a line of stalls, a city a grid of districts), and each new game differs from the last few in its board, mechanics and name.
 2. **Find building blocks.** It picks tested mechanics from the library: card markets, drafting, deck building, worker placement, area majorities, tile placement, hex maps, trading and more ([retrieval eval](eval/retrieval/README.md)).
 3. **Write the rules.** Muse Spark writes the game as code on top of those blocks.
 4. **Playtest and fix.** 1,000 random games check that every game ends and nothing breaks. More games check that it is worth playing, including whether a player who plans ahead beats random play. Problems go back to the model until the rules pass ([generation benchmark](eval/generation/README.md): 24 of 24 hobby-game ideas pass; planning clearly pays in 18 of the 20 that can be measured). A game takes one to two minutes, and you watch it take shape: each step is listed on the left while the middle of the page assembles the game (a box cover, mechanic cards from the library, the components and the rules), then bots play the first draft on the table while it is tested.
-5. **Play and tune.** Play on a 3D table that reacts to you: water is a glossy jelly that ripples under the pointer and wobbles when touched, grass and wheat sway and part, stone glitters and chips, tokens fall with real physics, and night games dim to lantern light. It draws nothing while nothing moves, so it runs on laptop GPUs. Muse Spark opponents trade, bluff, argue and vote, on the open-weight Muse Spark Open (Baseten) when configured ([opponents benchmark](eval/opponents/README.md)). Each game's profile (complexity, strategy, luck, interaction) is measured by playing it. Sliders change the rules and show balance as you drag.
-6. **Paint.** Muse Image paints every card and the board in one style. SAM 3.1 checks that each painted tile lines up with the real board, and a color check moves tiles painted as the wrong terrain.
+5. **Play and tune.** Play on a 3D table that reacts to you: water is a glossy jelly that ripples under the pointer and wobbles when touched, grass and wheat sway and part, stone glitters and chips, tokens fall with real physics, and night games dim to lantern light. It draws nothing while nothing moves, so it runs on laptop GPUs. Muse Spark opponents trade, bluff, argue and vote, on the open-weight Muse Spark Open (Baseten) when configured ([opponents benchmark](eval/opponents/README.md)). Each game's profile (complexity, strategy, luck, interaction) is measured by playing it. The **Designer** drawer holds the rule sliders, the balance as you drag them, the art and the log.
+6. **Paint.** Muse Image paints a box cover for every game, and every card and the board, in one style. SAM 3.1 checks that each painted tile lines up with the real board, and a color check moves tiles painted as the wrong terrain.
 
 ```mermaid
 flowchart LR
@@ -39,15 +39,16 @@ cp .env.example .env      # add MODEL_API_KEY
 npm run dev               # http://localhost:5173
 ```
 
-- **Surprise me** has Muse Spark suggest an idea that fits the dials. It appears in the box to read, change or swap for another; **Generate game** makes it.
-- Each game opens with a how-to-play card (**Rules** brings it back), and **Hint** asks the game's bot for a move.
-- **Print** makes an A4 print-and-play kit (rules, board, cards with cut lines) to test a game on a real table.
+- The home page asks what you want to play. Type an idea, pick an example or press **Surprise me**, then **Dream it up**; the dials are under **Options**. Below are ready games to play.
+- A first game opens with a short note on how to win. The bar at the bottom says what to do each turn, what you can click glows, and **Hint** marks the bot's move on the table. **Rules** has the full rules.
+- **Print and play** (in the `…` menu) makes an A4 kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
 - `?game=lantern-isles&watch` lets bots play a whole game.
-- Each side panel folds to a tab at the screen's edge; `F` folds or opens both.
-- A generated game can be deleted from beside the picker, and a newly made one offers **Don't keep it**.
+- **Designer** (or `F`) opens the drawer; `Esc` closes it and any open page.
+- **Games** lists every game with its cover; a generated one can be deleted there, and a newly made one offers **Don't keep it**.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
-- **Results** (or `?results`) shows every benchmark on one page.
+- **Behind the scenes** (or `?results`) shows every benchmark on one page.
+- `npm run covers` paints a cover for every game that has none.
 - Deploying: a free static demo with AI opponents on Cloudflare Pages, or the full server in a container ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
 ```sh
@@ -77,4 +78,4 @@ All code was written after kickoff on Oct 26, 2026. The day-by-day plan and prog
 - **Oct 29:** a night mode with dusk light, glowing lanterns and fog; water that ripples under the pointer; grass, flowers and trees on green cells.
 - **Oct 30:** wheat on grain fields, rocks that glitter and chip on stony ground; a check that each painted tile shows its terrain; resource tokens that fall with Rapier physics; water, grass and stone on every game's ground; a Surprise me button that invents an idea and builds it.
 - **Oct 31:** water as a glossy jelly: each pool domes above its tile with a rounded rim, bends the art beneath like a lens, and bounces when touched. Games are made about four times faster (low reasoning effort, measured on the benchmark; checks shared among worker threads), and a live view shows each step, with bots playing the draft on the table; closing the page stops the work.
-- **Nov 1:** a storybook look: ink outlines on every piece, parchment boards, flat color, and the card and board art repainted to match. Generated maps name their places, show a number token on each (an elevation, a yield), mix their ground with water, and paint it by hand: grass and flowers, ferns, furrows, pebbles. A wider table: rivals stand in columns at the sides, the board is larger and the market stands upright beside it, and the side panels fold away. The table is drawn at the screen's own resolution, so text is sharp. Generated games can be kept or deleted, text stays inside its box, and the design stays up while a draft has a fault.
+- **Nov 1:** a storybook look: ink outlines on every piece, parchment boards, flat color, and the card and board art repainted to match. Generated maps name their places, show a number token on each (an elevation, a yield), mix their ground with water, and paint it by hand: grass and flowers, ferns, furrows, pebbles. A wider table: rivals stand in columns at the sides, the board is larger and the market stands upright beside it, and the side panels fold away. The table is drawn at the screen's own resolution, so text is sharp. Generated games can be kept or deleted, text stays inside its box, and the design stays up while a draft has a fault. In the evening, after an outside review: a home page that asks what you want to play, painted box covers, a full-screen table with the designer's tools in a drawer, a guide that says what to do each turn with the clickable spots pulsing, a layout for phones, and generated games that vary their board, mechanics and names instead of reaching for a hex map.

@@ -27,6 +27,8 @@ export interface Plan {
   mode: PlayMode;
   minPlayers: number;
   maxPlayers: number;
+  /** The shape of the table (plans written before boards were named have none). */
+  board?: string;
   components: string;
   rules: string[];
   winCondition: string;

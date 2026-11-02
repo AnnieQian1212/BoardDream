@@ -181,12 +181,13 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const hasSeats = panels.some((p) => p.zone === "players");
   const { hint, ask } = useHint(game, state, human);
   const hinted = hint && hint !== "thinking" ? game.moveTarget?.(state, hint.move) : undefined;
-  // Board spots and spaces that can be clicked pulse; the hinted target is flagged, whatever it is.
+  // Board spots (corners, roads) that can be clicked pulse: they are small and alike, where a space
+  // shows its own teal rim. The hinted target is flagged, whatever it is.
   const marks = useMemo(() => {
     const out: TargetMark[] = [];
     for (const id of targets) {
       const kind = targetKind(layout, id);
-      if (kind) out.push({ id, kind, hint: id === hinted, ring: kind === "corner" || kind === "edge" || kind === "space" });
+      if (kind) out.push({ id, kind, hint: id === hinted, ring: kind === "corner" || kind === "edge" });
     }
     return out;
   }, [layout, targets, hinted]);

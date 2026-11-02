@@ -2869,6 +2869,23 @@ button.pile-count.target {
   grid-area: parts;
 }
 
+/* The table's shape, above the parts that go on it. */
+.stage-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: rise 0.4s ease both;
+}
+
+.stage-board svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
 .stage-parts ul {
   margin: 0;
   padding: 0;

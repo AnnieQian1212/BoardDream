@@ -17,7 +17,7 @@ import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
 import { ModelClient } from "./meta/client";
-import { deleteGame, gameSource, listGames, saveGame, saveRevision } from "./store";
+import { deleteGame, gameSource, listGames, recentDesigns, saveGame, saveRevision } from "./store";
 
 const designer = new ModelClient({
   ...config.meta,
@@ -207,7 +207,7 @@ app.post("/api/generate", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
   const body = await c.req.json<{ prompt?: string; dials?: unknown; invented?: boolean }>();
   if (typeof body.prompt !== "string" || !body.prompt.trim() || body.prompt.length > 2000) return c.json({ error: "describe the game in at most 2,000 characters" }, 400);
-  const request: GameRequest & { invented?: boolean } = { prompt: body.prompt, dials: cleanDials(body.dials), invented: body.invented === true };
+  const request: GameRequest & { invented?: boolean } = { prompt: body.prompt, dials: cleanDials(body.dials), recent: recentDesigns(), invented: body.invented === true };
   const limited = overLimit(c, "generate");
   if (limited) return limited;
   return streamSSE(c, async (stream) => {

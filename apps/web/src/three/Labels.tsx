@@ -43,7 +43,7 @@ export interface TargetMark {
   kind: TargetKind;
   /** The hinted move acts on it. */
   hint: boolean;
-  /** Pulses: a board spot or space, which has no glow of its own that reads at a glance. */
+  /** Pulses: a board spot, which has no glow of its own that reads at a glance. */
   ring: boolean;
 }
 

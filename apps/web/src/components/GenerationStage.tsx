@@ -111,6 +111,12 @@ export function GenerationStage({ generation: g, previewing, draftFailed }: Prop
 
         <section className="stage-parts">
           <h4>In the box</h4>
+          {plan?.board && (
+            <p className="stage-board">
+              <LayoutGrid size={15} />
+              <span>{plan.board}</span>
+            </p>
+          )}
           {plan ? (
             <ul>
               {componentItems(plan.components).map((item, i) => (

@@ -259,6 +259,21 @@ describe("dials", () => {
     // "some" is the default the brief already describes.
     expect(specMessages({ prompt: "x", dials: { ...basic, interaction: "some" } })[0].content).toBe(plain.content);
   });
+
+  it("show the designer the games made lately, to differ from, without sending them as the request", () => {
+    const basic = cleanDials({ minPlayers: 2, maxPlayers: 4, playMinutes: 60, complexity: 3, luck: 0.3, mode: "competitive" });
+    const recent = [
+      { title: "Ember Isle", family: "map", board: "a hex map of terrain" },
+      { title: "Golden Crust Bakery", family: "engine", board: "cards and player boards, no shared board" },
+    ];
+    const [system, user] = specMessages({ prompt: "rival kite makers", dials: basic, recent });
+    expect(system.content).toContain("- Ember Isle (map; a hex map of terrain)");
+    expect(system.content).toMatch(/a family, a board shape and core\s+mechanics they use least/);
+    expect(JSON.parse(user.content)).toEqual({ prompt: "rival kite makers", dials: basic });
+    const [plain] = specMessages({ prompt: "rival kite makers", dials: basic });
+    expect(plain.content).not.toContain("Games made here lately");
+    expect(plain.content).toContain('never "X: Y"');
+  });
 });
 
 describe("streamed replies", () => {

@@ -12,6 +12,8 @@ import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
 
 /** Candidates the reranker sees, and how many of its top picks go into the compose prompt. */
 const RERANK_POOL = 20;
+/** Candidates the plan's own words add to the pool. */
+const PLAN_POOL = 8;
 const REFERENCES = 6;
 /** What each family is about, for the search when the player chose one. */
 const FAMILY_WORDS: Record<NonNullable<GameRequest["dials"]["family"]>, string> = {
@@ -74,24 +76,31 @@ export async function designGame(request: GameRequest, deps: DesignDeps): Promis
   // The spec and the search both start from the request alone, so they run side by side.
   onProgress("drafting spec");
   onProgress("retrieving mechanics");
-  const [spec, references] = await Promise.all([
+  const [spec, found] = await Promise.all([
     llm.chatJson<GameSpec>(specMessages(request), gameSpecSchema).then((drafted) => {
       const spec = dials.family ? { ...drafted, family: dials.family } : drafted;
       onEvent({ type: "spec", spec });
       return spec;
     }),
     // The pipeline eval/retrieval measures: Muse Spark query expansion, BM25, then Muse Spark rerank.
-    // The mechanics the player asked for come first, whatever the search ranks.
-    (async () => {
-      const pool = (await expandedSearch(llm, index, query, RERANK_POOL))
-        .map((hit) => loadReference(hit.id))
-        .filter((r): r is Reference => r !== undefined);
-      const order = await rerank(llm, query, pool.map((r) => r.entry));
-      const asked = (dials.mustUse ?? []).map(loadReference).filter((r): r is Reference => r !== undefined);
-      const ranked = order.filter((id) => !asked.some((r) => r.entry.id === id)).map((id) => pool.find((r) => r.entry.id === id)!);
-      return [...asked, ...ranked].slice(0, REFERENCES);
-    })(),
+    (async () =>
+      (await expandedSearch(llm, index, query, RERANK_POOL)).map((hit) => loadReference(hit.id)).filter((r): r is Reference => r !== undefined))(),
   ]);
+  // The rerank waits for the plan: its board and mechanics bring in what the idea alone did not
+  // suggest (an idea about islands finds hex maps, a plan for a river of ports wants a track), and
+  // the rerank orders the lot for the plan. The mechanics the player asked for come first.
+  const planned = [spec.board, ...spec.mechanics].filter(Boolean).join(". ");
+  const pool = [
+    ...found,
+    ...index
+      .search(planned, PLAN_POOL)
+      .map((hit) => loadReference(hit.id))
+      .filter((r): r is Reference => r !== undefined && !found.some((f) => f.entry.id === r.entry.id)),
+  ];
+  const order = await rerank(llm, `${query}. The plan: ${planned}`, pool.map((r) => r.entry));
+  const asked = (dials.mustUse ?? []).map(loadReference).filter((r): r is Reference => r !== undefined);
+  const ranked = order.filter((id) => !asked.some((r) => r.entry.id === id)).map((id) => pool.find((r) => r.entry.id === id)!);
+  const references = [...asked, ...ranked].slice(0, REFERENCES);
   const retrieved = references.map((r) => r.entry.id);
   onEvent({ type: "mechanics", mechanics: references.map(({ entry }) => ({ id: entry.id, title: entry.title, description: entry.description })) });
   signal?.throwIfAborted();

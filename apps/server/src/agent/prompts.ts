@@ -2,7 +2,7 @@ import type { ChatMessage } from "../meta/client";
 import type { RulesCheck } from "./check";
 import type { Reference } from "./references";
 import { dialsForModel } from "./dials";
-import type { Dials, GameRequest, GameSpec, Interaction, Theme } from "./spec";
+import type { Dials, GameRequest, GameSpec, Interaction, RecentGame, Theme } from "./spec";
 
 // Iterated against the fuzz-repair benchmark in eval/generation.
 
@@ -36,6 +36,19 @@ function wishes(dials: Dials): string {
   return lines.length ? `\nThe player also set these dials:\n${lines.map((line) => `- ${line}`).join("\n")}` : "";
 }
 
+/**
+ * The games made lately, for the designer to differ from. Left to itself it reaches for a hex map
+ * of terrain with trading whenever an idea names a place, and names games "Grand X: Y Z", so a
+ * shelf of generated games looks like one game reskinned.
+ */
+function recentGames(recent: RecentGame[] | undefined): string {
+  if (!recent?.length) return "";
+  const lines = recent.map((g) => `- ${g.title} (${g.family}; ${g.board}${g.mechanics?.length ? `; ${g.mechanics.slice(0, 3).join(", ")}` : ""})`);
+  return `\nGames made here lately, newest first:\n${lines.join("\n")}
+Where the idea and the dials leave it open, make this one differ from them: a family, a board shape and core
+mechanics they use least, and a name unlike theirs.`;
+}
+
 export function specMessages(request: GameRequest): ChatMessage[] {
   return [
     {
@@ -53,6 +66,16 @@ implementable spec for a turn-based board game that runs in a browser.
 - family: "engine" for tableau and engine building (cards that cost resources and pay income or bonuses) and
   worker placement; "map" for building on a hex map with production and trading; "grid" for tile placement
   and area control on a board; "bluff" for hidden information, bidding and hidden roles.
+- Let the setting decide the parts and the table, so every game looks like its own world:
+  - components are things from the setting (perfume vials and recipe cards, kites and wind gauges, oil
+    and lamp wicks), never generic cubes and cards;
+  - board is the shape of the table in one sentence, taken from the place: a river is a line of ports,
+    a festival a ring of stalls, a city a grid of districts, a mountain pass a winding track, a court a
+    set of action spaces, a coast a network of harbors joined by routes. Use a hex map of terrain only
+    when the game is about exploring and settling open land, and no board at all (a market, a tableau
+    and player boards) when the game lives in cards.
+- title: one to three evocative words that fit the setting ("Lamplight Reach", "Saltglass"). No colon,
+  no subtitle, never "X: Y".
 - Respect the dials: player count range, play time, complexity (1 gateway hobby game to 5 heavy strategy
   game), luck (0 pure strategy to 1 mostly luck) and mode.
 - The game must be original: never a recreation of a published game, even renamed. Medium scale: 3-5
@@ -62,9 +85,9 @@ implementable spec for a turn-based board game that runs in a browser.
   Include 2-4, with ranges where every value still gives a playable game.
 - rules: plain sentences a new player can follow, with each tunable written as its default number
   ("after 6 rounds"), never as its key.
-- mechanics lists plain mechanic names (e.g. "card market", "worker placement", "area majority").${wishes(request.dials)}`,
+- mechanics lists plain mechanic names (e.g. "card market", "worker placement", "area majority").${wishes(request.dials)}${recentGames(request.recent)}`,
     },
-    { role: "user", content: JSON.stringify(request.dials.mustUse ? { ...request, dials: dialsForModel(request.dials) } : request) },
+    { role: "user", content: JSON.stringify({ prompt: request.prompt, dials: request.dials.mustUse ? dialsForModel(request.dials) : request.dials }) },
   ];
 }
 
@@ -91,6 +114,9 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     forest (forest, woodland, grove), grain (fields, wheat, farmland) and stony ground (quarry, rocks,
     mountains) grow grass and flowers, trees, wheat, or boulders. A place with a made-up name (an
     island "Emberfall") can say what its ground is with terrain: water, grass, forest, grain or stone.
+    Draw the board the spec's board field describes; it need not be hexes. A track or river is a line or
+    bend of square spaces, action spaces a grid of labelled rectangles, regions irregular polygons, a
+    network round places with "edge" cells as the routes between them.
     Make a map look like a landscape: give its places varied ground (set terrain where the kind does not
     say it), with water somewhere (a lake, a river bend, a harbor) when the theme allows. Water or scenery
     no rule uses can be extra cells in geometry only, never in the rules' map, as long as no move targets them.

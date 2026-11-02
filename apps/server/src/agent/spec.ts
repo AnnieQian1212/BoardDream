@@ -27,6 +27,19 @@ export interface Dials {
 export interface GameRequest {
   prompt: string;
   dials: Dials;
+  /**
+   * Games made here lately, newest first, so a new one can differ from them in kind, board and name
+   * when the idea leaves those open.
+   */
+  recent?: RecentGame[];
+}
+
+/** What a game made earlier was like: its name, family, the shape of its table and its core mechanics. */
+export interface RecentGame {
+  title: string;
+  family: string;
+  board: string;
+  mechanics?: string[];
 }
 
 /** The designer's plan for a game, written before any rules code. */
@@ -37,6 +50,12 @@ export interface GameSpec {
   mode: PlayMode;
   minPlayers: number;
   maxPlayers: number;
+  /**
+   * The shape of the table, chosen from the setting: a hex map, a network of places joined by
+   * routes, a track, a ring or grid of action spaces, regions, tiles laid edge to edge, or no board
+   * (cards, a market and player boards). Older saved games have none.
+   */
+  board?: string;
   components: string;
   rules: string[];
   winCondition: string;
@@ -61,6 +80,7 @@ export const gameSpecSchema: JsonSchema = {
       "mode",
       "minPlayers",
       "maxPlayers",
+      "board",
       "components",
       "rules",
       "winCondition",
@@ -75,6 +95,7 @@ export const gameSpecSchema: JsonSchema = {
       mode: { type: "string", enum: ["competitive", "cooperative", "hidden-role"] },
       minPlayers: int,
       maxPlayers: int,
+      board: str,
       components: str,
       rules: { type: "array", items: str },
       winCondition: str,

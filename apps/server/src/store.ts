@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { DesignResult, RevisionResult } from "./agent/designer";
+import type { RecentGame } from "./agent/spec";
 
 /**
  * Generated games that passed playtesting, saved as data/games/<id>.js (the rules) and <id>.json
@@ -48,6 +49,36 @@ export function saveGame(result: DesignResult, origin?: { idea: string; invented
   writeFileSync(new URL(`${id}.js`, DIR), result.source + "\n");
   writeFileSync(new URL(`${id}.json`, DIR), JSON.stringify({ ...saved, spec: result.spec, attempts: result.attempts }, null, 2) + "\n");
   return saved;
+}
+
+/** The table shape of a game saved before specs named one, from the mechanics it was built on. */
+const BOARDS: [string, string][] = [
+  ["mech:hex-map", "a hex map of terrain"],
+  ["mech:tile-placement", "tiles laid edge to edge"],
+  ["mech:square-grid", "a square grid"],
+  ["mech:worker-placement", "a board of action spaces"],
+  ["mech:area-control", "regions of a map"],
+  ["mech:connection", "places joined by routes"],
+];
+
+/**
+ * The games saved lately, newest first: name, family and board, for the designer to differ from.
+ * Revisions are left out; they repeat the game they revise.
+ */
+export function recentDesigns(count = 8): RecentGame[] {
+  if (!existsSync(DIR)) return [];
+  return readdirSync(DIR)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => JSON.parse(readFileSync(new URL(name, DIR), "utf8")) as SavedGame & { spec?: { board?: string; mechanics?: string[] }; revisedFrom?: string | null })
+    .filter((game) => !("revisedFrom" in game))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, count)
+    .map((game) => ({
+      title: game.title,
+      family: game.family,
+      board: game.spec?.board || BOARDS.find(([id]) => game.retrieved?.includes(id))?.[1] || "cards and player boards, no shared board",
+      mechanics: game.spec?.mechanics,
+    }));
 }
 
 /** Saved games, newest first. */
