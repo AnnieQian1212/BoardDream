@@ -9,7 +9,7 @@ import referenceStats from "./reference-stats.json";
 
 const REPO = "https://github.com/AnnieQian1212/BoardDream/blob/main";
 
-export const UPDATED = "Oct 28, 2026";
+export const UPDATED = "Nov 2, 2026";
 
 /** Where the reference games' balance and profile figures are written up. */
 export const plan = `${REPO}/docs/PLAN.md`;
@@ -28,20 +28,20 @@ export const retrieval = {
 export const generation = {
   source: `${REPO}/eval/generation/README.md`,
   ideas: 24,
-  firstDraft: 17,
+  firstDraft: 16,
   afterOneRepair: 24,
-  plannerWinRate: 0.88,
+  plannerWinRate: 0.78,
   fairShare: 0.34,
   measured: 20,
-  planningPays: 20,
-  cost: "$4.23",
+  planningPays: 18,
+  cost: "$4.09",
   groups: [
-    { name: "Engine and deck builders", ideas: 4, firstDraft: 2, passed: 4, planner: 0.79 },
-    { name: "Worker placement and majorities", ideas: 4, firstDraft: 3, passed: 4, planner: 0.92 },
-    { name: "Map, trade and build", ideas: 4, firstDraft: 4, passed: 4, planner: 0.92 },
-    { name: "Tile placement", ideas: 4, firstDraft: 3, passed: 4, planner: 0.94 },
-    { name: "Drafting, sets and deck building", ideas: 4, firstDraft: 2, passed: 4, planner: 0.82 },
-    { name: "Hidden roles, bluffing and co-op", ideas: 4, firstDraft: 3, passed: 4, planner: undefined },
+    { name: "Engine and deck builders", ideas: 4, firstDraft: 4, passed: 4, planner: 0.51 },
+    { name: "Worker placement and majorities", ideas: 4, firstDraft: 4, passed: 4, planner: 0.96 },
+    { name: "Map, trade and build", ideas: 4, firstDraft: 2, passed: 4, planner: 0.82 },
+    { name: "Tile placement", ideas: 4, firstDraft: 3, passed: 4, planner: 0.84 },
+    { name: "Drafting, sets and deck building", ideas: 4, firstDraft: 1, passed: 4, planner: 0.78 },
+    { name: "Hidden roles, bluffing and co-op", ideas: 4, firstDraft: 2, passed: 4, planner: undefined },
   ],
 };
 

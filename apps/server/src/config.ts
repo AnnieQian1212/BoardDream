@@ -21,9 +21,10 @@ export const config = {
   },
   /**
    * How long Muse Spark reasons before it answers in the generation pipeline ("default" leaves it
-   * to the model). At its default it spends about 25,000 tokens thinking before writing rules.
+   * to the model). At its default it spends about 25,000 tokens thinking before writing rules; at
+   * low effort most first drafts fail (eval/generation/README.md), so the app runs at medium.
    */
-  designerEffort: env("DESIGNER_EFFORT", "low") as NonNullable<ChatOptions["reasoningEffort"]> | "default",
+  designerEffort: env("DESIGNER_EFFORT", "medium") as NonNullable<ChatOptions["reasoningEffort"]> | "default",
   models: {
     designer: env("DESIGNER_MODEL", "muse-spark-1.3"),
     wonder: env("WONDER_MODEL", "muse-wonder-1.0"),

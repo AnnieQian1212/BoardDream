@@ -43,7 +43,7 @@ export function ResultsPage({ onClose }: { onClose(): void }) {
 
         <Section title="Generation: idea to working rules" source={generation.source}>
           <p className="hint">
-            {generation.ideas} ideas for hobby strategy games, each designed by Muse Spark, written as code on retrieved mechanics, fuzzed with 1,000 strict
+            {generation.ideas} ideas for hobby strategy games, each designed by Muse Spark at medium reasoning effort (as the app runs it), written as code on retrieved mechanics, fuzzed with 1,000 strict
             random games, repaired on failure and playtested. "Planner wins" is how often a bot that plans ahead beats random players in 3-player games.
           </p>
           <table className="results-table">

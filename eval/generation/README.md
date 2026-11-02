@@ -6,9 +6,25 @@ Can BoardDream turn a one-sentence idea into rules that work and are worth playi
 
 Each idea goes through the full pipeline: design, retrieval, rules code, then 1,000 strict random games. Failures go back to Muse Spark for repair (up to 4 rounds). Rules that pass get a playtest: 100 random games, plus 30 where a planner (the generic bot with short playouts) takes each seat in turn against random players. Design problems get one improvement round: games over too fast, mostly draws, a seat that never wins, no real choices, or a planner that barely beats random play.
 
-## Faster rules (Oct 31, 2026): what the app uses
+## Reasoning effort, measured again (Nov 1, 2026): what the app uses
 
-At its default reasoning effort Muse Spark 1.3 thinks for about 25,000 tokens before it writes 8,000–9,000 tokens of rules, so a game took four to five minutes from idea to table. The app now asks for low reasoning effort on every call (`DESIGNER_EFFORT`, default `low`; `default` restores the old setting).
+Since the low-effort run below, the rules prompt grew (cards that set each other off, named places, scenery, varied boards), and at low effort first drafts suffered most. The same 24 ideas, with the current prompt, at three settings:
+
+| | Medium (the app's setting) | Low | Default |
+| --- | --- | --- | --- |
+| Pass 1,000-game fuzzing on the first draft | 16 / 24 | 5 / 24 | 20 / 24 |
+| Pass after one repair | 24 / 24 | 18 / 24 (24 after four) | 24 / 24 |
+| Planner win rate in 3-player games (20 measurable) | 78%, fair share 34% | 73% | 82% |
+| Games where planning clearly pays (skill edge 0.25 or more) | 18 / 20 | 17 / 20 | 18 / 20 |
+| Design problems found, fixed in one round | 4, 2 fixed | 8, 5 fixed | 7, 5 fixed |
+| Time from idea to final rules, three ideas at a time | median 189 s (137–304 s) | median 100 s (49–222 s) | median 270 s (165–422 s) |
+| Cost of the run | $4.09 (no cached calls) | $3.07 (specs and retrieval cached) | $5.13 (specs and retrieval cached) |
+
+The app now runs at medium effort (`DESIGNER_EFFORT`, default `medium`). Low effort is still the fastest, but most of its first drafts fail (wrong geometry, a rules function that throws) and its playtests flag more mid-game scores that mislead a planner; repairs eat most of the time it saves and show the player failed drafts. Medium passes every idea within one repair and is about 30% faster than the default. Medium's weakest group is the engine builders: two of them (g02, g03) leave the planner at 50%, and g04's planner wins only its fair share, which one design round did not fix. A setting still moves single games a lot from run to run, so the planner rates are within the noise of one run per idea.
+
+## Faster rules (Oct 31, 2026)
+
+At its default reasoning effort Muse Spark 1.3 thinks for about 25,000 tokens before it writes 8,000–9,000 tokens of rules, so a game took four to five minutes from idea to table. From Oct 31 to Nov 1 the app asked for low reasoning effort on every call (`DESIGNER_EFFORT`; `default` restores the old setting).
 
 Time per step, two ideas each (Oct 31):
 
@@ -100,7 +116,7 @@ Before the focus on hobby games, the benchmark had 24 lighter ideas (8 engine bu
 ```sh
 npm run eval:generation                 # all prompts, default effort
 npm run eval:generation -- g01,g09      # a subset
-npm run eval:generation -- --setup=low  # low effort (also medium, open), into out/low/
+npm run eval:generation -- --setup=medium  # medium effort, as the app runs (also low, open), into out/medium/
 ```
 
 Model replies are cached in `cache/` (not committed), so a rerun is free. Generated rules and their records land in `out/`; each record has the seconds it took from idea to final rules.
