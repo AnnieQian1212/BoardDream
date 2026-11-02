@@ -145,8 +145,8 @@ export function App() {
   const { art, painting, paint, board, boardStep, paintBoard } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
-  // Painted box covers; asked again when the games change (a new one may have been painted).
-  const covers = useCovers(games.length);
+  // Painted box covers, asked for again whenever the shelf is looked at.
+  const covers = useCovers(`${games.length}|${screen}|${library}`);
   // Games generated earlier (bundled demo games, and the server's when one runs) join the picker;
   // ?game=<id> can open one of them.
   useEffect(() => {

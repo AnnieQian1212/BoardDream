@@ -12,6 +12,7 @@ import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
+import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
 import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
@@ -53,6 +54,26 @@ app.get("/api/games", (c) => c.json(listGames()));
 // Card art: the manifest (card title -> file), the image files, and painting a deck with progress
 // streamed as server-sent events ("card" per finished illustration, then "done").
 app.get("/api/art/:game", (c) => c.json(readManifest(c.req.param("game"))));
+
+// Box covers: every game's that has one (as URLs), and painting one.
+app.get("/api/covers", (c) => c.json(listCovers()));
+
+app.post("/api/art/:game/cover", async (c) => {
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
+  const limited = overLimit(c, "art");
+  if (limited) return limited;
+  const body = await c.req.json<Partial<CoverRequest>>();
+  if (typeof body.game !== "string" || typeof body.summary !== "string" || body.game.length > 200 || body.summary.length > 1000) {
+    return c.json({ error: "send the game's name and summary" }, 400);
+  }
+  try {
+    const id = c.req.param("game");
+    await paintCover(painter, config.models.image, id, { game: body.game, summary: body.summary });
+    return c.json({ url: listCovers()[id] });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
+  }
+});
 
 // Board art: the alignment report (with painted tile sources per kind), and painting with progress.
 app.get("/api/art/:game/board", (c) => {
@@ -194,6 +215,7 @@ app.post("/api/generate", async (c) => {
     try {
       const result = await designGame(request, { llm: designer, index, onProgress, onEvent, signal });
       const saved = result.ok ? saveGame(result, { idea: request.prompt, invented: request.invented === true }) : undefined;
+      if (saved) paintCoverLater(painter, config.models.image, saved.id, { game: saved.title, summary: saved.pitch });
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
     } catch (err) {
@@ -219,6 +241,8 @@ app.post("/api/revise", async (c) => {
     try {
       const result = await reviseGame(source, request, { llm: designer, index, onProgress, onEvent, signal });
       const saved = result.ok ? saveRevision(body.id, result, request) : undefined;
+      // A new version wears the cover of the game it revises.
+      if (saved && body.id) copyCover(body.id, saved.id);
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id, title: saved?.title }) });
     } catch (err) {

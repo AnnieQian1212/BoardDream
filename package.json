@@ -14,7 +14,8 @@
     "eval:generation": "tsx eval/generation/run.ts",
     "eval:opponents": "tsx eval/opponents/run.ts",
     "eval:reference": "tsx eval/reference/run.ts",
-    "demo:games": "tsx apps/server/src/bundle-demo.ts"
+    "demo:games": "tsx apps/server/src/bundle-demo.ts",
+    "covers": "tsx apps/server/src/paint-covers.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
