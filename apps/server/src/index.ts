@@ -18,6 +18,11 @@ import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
 import { ModelClient } from "./meta/client";
 import { deleteGame, gameSource, listGames, recentDesigns, saveGame, saveRevision } from "./store";
+import { Accounts } from "./accounts";
+import { openDb } from "./db";
+import { gameById } from "./games";
+import { playRoutes } from "./play";
+import { Rooms } from "./rooms";
 
 const designer = new ModelClient({
   ...config.meta,
@@ -44,8 +49,20 @@ function overLimit(c: Context, name: keyof typeof LIMITS) {
 }
 
 app.get("/api/health", (c) =>
-  c.json({ ok: true, hasApiKey: Boolean(config.meta.apiKey), canGenerate: Boolean(config.meta.apiKey), models: config.models, opponentModel: opponent?.model }),
+  c.json({
+    ok: true,
+    hasApiKey: Boolean(config.meta.apiKey),
+    canGenerate: Boolean(config.meta.apiKey),
+    // Accounts and tables shared with friends (play.ts) need this server; the static demo has neither.
+    tables: true,
+    models: config.models,
+    opponentModel: opponent?.model,
+  }),
 );
+
+// Accounts, and tables friends share: invite links, seats, moves refereed here, bots in empty seats.
+const db = openDb();
+app.route("/api", playRoutes({ accounts: new Accounts(db), rooms: new Rooms(db, gameById), clientOf: (c) => clientAddress(c.req.raw.headers, getConnInfo(c).remote.address) }));
 
 app.get("/api/catalog", (c) => c.json(catalog));
 
