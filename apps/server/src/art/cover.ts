@@ -23,10 +23,11 @@ const safeId = (id: string) => /^[a-z0-9-]+$/.test(id);
  * How a cover is drawn. The storybook house style alone came back busy and glowing: crowds of tiny
  * figures, golden backlight, fine hatching, a deckled paper edge. That reads as machine-made. A
  * hobby box cover reads as drawn by hand: a few large figures, flat colour, one ink weight, calm
- * empty space.
+ * empty space. The author then found even three figures with their tools and crates too busy to
+ * take in at a glance, so a cover holds at most five things.
  */
 export const COVER_STYLE =
-  "Flat graphic illustration with the hand-drawn look of a modern hobby board game box: bold dark-brown ink outlines of one even weight; big simple shapes with clean silhouettes and slightly chunky, whimsical proportions; flat colour fills with at most one hard-edged shadow tone per colour; a limited palette of about six colours (warm cream, ochre, rust red, moss green, slate blue, deep brown) with one bright accent; two or three large characters in the foreground with simple expressive faces and clear poses, against a simple background of layered flat shapes with calm empty space; no gradients, no glow, no sunbeams or backlight, no airbrushing, no tiny crowds, no clutter, no fine hatching, no photorealism; matte paper with a faint grain";
+  "Flat graphic illustration with the hand-drawn look of a modern hobby board game box: bold dark-brown ink outlines of one even weight; big simple shapes with clean silhouettes and slightly chunky, whimsical proportions; flat colour fills with at most one hard-edged shadow tone per colour; a limited palette of about five colours (warm cream, ochre, rust red, moss green, slate blue) with one bright accent; very few elements, at most five things in the whole picture, each large and easy to read; a background of two or three plain flat colour bands with wide empty areas; no gradients, no glow, no sunbeams or backlight, no airbrushing, no crowds, no props scattered around, no clutter, no fine hatching or texture lines, no photorealism; matte paper with a faint grain";
 
 /**
  * What the cover shows: a scene from the game's world, never the game's own parts. Told it paints
@@ -38,7 +39,7 @@ export function coverPrompt(req: CoverRequest): string {
   const world = req.summary.trim().replace(/\.$/, "");
   return [
     `A wide illustration of the world of ${req.game}: ${world}.`,
-    "Show one moment from that world: two or three of its people (humans, not animals in clothes) at work in the foreground, the place they work in simply drawn behind them.",
+    "Show one simple moment from that world: one or two of its people (humans, not animals in clothes) with the one object that matters most to them, large in the foreground, and the place reduced to a simple silhouette behind them.",
     "The picture fills the whole frame edge to edge, with no paper margin, border or frame.",
     "Never a game board, a map, playing cards, tokens or a diagram.",
     "The picture carries no title, caption, logo, lettering, numbers or signs of any kind.",

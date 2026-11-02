@@ -8,6 +8,7 @@ describe("a box cover's prompt", () => {
     expect(prompt).toContain("world of Lantern Isles: Settle an archipelago where the tides decide what each coast yields.");
     expect(prompt).toMatch(/flat colour fills/);
     expect(prompt).toMatch(/no glow, no sunbeams or backlight/);
+    expect(prompt).toMatch(/at most five things/);
     expect(prompt).toMatch(/never a game board, a map, playing cards/i);
   });
 
