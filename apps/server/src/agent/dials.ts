@@ -1,6 +1,6 @@
 import type { PlayMode } from "@boarddream/engine";
 import { catalog } from "@boarddream/library";
-import type { Dials, Interaction, Theme } from "./spec";
+import type { BoardShape, Dials, Goal, Interaction, Powers, Theme, Tone } from "./spec";
 
 /** How many mechanics a player can ask a game to be built around. */
 export const MUST_USE_LIMIT = 3;
@@ -8,7 +8,11 @@ export const MUST_USE_LIMIT = 3;
 const MODES: PlayMode[] = ["competitive", "cooperative", "hidden-role"];
 const FAMILIES: NonNullable<Dials["family"]>[] = ["engine", "map", "grid", "bluff"];
 const INTERACTIONS: Interaction[] = ["gentle", "some", "cutthroat"];
-const THEMES: Theme[] = ["nature", "history", "fantasy", "scifi"];
+const THEMES: Theme[] = ["nature", "history", "fantasy", "scifi", "myth", "mystery", "everyday"];
+const BOARDS: BoardShape[] = ["hex", "network", "track", "spaces", "regions", "tiles", "none"];
+const GOALS: Goal[] = ["points", "race", "secret"];
+const POWERS: Powers[] = ["same", "unique"];
+const TONES: Tone[] = ["cozy", "whimsical", "tense", "epic", "mysterious"];
 
 const mechanics = new Map(catalog.filter((e) => e.kind === "mechanic" && e.status === "ready").map((e) => [e.id, e.title]));
 
@@ -40,6 +44,15 @@ export function cleanDials(input: unknown): Dials {
   if (interaction) dials.interaction = interaction;
   const theme = choice(d.theme, THEMES);
   if (theme) dials.theme = theme;
+  const board = choice(d.board, BOARDS);
+  if (board) dials.board = board;
+  // Co-op and hidden-role games are won their own way.
+  const goal = dials.mode === "competitive" ? choice(d.goal, GOALS) : undefined;
+  if (goal) dials.goal = goal;
+  const powers = choice(d.powers, POWERS);
+  if (powers) dials.powers = powers;
+  const tone = choice(d.tone, TONES);
+  if (tone) dials.tone = tone;
   const mustUse = Array.isArray(d.mustUse) ? [...new Set(d.mustUse.filter((id): id is string => typeof id === "string" && mechanics.has(id)))] : [];
   if (mustUse.length) dials.mustUse = mustUse.slice(0, MUST_USE_LIMIT);
   return dials;

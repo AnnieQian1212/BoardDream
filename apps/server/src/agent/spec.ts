@@ -2,7 +2,7 @@ import type { JsonSchema } from "../meta/client";
 import type { Dials, GameSpec, RecentGame } from "./protocol";
 
 // The plain types live in protocol.ts, which the web app reads too.
-export type { Dials, GameSpec, Interaction, RecentGame, Theme } from "./protocol";
+export type { BoardShape, Dials, GameSpec, Goal, Interaction, Powers, RecentGame, Theme, Tone } from "./protocol";
 
 export interface GameRequest {
   prompt: string;

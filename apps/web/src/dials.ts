@@ -15,6 +15,39 @@ export const THEMES: { value: NonNullable<Dials["theme"]>; label: string }[] = [
   { value: "history", label: "History" },
   { value: "fantasy", label: "Fantasy" },
   { value: "scifi", label: "Sci-fi" },
+  { value: "myth", label: "Myth and folklore" },
+  { value: "mystery", label: "Mystery" },
+  { value: "everyday", label: "Everyday life" },
+];
+
+export const BOARDS: { value: NonNullable<Dials["board"]>; label: string }[] = [
+  { value: "hex", label: "Hex map" },
+  { value: "network", label: "Places and routes" },
+  { value: "track", label: "A winding track" },
+  { value: "spaces", label: "Action spaces" },
+  { value: "regions", label: "Regions" },
+  { value: "tiles", label: "Tiles laid edge to edge" },
+  { value: "none", label: "No board: cards only" },
+];
+
+export const GOALS: { value: NonNullable<Dials["goal"]>; label: string }[] = [
+  { value: "points", label: "Most points" },
+  { value: "race", label: "First to a goal" },
+  { value: "secret", label: "Secret objectives" },
+];
+
+export const POWERS: { value: Dials["powers"]; label: string; hint: string }[] = [
+  { value: undefined, label: "Any", hint: "Left to the designer" },
+  { value: "same", label: "Same", hint: "Every player starts alike" },
+  { value: "unique", label: "Unique", hint: "Each player gets a role with a power of their own" },
+];
+
+export const TONES: { value: NonNullable<Dials["tone"]>; label: string }[] = [
+  { value: "cozy", label: "Cozy" },
+  { value: "whimsical", label: "Whimsical" },
+  { value: "tense", label: "Tense" },
+  { value: "epic", label: "Epic" },
+  { value: "mysterious", label: "Mysterious" },
 ];
 
 export const INTERACTIONS: { value: NonNullable<Dials["interaction"]>; label: string; hint: string }[] = [

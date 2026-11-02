@@ -229,6 +229,10 @@ describe("surprise ideas", () => {
     }
     // A mode with no spine of that type still gets one of its own.
     expect(SPINES.cooperative.map((s) => s.spine)).toContain(asked({ ...dials, mode: "cooperative", family: "bluff" }, () => 0.5).builtAround);
+    for (const theme of ["myth", "mystery", "everyday"] as const) {
+      expect(SETTINGS[theme].length).toBeGreaterThanOrEqual(8);
+      expect(SETTINGS[theme]).toContain(asked({ ...versus, theme }, () => 0.5).setting);
+    }
     const built = asked({ ...versus, mustUse: ["mech:worker-placement", "mech:area-control"] }, () => 0);
     expect(built.builtAround).toBe("Worker placement and Area control");
     expect(built.dials.mustUse).toEqual(["Worker placement", "Area control"]);
@@ -253,6 +257,13 @@ describe("dials", () => {
     const picked = cleanDials({ family: "map", interaction: "cutthroat", theme: "fantasy", mustUse: ["mech:dice", "mech:nope", "game:hex", "mech:dice", "mech:voting", "mech:market", "mech:trading"] });
     expect(picked).toMatchObject({ family: "map", interaction: "cutthroat", theme: "fantasy", mustUse: ["mech:dice", "mech:voting", "mech:market"] });
     expect(cleanDials({ family: "race", interaction: "loud", theme: "noir", mustUse: "mech:dice" })).not.toHaveProperty("family");
+    const more = cleanDials({ theme: "myth", board: "track", goal: "secret", powers: "unique", tone: "cozy" });
+    expect(more).toMatchObject({ theme: "myth", board: "track", goal: "secret", powers: "unique", tone: "cozy" });
+    const odd = cleanDials({ board: "spiral", goal: "chaos", powers: "some", tone: "grim" });
+    for (const key of ["board", "goal", "powers", "tone"]) expect(odd).not.toHaveProperty(key);
+    // How to win is a versus choice.
+    expect(cleanDials({ mode: "cooperative", goal: "race", powers: "unique" })).toMatchObject({ mode: "cooperative", powers: "unique" });
+    expect(cleanDials({ mode: "cooperative", goal: "race" })).not.toHaveProperty("goal");
     expect(Object.keys(cleanDials(undefined))).toEqual(["minPlayers", "maxPlayers", "playMinutes", "complexity", "luck", "mode"]);
   });
 
@@ -268,6 +279,12 @@ describe("dials", () => {
     expect(JSON.parse(user.content).dials.mustUse).toEqual(["Tile placement"]);
     // "some" is the default the brief already describes.
     expect(specMessages({ prompt: "x", dials: { ...basic, interaction: "some" } })[0].content).toBe(plain.content);
+    const [more] = specMessages({ prompt: "x", dials: { ...basic, theme: "mystery", board: "network", goal: "race", powers: "unique", tone: "whimsical" } });
+    expect(more.content).toContain("a network of places joined by routes");
+    expect(more.content).toContain("first player to reach a target");
+    expect(more.content).toContain("a different role, guild or character");
+    expect(more.content).toContain("whimsical: playful");
+    expect(more.content).toContain("detectives, secrets");
   });
 
   it("show the designer the games made lately, to differ from, without sending them as the request", () => {

@@ -2,7 +2,7 @@ import type { ChatMessage } from "../meta/client";
 import type { RulesCheck } from "./check";
 import type { Reference } from "./references";
 import { dialsForModel } from "./dials";
-import type { Dials, GameRequest, GameSpec, Interaction, RecentGame, Theme } from "./spec";
+import type { BoardShape, Dials, GameRequest, GameSpec, Goal, Interaction, Powers, RecentGame, Theme, Tone } from "./spec";
 
 // Iterated against the fuzz-repair benchmark in eval/generation.
 
@@ -20,6 +20,40 @@ export const THEMES: Record<Theme, string> = {
   history: "the past (crafts, trades and journeys of long ago)",
   fantasy: "a fantasy world",
   scifi: "science fiction",
+  myth: "myths and folklore of your own invention (spirits, legendary heroes, trickster tales), never a real religion",
+  mystery: "a mystery (detectives, secrets, lost treasure, friendly ghost stories)",
+  everyday: "everyday life today (cafes, gardens, street festivals, neighborhood shops)",
+};
+
+const BOARDS: Record<BoardShape, string> = {
+  hex: "a hex map of terrain",
+  network: "a network of places joined by routes",
+  track: "a winding track of spaces that players advance along by choice, never by a roll",
+  spaces: "a board of action spaces that players' workers claim",
+  regions: "a map of irregular regions to hold and contest",
+  tiles: "tiles laid edge to edge, so the board grows as the game goes",
+  none: "no shared board: a market, a tableau and player boards",
+};
+
+const GOALS: Record<Goal, string> = {
+  points: "the most points at the end wins, with points from several sources, some scored during play and some at the end",
+  race: "a race: the first player to reach a target (a score, a finished set or building, a destination) ends the game and wins; make the target a tunable",
+  secret:
+    "secret objectives: deal each player one or two hidden objective cards at setup that score at the end on top of the shared scoring, so players read each other's plans",
+};
+
+const POWERS: Record<Powers, string> = {
+  same: "every player starts with the same setup and abilities; differences come only from play",
+  unique:
+    "each player gets a different role, guild or character, dealt at random at setup, with its own special ability and starting resources. Keep them balanced so no seat wins much more often, and show each player's power on their panel",
+};
+
+const TONES: Record<Tone, string> = {
+  cozy: "cozy: warm, small comforts and friendly rivalry",
+  whimsical: "whimsical: playful, odd and charming details",
+  tense: "tense: scarce resources, close calls and pressure every round",
+  epic: "epic: grand stakes, sweeping journeys and long plans",
+  mysterious: "mysterious: secrets, hidden places and slow revelations",
 };
 
 /**
@@ -31,6 +65,10 @@ function wishes(dials: Dials): string {
     dials.family && `family "${dials.family}": the player chose it, so use it whatever the idea suggests.`,
     dials.interaction && INTERACTION[dials.interaction],
     dials.theme && `theme: when the idea names no setting, set the game in ${THEMES[dials.theme]}.`,
+    dials.board && `board: the player chose ${BOARDS[dials.board]}. Build the table that way, whatever the family or the idea suggests, and say so in board.`,
+    dials.goal && `goal: ${GOALS[dials.goal]}.`,
+    dials.powers && `powers: ${POWERS[dials.powers]}.`,
+    dials.tone && `tone: make the game ${TONES[dials.tone]}. Let it show in the setting, the names, the components and the card text.`,
     dials.mustUse?.length && "mustUse: mechanics the player asked for. Build the game around every one of them and list them in mechanics.",
   ].filter(Boolean);
   return lines.length ? `\nThe player also set these dials:\n${lines.map((line) => `- ${line}`).join("\n")}` : "";

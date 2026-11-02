@@ -10,7 +10,15 @@ import type { FuzzFailure, GameFamily, GameMeta, Params, PlayMode } from "@board
 /** How much players get in each other's way. */
 export type Interaction = "gentle" | "some" | "cutthroat";
 /** The genre of a game's setting. */
-export type Theme = "nature" | "history" | "fantasy" | "scifi";
+export type Theme = "nature" | "history" | "fantasy" | "scifi" | "myth" | "mystery" | "everyday";
+/** The shape of the shared table. */
+export type BoardShape = "hex" | "network" | "track" | "spaces" | "regions" | "tiles" | "none";
+/** How a versus game is won. */
+export type Goal = "points" | "race" | "secret";
+/** Whether every player starts alike or each has a power of their own. */
+export type Powers = "same" | "unique";
+/** How the game feels: its setting, names and card text. */
+export type Tone = "cozy" | "whimsical" | "tense" | "epic" | "mysterious";
 
 /** The dials on the create screen. The optional ones are left to the designer when absent. */
 export interface Dials {
@@ -26,6 +34,12 @@ export interface Dials {
   interaction?: Interaction;
   /** For Surprise me, and for ideas that name no setting. */
   theme?: Theme;
+  /** The shape of the table, whatever the family or the idea suggests. */
+  board?: BoardShape;
+  /** How the game is won; versus games only. */
+  goal?: Goal;
+  powers?: Powers;
+  tone?: Tone;
   /** Library mechanics (catalog ids) to build the game around, at most three. */
   mustUse?: string[];
 }

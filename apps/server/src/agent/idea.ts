@@ -75,6 +75,39 @@ export const SETTINGS: Record<Theme, string[]> = {
     "archaeologists decoding ruins on a desert moon",
     "cooks running a diner at a busy spaceport",
   ],
+  myth: [
+    "river spirits bargaining with ferry folk at a misty crossing",
+    "smiths forging a legendary hero's armor piece by piece",
+    "tricksters trading wishes at a crossroads inn",
+    "shrine builders on a mountain where storm giants sleep",
+    "spinners of fate weaving the fortunes of a village",
+    "lantern spirits guiding lost travelers through a twilight forest",
+    "sea folk trading songs for safe passage along a sirens' coast",
+    "keepers of a world tree whose branches hold the seasons",
+    "cloud herders driving rain across a parched kingdom",
+  ],
+  mystery: [
+    "detectives racing to solve a theft at a grand hotel",
+    "archivists piecing together a lost explorer's journals",
+    "treasure hunters decoding a pirate's riddles across a sleepy island",
+    "night-train passengers trading secrets on a long journey",
+    "museum curators tracking forgeries before the gala",
+    "collectors of ghost stories visiting the inns of a foggy moor",
+    "codebreakers snowed in at a lighthouse",
+    "rival reporters chasing a scandal through a seaside town",
+    "a puzzle society hunting its vanished founder's last puzzle",
+  ],
+  everyday: [
+    "cafe owners competing for regulars on one busy street",
+    "community gardeners sharing plots through a growing season",
+    "food truck cooks chasing crowds across a city's festivals",
+    "neighbors planning the best street party on the block",
+    "bakers getting ready for the town fair",
+    "bike couriers crossing a rainy city",
+    "florists racing through the wedding season",
+    "bookshop owners on a quiet street winning loyal readers",
+    "tenants restoring an old apartment building floor by floor",
+  ],
 };
 
 /** Every setting, for a player who chose no theme. */
@@ -135,7 +168,9 @@ with hidden roles, who is secretly working against whom).
   never a children's game or roll-and-move.
 - Set it in the given setting and build it around the given mechanic. Fit the dials: player count, play
   time, complexity (1 gateway to 5 heavy), luck (0 pure strategy to 1 mostly luck), mode and, when set,
-  interaction ("gentle": players mostly build their own and race; "cutthroat": they clash directly).
+  interaction ("gentle": players mostly build their own and race; "cutthroat": they clash directly),
+  board (the shape of the table), goal (points, a race to a target, or secret objectives), powers ("unique":
+  each player has a power of their own) and tone. When the dials set them, the idea should show them.
 - Original: never a published game, nor one with its names changed. Nothing like the games in "avoid".
 - No title, no rule lists, no component counts.`,
     },

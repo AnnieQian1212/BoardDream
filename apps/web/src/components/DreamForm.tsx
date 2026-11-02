@@ -1,7 +1,7 @@
 import type { PlayMode } from "@boarddream/engine";
 import { ChevronDown, Dices, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { FAMILIES, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, THEMES } from "../dials";
+import { BOARDS, FAMILIES, GOALS, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, POWERS, THEMES, TONES } from "../dials";
 import type { Dials } from "../generation";
 
 const MODES: { value: PlayMode; label: string }[] = [
@@ -12,7 +12,8 @@ const MODES: { value: PlayMode; label: string }[] = [
 
 /**
  * Ideas to start from, one per kind of game, so the first thing a visitor sees shows the range:
- * a card engine, a co-op against the clock, a bluffing game and tile laying.
+ * a card engine, a co-op against the clock, a bluffing game, tile laying, worker placement and a
+ * hidden traitor.
  */
 export const EXAMPLES: { label: string; idea: string; mode?: PlayMode }[] = [
   {
@@ -32,6 +33,15 @@ export const EXAMPLES: { label: string; idea: string; mode?: PlayMode }[] = [
     label: "A coral reef, tile by tile",
     idea: "Divers grow a coral reef tile by tile, matching polyp edges so fish return; whoever tends the richest stretch of reef wins.",
   },
+  {
+    label: "Cafes on one busy street",
+    idea: "Cafe owners on one busy street send their baristas to the morning market, roast beans and win over regulars; the cafe with the most loyal customers after four seasons wins.",
+  },
+  {
+    label: "A saboteur aboard an airship",
+    idea: "An airship crew must reach port before the storm, but one of them is secretly steering for the rocks; share the work, watch each other and vote the saboteur off before it is too late.",
+    mode: "hidden-role",
+  },
 ];
 
 const DEFAULT_DIALS: Dials = { minPlayers: 2, maxPlayers: 4, playMinutes: 60, complexity: 4, luck: 0.3, mode: "competitive" };
@@ -48,7 +58,8 @@ interface Props {
 /**
  * The one thing the home page asks: what game to dream up. A sentence is enough; examples fill the
  * box, Surprise me has Muse Spark write one, and the dials (players, length, complexity, luck, mode,
- * type, theme, interaction, mechanics) wait under Advanced settings for whoever wants them.
+ * interaction, type, theme, board, how to win, tone, player powers, mechanics) wait under Advanced
+ * settings for whoever wants them.
  */
 export function DreamForm({ available, busy, onGenerate }: Props) {
   const [prompt, setPrompt] = useState("");
@@ -66,7 +77,8 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
   // Mechanics that do not suit the new mode are dropped.
   const setMode = (mode: PlayMode) => {
     const kept = asked.filter((id) => MECHANICS.find((m) => m.id === id)?.modes.includes(mode));
-    setDials({ ...dials, mode, mustUse: kept.length ? kept : undefined });
+    // How to win is a versus choice; co-op and hidden-role games are won their own way.
+    setDials({ ...dials, mode, mustUse: kept.length ? kept : undefined, goal: mode === "competitive" ? dials.goal : undefined });
   };
   const changed = countChanged(dials);
   const locked = busy || inventing || !available;
@@ -161,7 +173,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
                 setPrompt(example.idea);
                 setInvented(undefined);
                 if (example.mode && example.mode !== dials.mode) setMode(example.mode);
-                else if (!example.mode && dials.mode === "cooperative") setMode("competitive");
+                else if (!example.mode && dials.mode !== "competitive") setMode("competitive");
                 box.current?.focus();
               }}
             >
@@ -252,6 +264,59 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
               ))}
             </select>
           </label>
+          <label className="field">
+            <span>Board</span>
+            <select value={dials.board ?? ""} onChange={(e) => set("board", (e.target.value || undefined) as Dials["board"])}>
+              <option value="">Any</option>
+              {BOARDS.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {dials.mode === "competitive" && (
+            <label className="field">
+              <span>How to win</span>
+              <select value={dials.goal ?? ""} onChange={(e) => set("goal", (e.target.value || undefined) as Dials["goal"])}>
+                <option value="">Any</option>
+                {GOALS.map((g) => (
+                  <option key={g.value} value={g.value}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="field">
+            <span>Tone</span>
+            <select value={dials.tone ?? ""} onChange={(e) => set("tone", (e.target.value || undefined) as Dials["tone"])}>
+              <option value="">Any</option>
+              {TONES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="field">
+            <span>Player powers</span>
+            <div className="segmented" role="radiogroup" aria-label="Player powers">
+              {POWERS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  role="radio"
+                  title={p.hint}
+                  aria-checked={dials.powers === p.value}
+                  className={dials.powers === p.value ? "on" : ""}
+                  onClick={() => set("powers", p.value)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="field dream-mechanics">
             <span className="field-row">
               <span>Build around</span>
@@ -323,6 +388,10 @@ function countChanged(dials: Dials): number {
     plain.filter((key) => dials[key] !== DEFAULT_DIALS[key]).length +
     (dials.family ? 1 : 0) +
     (dials.theme ? 1 : 0) +
+    (dials.board ? 1 : 0) +
+    (dials.goal ? 1 : 0) +
+    (dials.powers ? 1 : 0) +
+    (dials.tone ? 1 : 0) +
     (dials.interaction ? 1 : 0) +
     (dials.mustUse?.length ? 1 : 0)
   );
