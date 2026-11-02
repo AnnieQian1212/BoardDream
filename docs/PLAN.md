@@ -162,16 +162,9 @@ Evaluate on Oct 31: Muse Spark vs the heuristic bot over 50 games. If it loses, 
 - Submit by noon; hard deadline 9:00 PM ET.
 - Check: repo public, video link accessible, every team member listed on the submission.
 
-## 3-minute video outline (draft)
+## 3-minute video
 
-| Time | Content |
-| --- | --- |
-| 0:00–0:20 | The problem: turning a tabletop idea into a playable prototype takes weeks |
-| 0:20–1:10 | Live generation of an engine-building game: prompt and dials → retrieved mechanics → cards and rules code → fuzzing catches a bug → automatic repair → passes |
-| 1:10–1:40 | Play it with illustrated cards, then drag a slider and watch first-player win rate change |
-| 1:40–2:10 | Map game: Muse Spark opponents propose and turn down trades |
-| 2:10–2:35 | Art: map geometry → painting → SAM check → misaligned hexes repaired |
-| 2:35–3:00 | Metrics table, the game families, close |
+The scenes, the narration and what to prepare are in [VIDEO.md](VIDEO.md) (rewritten Nov 2 for the product as it is now, against the judging rubric).
 
 ## Metrics
 
