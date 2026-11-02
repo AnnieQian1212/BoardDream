@@ -148,16 +148,13 @@ export function Hamlet() {
         </button>
       </header>
       <div className="hamlet-scene">
-        <svg className="hamlet-hills" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden>
-          <path d="M0 60 L0 34 C120 10 220 14 340 30 C460 46 560 18 700 22 C840 26 920 44 1040 30 C1110 22 1160 20 1200 26 L1200 60Z" />
-        </svg>
+        <span className="hamlet-cloud" aria-hidden />
+        <span className="hamlet-cloud late" aria-hidden />
+        <span className="hamlet-hills" aria-hidden />
         <div className="hamlet-street" aria-hidden>
           {Array.from({ length: villagers }, (_, i) => (
-            <span key={i} className="villager" style={{ "--d": `${14 + ((i * 7) % 11)}s`, "--delay": `${-i * 3.1}s`, "--shirt": SHIRTS[i % SHIRTS.length] } as CSSProperties}>
-              <svg viewBox="0 0 10 20">
-                <circle cx="5" cy="4" r="3" className="villager-head" />
-                <path d="M1.5 19 L2.5 9 Q5 7 7.5 9 L8.5 19Z" fill="var(--shirt)" />
-              </svg>
+            <span key={i} className="villager" style={{ "--d": `${22 + ((i * 7) % 13)}s`, "--delay": `${-i * 4.3}s` } as CSSProperties}>
+              <Sprite name="villager" />
             </span>
           ))}
         </div>
@@ -171,7 +168,7 @@ export function Hamlet() {
                 aria-label={kind === null ? "Empty plot: build here" : kind === "field" ? (v.growth[i] >= 1 ? "Ripe wheat: harvest" : "Growing wheat: tend") : BUILDINGS.find((b) => b.kind === kind)!.name}
                 title={kind && kind !== "field" ? `${BUILDINGS.find((b) => b.kind === kind)!.name}: ${BUILDINGS.find((b) => b.kind === kind)!.does}` : undefined}
               >
-                <Building kind={kind} growth={v.growth[i]} seed={i} />
+                <Building kind={kind} growth={v.growth[i]} />
               </button>
               {floats
                 .filter((f) => f.plot === i)
@@ -213,83 +210,38 @@ export function Hamlet() {
   );
 }
 
-const SHIRTS = ["#c8643c", "#4f7f9f", "#7a9a4a", "#9a5f9a", "#d9a233", "#3f7d6a"];
-const ROOFS = ["#b4543a", "#4f6f9a", "#5f7d45", "#8a4f6a", "#a0723a"];
+/** The pixel sprites, at their size in art pixels; the page draws each art pixel 2 screen pixels wide. */
+const SPRITES = {
+  "wheat-1": [41, 30],
+  "wheat-2": [42, 36],
+  "wheat-3": [38, 36],
+  empty: [33, 34],
+  cottage: [41, 42],
+  mill: [40, 48],
+  stall: [33, 38],
+  villager: [14, 18],
+} as const;
+const PIXEL = 2;
 
-/** A plot's building, drawn small in the storybook's flat colors. */
-function Building({ kind, growth, seed }: { kind: Kind | null; growth: number; seed: number }) {
-  if (kind === "field") {
-    const g = Math.min(1, growth);
-    const stalk = `hsl(${100 - 56 * g} ${45 + 25 * g}% ${36 + 20 * g}%)`;
+function Sprite({ name }: { name: keyof typeof SPRITES }) {
+  const [w, h] = SPRITES[name];
+  return <img className="sprite" src={`${import.meta.env.BASE_URL}hamlet/${name}.png`} width={w * PIXEL} height={h * PIXEL} alt="" draggable={false} />;
+}
+
+/** A plot's sprite: wheat in three stages by its growth, or the building that stands there. */
+function Building({ kind, growth }: { kind: Kind | null; growth: number }) {
+  if (kind === "field") return <Sprite name={growth >= 1 ? "wheat-3" : growth >= 0.45 ? "wheat-2" : "wheat-1"} />;
+  if (kind === "cottage")
     return (
-      <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMax meet">
-        <rect x="6" y="72" width="88" height="14" rx="3" className="soil" />
-        {Array.from({ length: 10 }, (_, k) => {
-          const x = 12 + k * 8.4;
-          const h = 8 + g * 38 - ((k * 5) % 3) * 2;
-          return (
-            <g key={k}>
-              <line x1={x} y1="74" x2={x + 1.5} y2={74 - h} stroke={stalk} strokeWidth="2.6" strokeLinecap="round" />
-              {g > 0.55 && <ellipse cx={x + 1.6} cy={74 - h - 3} rx="2.1" ry="4.6" fill={g >= 1 ? "#e8b84a" : "#c9c25a"} />}
-            </g>
-          );
-        })}
-      </svg>
+      <>
+        <Sprite name="cottage" />
+        <span className="chimney-smoke" aria-hidden>
+          <i />
+          <i />
+        </span>
+      </>
     );
-  }
-  if (kind === "cottage") {
-    return (
-      <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMax meet">
-        <rect x="62" y="22" width="8" height="16" className="wall" />
-        <circle cx="66" cy="16" r="4" className="smoke" />
-        <circle cx="70" cy="9" r="5" className="smoke late" />
-        <rect x="26" y="46" width="48" height="36" className="wall" />
-        <polygon points="18,48 50,20 82,48" fill={ROOFS[seed % ROOFS.length]} className="roof" />
-        <rect x="45" y="60" width="11" height="22" rx="1.5" className="door" />
-        <rect x="31" y="54" width="9" height="9" className="window" />
-        <rect x="61" y="54" width="9" height="9" className="window" />
-      </svg>
-    );
-  }
-  if (kind === "mill") {
-    return (
-      <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMax meet">
-        <polygon points="38,82 44,34 56,34 62,82" className="wall" />
-        <polygon points="40,36 50,24 60,36" fill="#8a5a3a" className="roof" />
-        <rect x="46" y="66" width="8" height="16" className="door" />
-        <g className="sails">
-          {[0, 90, 180, 270].map((a) => (
-            <rect key={a} x="48.5" y="2" width="3" height="28" transform={`rotate(${a} 50 32)`} className="sail" />
-          ))}
-          <circle cx="50" cy="32" r="3" className="hub" />
-        </g>
-      </svg>
-    );
-  }
-  if (kind === "stall") {
-    return (
-      <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMax meet">
-        <rect x="22" y="40" width="3" height="42" className="post" />
-        <rect x="75" y="40" width="3" height="42" className="post" />
-        <polygon points="16,42 22,26 78,26 84,42" fill="#f3e6cc" className="roof" />
-        {[0, 1, 2, 3, 4].map((k) => (
-          <polygon key={k} points={`${16 + k * 13.6},42 ${22 + k * 11.2},26 ${22 + (k + 0.5) * 11.2},26 ${16 + (k + 0.5) * 13.6},42`} fill="#c8643c" />
-        ))}
-        <rect x="22" y="62" width="56" height="20" className="counter" />
-        <circle cx="34" cy="60" r="5" fill="#e2c27a" className="sack" />
-        <circle cx="47" cy="60" r="5" fill="#e2c27a" className="sack" />
-        <rect x="57" y="53" width="13" height="9" fill="#a8743f" className="sack" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMax meet">
-      <rect x="10" y="62" width="80" height="22" rx="5" className="plot-outline" />
-      <rect x="47" y="40" width="3" height="26" className="post" />
-      <rect x="34" y="40" width="30" height="13" rx="2" className="sign" />
-      <text x="49" y="50" className="sign-text">
-        +
-      </text>
-    </svg>
-  );
+  if (kind === "mill") return <Sprite name="mill" />;
+  if (kind === "stall") return <Sprite name="stall" />;
+  return <Sprite name="empty" />;
 }
