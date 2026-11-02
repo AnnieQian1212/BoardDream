@@ -43,11 +43,13 @@ import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMateria
 const SLAB = 0.6;
 const TILE = 0.32;
 const BEVEL = 0.07;
-const TILE_TOP = SLAB + TILE + 2 * BEVEL;
+export const TILE_TOP = SLAB + TILE + 2 * BEVEL;
 /** Building spots (kind "vertex") and roads (kind "edge") stand above the tiles they sit between. */
 const SPOT = 0.55;
-const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
+export const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
 const SPOTS = new Set(["vertex", "edge"]);
+/** A building spot or road that can be clicked. */
+const TARGET_SPOT = "#3cc6d6";
 const noRaycast = () => null;
 /** Tiles shrink to this share of their cell; water fills a little less, leaving a rim of shore. */
 const TILE_SHARE = 0.9;
@@ -572,7 +574,13 @@ function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, grou
   const rimMaterial = useRef<MeshStandardMaterial>(null);
   // On a painted tile, or painted ground, the art shows through and ownership tints it.
   const tint = useMemo(() => new Color(cell.owner !== undefined ? mix(playerColor(cell.owner), "#ffffff", 0.45) : "#ffffff"), [cell.owner]);
-  const base = useMemo(() => (groundMap ? tint : new Color(shore ? SHORE : tileColor(cell))), [cell, shore, groundMap, tint]);
+  // A spot that can be built on turns the highlight's color, not just a faint glow: pale spots on a
+  // bright board read as all alike otherwise.
+  const spotTarget = target && SPOTS.has(cell.kind ?? "");
+  const base = useMemo(
+    () => (spotTarget ? new Color(TARGET_SPOT) : groundMap ? tint : new Color(shore ? SHORE : tileColor(cell))),
+    [cell, shore, groundMap, tint, spotTarget],
+  );
   const highlight = useMemo(() => new Color(HIGHLIGHT), []);
   const glowColor = useMemo(() => (cell.glow ? new Color(cell.glow) : undefined), [cell.glow]);
 
@@ -582,7 +590,7 @@ function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, grou
     // glow a bit more. Only the hovered one lifts: the printed labels lie at the tiles' height.
     // A cell that gives off light (Geometry cell.glow) burns softly.
     const burn = glowColor ? 0.35 : 0;
-    const glow = target ? (hovered ? 0.8 : SPOTS.has(cell.kind ?? "") ? 0.55 : 0.42) : burn;
+    const glow = target ? (hovered ? 0.8 : spotTarget ? 0.3 : 0.42) : burn;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (rimMaterial.current) rimMaterial.current.emissiveIntensity = material.current.emissiveIntensity;

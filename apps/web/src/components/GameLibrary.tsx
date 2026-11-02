@@ -1,17 +1,20 @@
-import { createRng, resolveParams, type CardView, type GameModule } from "@boarddream/engine";
+import type { GameModule } from "@boarddream/engine";
 import { Play, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { startingGeometry } from "../art";
+import { useState } from "react";
+import { useEscape } from "../escape";
 import { gameOrigin, generatedSource } from "../generated";
-import { tagStyle } from "../icons";
-import { Board } from "./Board";
+import { splitVersion } from "../names";
+import { GameCover } from "./GameCover";
 
 const MODES: Record<string, string> = { competitive: "Versus", cooperative: "Co-op", "hidden-role": "Hidden role" };
 const FAMILIES: Record<string, string> = { engine: "Engine building", map: "Map and trade", grid: "Tiles and areas", bluff: "Bluffing", race: "Race" };
 
 interface Props {
   games: GameModule[];
-  current: GameModule;
+  /** Painted box covers by game id. */
+  covers: Map<string, string>;
+  /** The game on the table, if the table is open. */
+  current?: GameModule;
   /** No other game can be opened while one is being made. */
   busy: boolean;
   onPlay(game: GameModule): void;
@@ -21,10 +24,10 @@ interface Props {
 
 /**
  * Every game on offer on one page: the original demo games, then the games generated here, newest
- * first, each with a look at its opening board (or its first cards), a button to play it and, for
- * a generated game, one to delete it.
+ * first, each with its box cover, a button to play it and, for a generated game, one to delete it.
  */
-export function GameLibrary({ games, current, busy, onPlay, onDelete, onClose }: Props) {
+export function GameLibrary({ games, covers, current, busy, onPlay, onDelete, onClose }: Props) {
+  useEscape(onClose);
   const demos = games.filter((g) => !generatedSource(g));
   const made = games
     .filter((g) => generatedSource(g))
@@ -32,7 +35,15 @@ export function GameLibrary({ games, current, busy, onPlay, onDelete, onClose }:
     .sort((a, b) => b.at.localeCompare(a.at) || b.i - a.i)
     .map(({ g }) => g);
   const card = (g: GameModule) => (
-    <GameCard key={g.meta.id} game={g} playing={g === current} busy={busy} onPlay={() => onPlay(g)} onDelete={generatedSource(g) ? () => onDelete(g) : undefined} />
+    <GameCard
+      key={g.meta.id}
+      game={g}
+      cover={covers.get(g.meta.id)}
+      playing={g === current}
+      busy={busy}
+      onPlay={() => onPlay(g)}
+      onDelete={generatedSource(g) ? () => onDelete(g) : undefined}
+    />
   );
   return (
     <div className="library" role="dialog" aria-label="Games">
@@ -54,28 +65,31 @@ export function GameLibrary({ games, current, busy, onPlay, onDelete, onClose }:
           <h2 className="library-group">
             Your generated games <span className="library-count">{made.length}</span>
           </h2>
-          {made.length > 0 ? <div className="library-grid">{made.map(card)}</div> : <p className="hint">Games you dream up with the panel on the left appear here.</p>}
+          {made.length > 0 ? <div className="library-grid">{made.map(card)}</div> : <p className="hint">Games you dream up on the home page appear here.</p>}
         </section>
       </div>
     </div>
   );
 }
 
-function GameCard({ game, playing, busy, onPlay, onDelete }: { game: GameModule; playing: boolean; busy: boolean; onPlay(): void; onDelete?(): void }) {
+function GameCard(props: { game: GameModule; cover?: string; playing: boolean; busy: boolean; onPlay(): void; onDelete?(): void }) {
+  const { game, cover, playing, busy, onPlay, onDelete } = props;
   const [asking, setAsking] = useState(false);
   const { meta } = game;
+  const { name, version } = splitVersion(meta.name);
   const origin = gameOrigin(game);
   const players = meta.minPlayers === meta.maxPlayers ? `${meta.minPlayers} players` : `${meta.minPlayers}–${meta.maxPlayers} players`;
   const made = origin?.createdAt ? new Date(origin.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : undefined;
   return (
     <article className={["game-card", playing && "playing"].filter(Boolean).join(" ")}>
-      <Thumbnail game={game} />
+      <GameCover game={game} cover={cover} />
       <div className="game-card-body">
-        <h3>{meta.name}</h3>
+        <h3>{name}</h3>
         <div className="game-chips">
           <span>{players}</span>
           <span>{MODES[meta.mode] ?? meta.mode}</span>
           <span>{FAMILIES[meta.family] ?? meta.family}</span>
+          {version && <span className="game-chip-version">{version}</span>}
         </div>
         <p className="game-card-summary">{meta.summary}</p>
         {origin?.idea && (
@@ -115,50 +129,4 @@ function GameCard({ game, playing, busy, onPlay, onDelete }: { game: GameModule;
       )}
     </article>
   );
-}
-
-/** The game's opening board, drawn flat, or for a game with no board its first few cards. */
-function Thumbnail({ game }: { game: GameModule }) {
-  const look = useMemo(() => {
-    try {
-      const geometry = startingGeometry(game);
-      if (geometry && geometry.cells.length > 0) return { geometry };
-      return { cards: openingCards(game) };
-    } catch {
-      return { cards: [] };
-    }
-  }, [game]);
-  return (
-    <div className="game-thumb" aria-hidden>
-      {"geometry" in look && look.geometry ? (
-        <Board geometry={look.geometry} targets={NONE} onCell={() => {}} />
-      ) : (
-        <div className="thumb-cards">
-          {(look.cards ?? []).map((c, i) => {
-            const style = tagStyle(c.tags?.[0]);
-            const Icon = style.icon;
-            return (
-              <div key={c.id} className="thumb-card" style={{ ["--tag" as string]: style.color, ["--tilt" as string]: `${(i - 1) * 7}deg` }}>
-                <span className="thumb-card-band">
-                  <Icon size={14} />
-                </span>
-                <span className="thumb-card-title">{c.title}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const NONE = new Set<string>();
-
-/** Up to three face-up cards on the table when the game starts: a market, an offer, a hand. */
-function openingCards(game: GameModule): CardView[] {
-  const players = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
-  const state = game.setup({ numPlayers: players, params: resolveParams(game.params), rng: createRng(1) });
-  const panels = game.panels?.(state, 0) ?? [];
-  const order = [...panels.filter((p) => p.zone === "shared"), ...panels.filter((p) => p.zone === "hand"), ...panels.filter((p) => p.zone === "players")];
-  return order.flatMap((p) => p.cards ?? []).filter((c) => !c.faceDown).slice(0, 3);
 }

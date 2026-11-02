@@ -1,5 +1,6 @@
 import { BarChart3, X } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEscape } from "../escape";
 import { art, generation, opponents, plan, reference, retrieval, UPDATED } from "../results";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -17,6 +18,7 @@ const teams = reference.filter((r) => r.mode === "hidden-role");
 
 /** Everything BoardDream measures on one page: the evals, the reference games' balance and profiles. */
 export function ResultsPage({ onClose }: { onClose(): void }) {
+  useEscape(onClose);
   return (
     <div className="results" role="dialog" aria-label="Results">
       <div className="results-sheet">

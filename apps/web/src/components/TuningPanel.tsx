@@ -15,65 +15,69 @@ interface Props {
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function TuningPanel({ game, numPlayers, params, stats, simGames, onChange }: Props) {
+/** The game's own dials: players and every rule parameter it exposes. */
+export function TuneSection({ game, numPlayers, params, onChange }: Pick<Props, "game" | "numPlayers" | "params" | "onChange">) {
   const set = (key: string, value: ParamValue) => onChange(numPlayers, resolveParams(game.params, { ...params, [key]: value }));
   return (
-    <>
-      <section className="panel">
-        <h2>
-          <SlidersHorizontal size={17} /> Tune the rules
-        </h2>
-        {game.meta.maxPlayers > game.meta.minPlayers && (
-          <Slider label="Players" min={game.meta.minPlayers} max={game.meta.maxPlayers} value={numPlayers} onChange={(n) => onChange(n, params)} />
-        )}
-        {game.params.map((spec) => (
-          <ParamControl key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => set(spec.key, v)} />
-        ))}
-      </section>
+    <section className="panel">
+      <h2>
+        <SlidersHorizontal size={17} /> Tune the rules
+      </h2>
+      <p className="hint">Changes start a new game with the new rules.</p>
+      {game.meta.maxPlayers > game.meta.minPlayers && (
+        <Slider label="Players" min={game.meta.minPlayers} max={game.meta.maxPlayers} value={numPlayers} onChange={(n) => onChange(n, params)} />
+      )}
+      {game.params.map((spec) => (
+        <ParamControl key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => set(spec.key, v)} />
+      ))}
+    </section>
+  );
+}
 
-      <section className="panel">
-        <h2>
-          <Scale size={17} /> Balance
-        </h2>
-        {/* TODO(Oct 31): charts and parameter sweeps, built with the dataviz guidance. */}
-        {stats ? (
-          <>
-            <ul className="stats">
-              {stats.winRateBySeat.map((rate, seat) => (
-                <li key={seat} style={{ "--seat": playerColor(seat) } as CSSProperties}>
-                  <span className="seat-dot" />
-                  Player {seat + 1} wins
-                  <b>{pct(rate)}</b>
-                </li>
-              ))}
-              <li>
-                Draws <b>{pct(stats.drawRate)}</b>
+/** Who wins how often with these rules, from bot games re-run as the dials move. */
+export function BalanceSection({ stats, simGames }: Pick<Props, "stats" | "simGames">) {
+  return (
+    <section className="panel">
+      <h2>
+        <Scale size={17} /> Balance
+      </h2>
+      {stats ? (
+        <>
+          <ul className="stats">
+            {stats.winRateBySeat.map((rate, seat) => (
+              <li key={seat} style={{ "--seat": playerColor(seat) } as CSSProperties}>
+                <span className="seat-dot" />
+                Player {seat + 1} wins
+                <b>{pct(rate)}</b>
               </li>
-              <li>
-                First-player edge
-                <b>
-                  {stats.firstPlayerEdge >= 0 ? "+" : ""}
-                  {pct(stats.firstPlayerEdge)}
-                </b>
+            ))}
+            <li>
+              Draws <b>{pct(stats.drawRate)}</b>
+            </li>
+            <li>
+              First-player edge
+              <b>
+                {stats.firstPlayerEdge >= 0 ? "+" : ""}
+                {pct(stats.firstPlayerEdge)}
+              </b>
+            </li>
+            <li>
+              Median length <b>{stats.medianTurns} moves</b>
+            </li>
+            {stats.errors > 0 && (
+              <li title={stats.firstError}>
+                Errors <b>{stats.errors}</b>
               </li>
-              <li>
-                Median length <b>{stats.medianTurns} moves</b>
-              </li>
-              {stats.errors > 0 && (
-                <li title={stats.firstError}>
-                  Errors <b>{stats.errors}</b>
-                </li>
-              )}
-            </ul>
-            <p className="hint">
-              {stats.games < simGames ? `${stats.games} of ${simGames} games so far` : `${stats.games} games`} between bots, refreshed as you tune.
-            </p>
-          </>
-        ) : (
-          <p className="hint">Simulating…</p>
-        )}
-      </section>
-    </>
+            )}
+          </ul>
+          <p className="hint">
+            {stats.games < simGames ? `${stats.games} of ${simGames} games so far` : `${stats.games} games`} between bots, refreshed as you tune.
+          </p>
+        </>
+      ) : (
+        <p className="hint">Simulating…</p>
+      )}
+    </section>
   );
 }
 

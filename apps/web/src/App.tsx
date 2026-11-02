@@ -1,10 +1,9 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, LayoutGrid, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
-import { CreatePanel } from "./components/CreatePanel";
+import { Designer, type DesignerTab } from "./components/Designer";
 import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
@@ -15,11 +14,16 @@ import { PrintSheet } from "./components/PrintSheet";
 import { ResultsPage } from "./components/ResultsPage";
 import { RevisePanel } from "./components/RevisePanel";
 import { RulesCard } from "./components/RulesCard";
+import { Home } from "./components/Home";
 import { TableGuard } from "./components/TableGuard";
-import { TuningPanel } from "./components/TuningPanel";
+import { TopBar } from "./components/TopBar";
+import { BalanceSection, TuneSection } from "./components/TuningPanel";
+import { useCovers } from "./covers";
+import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
-import { useSidePanels } from "./sidePanels";
-import { useGeneration } from "./generation";
+import { useGeneration, type Dials } from "./generation";
+import { goalOf } from "./instructions";
+import { rulesFor } from "./rules";
 import { decide, type Decision } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
@@ -38,11 +42,12 @@ const PREVIEW_DELAY = 420;
 const query = new URLSearchParams(window.location.search);
 const WATCH = query.has("watch");
 const FLAT = query.has("flat") || !hasWebGL();
-/** Screen space the floating side panels, top bar and move bar cover. */
+/** Screen space the steps of a game being made, the designer's drawer, the top bar and the move bar cover. */
 const PANEL_INSET = 326;
-/** Room left for a folded panel's tab at the screen's edge. */
-const TAB_INSET = 44;
+const DRAWER_INSET = 352;
 const TOP_INSET = 66;
+/** The first-game guide stands above the move bar; the table makes room for it. */
+const GUIDE_INSET = 112;
 const BOTTOM_INSET = 92;
 
 function hasWebGL(): boolean {
@@ -52,10 +57,12 @@ function hasWebGL(): boolean {
     return false;
   }
 }
-/** A visitor first sees a game with a painted board, the table at its best. */
+/** The game on the table until another is picked: one with a painted board, the table at its best. */
 const FIRST_GAME = "lantern-isles";
 const firstGame = referenceGames.find((g) => g.meta.id === FIRST_GAME) ?? referenceGames[0];
 const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
+/** A link to a game, or bots playing one, opens at the table; anything else at home. */
+const START_AT_TABLE = query.has("game") || WATCH;
 
 /** A logged move, with the state it was made from so each seat can have it described from its own view. */
 interface MatchEntry extends LogEntry {
@@ -94,18 +101,31 @@ export function App() {
   const [numPlayers, setNumPlayers] = useState(() => defaultPlayers(initialGame));
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
-  const [stats, setStats] = useState<BalanceStats>();
+  // Home asks what to play; the table plays it. The browser's Back button goes from one to the other.
+  const [screen, setScreen] = useState<"home" | "table">(START_AT_TABLE ? "table" : "home");
+  const atTable = screen === "table";
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => setScreen((e.state as { screen?: string } | null)?.screen === "table" ? "table" : "home");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const toTable = useCallback(() => {
+    if (screenRef.current === "home") window.history.pushState({ screen: "table" }, "");
+    setScreen("table");
+  }, []);
+  const toHome = useCallback(() => {
+    if ((window.history.state as { screen?: string } | null)?.screen === "table") window.history.back();
+    else setScreen("home");
+  }, []);
   const [results, setResults] = useState(query.has("results"));
   const [library, setLibrary] = useState(query.has("games"));
   const [printing, setPrinting] = useState(false);
-  // The rules card opens the first time a game is played in this browser (not while bots play alone).
   const [rulesOpen, setRulesOpen] = useState(false);
-  useEffect(() => setRulesOpen(!WATCH && !query.has("results") && !rulesSeen(game.meta.id)), [game]);
-  const closeRules = () => {
-    markRulesSeen(game.meta.id);
-    setRulesOpen(false);
-  };
-  const [profile, setProfile] = useState<{ profile?: GameProfile; pending: boolean; error?: string }>({ pending: true });
+  // The designer's drawer: shut while playing, opened from the top bar (or F).
+  const [designer, setDesigner] = useState<{ open: boolean; tab: DesignerTab }>({ open: false, tab: "rules" });
+  const openDesigner = (tab?: DesignerTab) => setDesigner((d) => ({ open: tab ? true : !d.open, tab: tab ?? d.tab }));
   // Muse Spark (Open, when the server hosts it) plays the social moves: offers, bids, bluffs.
   const [muse, setMuse] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -125,6 +145,8 @@ export function App() {
   const { art, painting, paint, board, boardStep, paintBoard } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
+  // Painted box covers; asked again when the games change (a new one may have been painted).
+  const covers = useCovers(games.length);
   // Games generated earlier (bundled demo games, and the server's when one runs) join the picker;
   // ?game=<id> can open one of them.
   useEffect(() => {
@@ -140,26 +162,27 @@ export function App() {
     };
   }, []);
 
-  // Each side panel folds to a tab at the screen's edge, giving the table its room; F folds or
-  // opens both.
-  const { open: sides, toggle: toggleSide, toggleBoth: toggleSides } = useSidePanels(!WATCH && window.innerWidth >= 1100);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-      if (!typing && e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey) toggleSides();
+      const typing = e.target instanceof HTMLElement && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable);
+      if (!typing && atTable && e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey && !e.altKey) openDesigner();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleSides]);
+  }, [atTable]);
 
   // A game being made. Once it is ready it joins the picker and opens.
   const onReady = useCallback((g: GameModule) => {
     setGames((current) => [...current, g]);
     configure(g, defaultPlayers(g), resolveParams(g.params));
   }, []);
-  const { generation, start: generate, cancel: closeGeneration } = useGeneration(onReady);
+  const { generation, start: startGeneration, cancel: closeGeneration } = useGeneration(onReady);
   const generating = Boolean(generation && !generation.done && !generation.error);
+  const generate = (prompt: string, dials: Dials, invented: boolean) => {
+    setDesigner((d) => ({ ...d, open: false }));
+    void startGeneration(prompt, dials, invented);
+    toTable();
+  };
   // While its rules are checked, bots play the newest draft on the table: the board and cards appear
   // as soon as they exist. A draft that throws stops; the next one starts fresh.
   const draft = generating ? generation?.draft : undefined;
@@ -175,7 +198,7 @@ export function App() {
     }
   }, [draft]);
   useEffect(() => {
-    if (!preview || preview.stuck) return;
+    if (!preview || preview.stuck || !atTable) return;
     const { game: g, match: m } = preview;
     const timer = setTimeout(() => {
       try {
@@ -188,22 +211,18 @@ export function App() {
       }
     }, g.isTerminal(m.state) ? 1800 : PREVIEW_DELAY);
     return () => clearTimeout(timer);
-  }, [preview]);
+  }, [preview, atTable]);
 
-  // While a game is made, its steps take the left column, the stage the rest; the right panels,
-  // about the game that was on the table, step aside until the new one is ready.
+  // While a game is made, its steps take the left column and the stage the rest; the designer,
+  // about the game that was on the table, stays shut until the new one is ready.
   const making = Boolean(generation);
-  const leftOpen = sides.left || making;
-  const rightOpen = sides.right && !making;
-  const insets = useMemo(
-    () => ({ left: leftOpen ? PANEL_INSET : TAB_INSET, right: rightOpen ? PANEL_INSET : making ? 0 : TAB_INSET, top: TOP_INSET, bottom: BOTTOM_INSET }),
-    [leftOpen, rightOpen, making],
-  );
+  const drawerOpen = designer.open && !making;
+  useEscape(() => setDesigner((d) => ({ ...d, open: false })), drawerOpen && atTable);
 
-  // Bots take their turns one at a time. Muse Spark may take a few seconds on a social move; a
-  // decision for a state that has since changed (new game, undo) is dropped.
+  // Bots take their turns one at a time, at the table only. Muse Spark may take a few seconds on a
+  // social move; a decision for a state that has since changed (new game, undo) is dropped.
   useEffect(() => {
-    if (game.isTerminal(match.state) || generating) return;
+    if (game.isTerminal(match.state) || generating || !atTable) return;
     const [seat] = game.activePlayers(match.state);
     if (seat === HUMAN && !WATCH) return;
     let cancelled = false;
@@ -233,13 +252,22 @@ export function App() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [game, match, muse, numPlayers, generating]);
+  }, [game, match, muse, numPlayers, generating, atTable]);
 
-  // Re-simulate in a worker whenever the rules or sliders change; a new setting cancels the old run.
+  // Balance and the profile are measured only while the designer is open, so playing never pays
+  // for them; a finished measurement is kept until the rules or sliders change.
+  const measure = drawerOpen && atTable;
+  const settingKey = `${game.meta.id}|${numPlayers}|${JSON.stringify(params)}`;
+  const [stats, setStats] = useState<BalanceStats>();
+  const statsFor = useRef<string>(undefined);
   useEffect(() => {
+    if (!measure || statsFor.current === settingKey) return;
     setStats(undefined);
     const worker = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (event: MessageEvent<BalanceStats>) => setStats(event.data);
+    worker.onmessage = (event: MessageEvent<BalanceStats>) => {
+      setStats(event.data);
+      if (event.data.games >= SIM_GAMES) statsFor.current = settingKey;
+    };
     const request: SimRequest = { gameId: game.meta.id, source: generatedSource(game), numPlayers, params, games: SIM_GAMES };
     // Debounced, so dragging a slider starts one run when it settles.
     const timer = setTimeout(() => worker.postMessage(request), 200);
@@ -247,21 +275,26 @@ export function App() {
       clearTimeout(timer);
       worker.terminate();
     };
-  }, [game, numPlayers, params]);
+  }, [measure, settingKey]);
 
   // The profile is measured in its own worker: its planner games take longer than a balance run.
+  const [profile, setProfile] = useState<{ profile?: GameProfile; pending: boolean; error?: string }>({ pending: true });
+  const profileFor = useRef<string>(undefined);
   useEffect(() => {
+    if (!measure || profileFor.current === settingKey) return;
     setProfile({ pending: true });
     const worker = new Worker(new URL("./profile.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (event: MessageEvent<{ profile?: GameProfile; pending?: boolean; error?: string }>) =>
+    worker.onmessage = (event: MessageEvent<{ profile?: GameProfile; pending?: boolean; error?: string }>) => {
       setProfile((current) => ({ profile: event.data.profile ?? current.profile, pending: event.data.pending ?? false, error: event.data.error }));
+      if (!event.data.pending) profileFor.current = settingKey;
+    };
     const request: ProfileRequest = { gameId: game.meta.id, source: generatedSource(game), numPlayers, params };
     const timer = setTimeout(() => worker.postMessage(request), 400);
     return () => {
       clearTimeout(timer);
       worker.terminate();
     };
-  }, [game, numPlayers, params]);
+  }, [measure, settingKey]);
 
   function configure(nextGame: GameModule, nextPlayers: number, nextParams: Params) {
     setGame(nextGame);
@@ -270,13 +303,17 @@ export function App() {
     setMatch(startMatch(nextGame, nextPlayers, nextParams));
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
+  const playGame = (g: GameModule) => {
+    if (g !== game) selectGame(g);
+    setLibrary(false);
+    toTable();
+  };
   // A deleted generated game leaves the picker; if it was on the table, the first game takes its place.
   const removeGame = (doomed: GameModule) => {
     void deleteGeneratedGame(doomed.meta.id);
     setGames((current) => current.filter((g) => g !== doomed));
     if (game === doomed) selectGame(firstGame);
   };
-
 
   // The latest table talk among the last few moves.
   const spoken = match.log.slice(-4).findLast((e) => e.say);
@@ -299,13 +336,73 @@ export function App() {
     preview && (preview.stuck || unrenderable === tableKey || generation?.checks.some((c) => c.attempt === generation.draftAttempt && !c.ok)),
   );
   const showDraft = Boolean(preview) && !draftFailed;
+  // A game's first visit to this browser starts with a short guide on the table, not a wall of rules.
+  const [guided, setGuided] = useState(() => new Set<string>());
+  const firstVisit = !WATCH && !preview && !guided.has(game.meta.id) && !rulesSeen(game.meta.id);
+  const goal = useMemo(() => goalOf(rulesFor(game, params), game.meta.summary), [game, params]);
+  const guiding = firstVisit && !rulesOpen && !generation;
+  // On a narrow screen the drawer covers the table instead of pushing it aside.
+  const insets = useMemo(
+    () => ({
+      left: making ? PANEL_INSET : 0,
+      right: drawerOpen && window.innerWidth >= 760 ? DRAWER_INSET : 0,
+      top: TOP_INSET,
+      // On a phone the guide wraps onto more lines.
+      bottom: BOTTOM_INSET + (guiding ? (window.innerWidth < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0),
+    }),
+    [making, drawerOpen, guiding],
+  );
+  const endGuide = () => {
+    markRulesSeen(game.meta.id);
+    setGuided((current) => new Set(current).add(game.meta.id));
+  };
+  const closeRules = () => {
+    endGuide();
+    setRulesOpen(false);
+  };
+
+  const overlays = (
+    <>
+      {results && <ResultsPage onClose={() => setResults(false)} />}
+      {library && (
+        <GameLibrary
+          games={games}
+          covers={covers}
+          current={atTable ? game : undefined}
+          busy={generating}
+          onPlay={playGame}
+          onDelete={removeGame}
+          onClose={() => setLibrary(false)}
+        />
+      )}
+    </>
+  );
+
+  if (!atTable) {
+    return (
+      <div className="app home-screen">
+        <Home
+          games={games}
+          covers={covers}
+          available={canGenerate}
+          making={generating ? { title: generation?.plan?.title } : undefined}
+          onGenerate={generate}
+          onPlay={playGame}
+          onWatch={toTable}
+          onLibrary={() => setLibrary(true)}
+          onResults={() => setResults(true)}
+        />
+        {overlays}
+      </div>
+    );
+  }
 
   return (
-    <div className={["app", !leftOpen && "left-folded", !rightOpen && "right-folded", making && "making"].filter(Boolean).join(" ")}>
+    <div className={["app", making && "making", drawerOpen && "drawer-open"].filter(Boolean).join(" ")}>
       {generation && <GenerationStage generation={generation} previewing={showDraft} draftFailed={draftFailed} />}
       {/* Until a draft runs without a fault, the stage stands in for the table. */}
       {(!generation || showDraft || generation.done?.ok) && (
-        <TableGuard resetKey={tableKey} onError={() => setUnrenderable(tableKey)}>
+        <TableGuard resetKey={tableKey} onError={() => setUnrenderable(tableKey)} fallback={!preview}>
           {FLAT ? (
             <div className="flat-stage" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
               <Table key={tableKey} {...tableProps} />
@@ -318,91 +415,31 @@ export function App() {
               speech={preview ? undefined : speech}
               art={preview ? undefined : art}
               boardPaint={preview ? undefined : board?.paint}
+              guide={guiding ? { goal, onRules: () => setRulesOpen(true), onDone: endGuide } : undefined}
             />
           )}
         </TableGuard>
       )}
 
-      <header className="topbar">
-        <div className="brand">
-          <BrandMark />
-          BoardDream
-        </div>
-        <label className="picker">
-          <span>Now playing</span>
-          <select value={games.indexOf(game)} onChange={(e) => selectGame(games[Number(e.target.value)])} disabled={generating}>
-            {/* The hand-made reference games apart from those BoardDream generated from an idea. */}
-            {[
-              { label: "Original reference games", list: games.filter((g) => !generatedSource(g)) },
-              { label: "Generated by BoardDream", list: games.filter((g) => generatedSource(g)) },
-            ]
-              .filter((group) => group.list.length > 0)
-              .map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.list.map((g) => (
-                    <option key={g.meta.id} value={games.indexOf(g)}>
-                      {g.meta.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-          </select>
-        </label>
-        <button type="button" className="ghost" onClick={() => setLibrary(true)} title="Every game on one page: the demo games and the ones generated here">
-          <LayoutGrid size={15} /> Games
-        </button>
-        <span className="tagline">{game.meta.summary}</span>
-        <button
-          type="button"
-          className={["ghost", muse && "on"].filter(Boolean).join(" ")}
-          onClick={() => setMuse(!muse)}
-          disabled={!opponentModel}
-          title={opponentModel ? `${opponentModel} plays the opponents' trades, bids and bluffs` : "Needs a model API key on the server"}
-        >
-          <Sparkles size={15} /> {muse ? "Muse opponents" : "Bot opponents"}
-        </button>
-        <button type="button" className="ghost" onClick={() => setRulesOpen(true)} title="How to play this game">
-          <BookOpen size={15} /> Rules
-        </button>
-        <button type="button" className="ghost" onClick={() => setPrinting(true)} title="Print the rules, board and cards to play on a real table">
-          <Printer size={15} /> Print
-        </button>
-        <button type="button" className="ghost" onClick={() => setResults(true)} title="Every benchmark and measurement on one page">
-          <BarChart3 size={15} /> Results
-        </button>
-        <button type="button" className="ghost" onClick={toggleSides} title="Fold or open both side panels (F)">
-          {sides.left || sides.right ? <Maximize2 size={15} /> : <Minimize2 size={15} />} {sides.left || sides.right ? "Focus" : "Panels"}
-        </button>
-        <button type="button" className="ghost" onClick={() => setMatch(startMatch(game, numPlayers, params))}>
-          <RotateCcw size={15} /> New game
-        </button>
-      </header>
+      <TopBar
+        game={game}
+        making={making}
+        designerOpen={drawerOpen}
+        opponentModel={opponentModel}
+        muse={muse}
+        onHome={toHome}
+        onLibrary={() => setLibrary(true)}
+        onRules={() => setRulesOpen(true)}
+        onDesigner={() => openDesigner()}
+        onRestart={() => setMatch(startMatch(game, numPlayers, params))}
+        onMuse={setMuse}
+        onPrint={() => setPrinting(true)}
+        onLog={() => openDesigner("log")}
+        onResults={() => setResults(true)}
+      />
 
-      {!making &&
-        (leftOpen ? (
-          <button type="button" className="side-fold left" onClick={() => toggleSide("left")} title="Fold the panel away" aria-label="Fold the create panel away">
-            <ChevronsLeft size={16} />
-          </button>
-        ) : (
-          <button type="button" className="side-tab left" onClick={() => toggleSide("left")} title="Open the create panel">
-            <Sparkles size={15} />
-            <span>Dream up a game</span>
-          </button>
-        ))}
-      {!making &&
-        (rightOpen ? (
-          <button type="button" className="side-fold right" onClick={() => toggleSide("right")} title="Fold the panels away" aria-label="Fold the tuning panels away">
-            <ChevronsRight size={16} />
-          </button>
-        ) : (
-          <button type="button" className="side-tab right" onClick={() => toggleSide("right")} title="Open the tuning, balance and log panels">
-            <SlidersHorizontal size={15} />
-            <span>Tune the rules</span>
-          </button>
-        ))}
-
-      <aside className="sidebar left">
-        {generation ? (
+      {generation && (
+        <aside className="sidebar left">
           <GenerationSteps
             generation={generation}
             onCancel={closeGeneration}
@@ -412,64 +449,60 @@ export function App() {
               closeGeneration();
             }}
           />
-        ) : (
-          <CreatePanel available={canGenerate} busy={generating} onGenerate={generate} />
-        )}
-      </aside>
+        </aside>
+      )}
 
-      <aside className="sidebar right">
-        <TuningPanel
-          game={game}
-          numPlayers={numPlayers}
-          params={params}
-          stats={stats}
-          simGames={SIM_GAMES}
-          onChange={(players, nextParams) => configure(game, players, nextParams)}
-        />
-        {canGenerate && generatedSource(game) && (
-          <RevisePanel
-            game={game}
-            onRevised={(revised) => {
-              setGames((current) => [...current, revised]);
-              selectGame(revised);
-            }}
-          />
-        )}
-        <ProfilePanel profile={profile.profile} pending={profile.pending} error={profile.error} />
-        {(cardCount > 0 || hasBoard) && (
-          <ArtPanel
-            cards={cardCount}
-            painted={art.size}
-            painting={painting}
-            available={hasApiKey}
-            onPaint={() => void paint()}
-            board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
-          />
-        )}
-        <LogPanel entries={match.log} human={HUMAN} />
-      </aside>
-      {rulesOpen && !results && !library && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
-      {results && <ResultsPage onClose={() => setResults(false)} />}
-      {library && (
-        <GameLibrary
-          games={games}
-          current={game}
-          busy={generating}
-          onPlay={(g) => {
-            selectGame(g);
-            setLibrary(false);
+      {!making && (
+        <Designer
+          open={drawerOpen}
+          tab={designer.tab}
+          onTab={(tab) => setDesigner({ open: true, tab })}
+          onClose={() => setDesigner((d) => ({ ...d, open: false }))}
+          panels={{
+            rules: (
+              <>
+                <TuneSection game={game} numPlayers={numPlayers} params={params} onChange={(players, nextParams) => configure(game, players, nextParams)} />
+                {canGenerate && generatedSource(game) && (
+                  <RevisePanel
+                    game={game}
+                    onRevised={(revised) => {
+                      setGames((current) => [...current, revised]);
+                      selectGame(revised);
+                    }}
+                  />
+                )}
+              </>
+            ),
+            balance: (
+              <>
+                <BalanceSection stats={stats} simGames={SIM_GAMES} />
+                <ProfilePanel profile={profile.profile} pending={profile.pending} error={profile.error} />
+              </>
+            ),
+            art:
+              cardCount > 0 || hasBoard ? (
+                <ArtPanel
+                  cards={cardCount}
+                  painted={art.size}
+                  painting={painting}
+                  available={hasApiKey}
+                  onPaint={() => void paint()}
+                  board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
+                />
+              ) : undefined,
+            log: <LogPanel entries={match.log} human={HUMAN} />,
           }}
-          onDelete={removeGame}
-          onClose={() => setLibrary(false)}
         />
       )}
+      {rulesOpen && !results && !library && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
+      {overlays}
       {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}
     </div>
   );
 }
 
-// Which games' rules this browser has seen. Storage can be unavailable (private windows, previews):
-// then the card simply opens again next time.
+// Which games this browser has been shown how to play. Storage can be unavailable (private windows,
+// previews): then the guide simply shows again next time.
 const rulesKey = (id: string) => `boarddream:rules-seen:${id}`;
 function rulesSeen(id: string): boolean {
   try {
@@ -484,19 +517,4 @@ function markRulesSeen(id: string) {
   } catch {
     // Not remembered; nothing else depends on it.
   }
-}
-
-function BrandMark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <linearGradient id="brand-gold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f6d98b" />
-          <stop offset="100%" stopColor="#d99a2b" />
-        </linearGradient>
-      </defs>
-      <path d="M16 2.5 27.7 9.25v13.5L16 29.5 4.3 22.75V9.25Z" fill="url(#brand-gold)" />
-      <path d="M16 9.5l1.9 4.6 4.6 1.9-4.6 1.9L16 22.5l-1.9-4.6-4.6-1.9 4.6-1.9Z" fill="#2a2520" />
-    </svg>
-  );
 }

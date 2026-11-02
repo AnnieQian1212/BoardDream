@@ -26,6 +26,7 @@ const BOARD = 54;
 const BOARD_ALONE = 52;
 
 export type Vec3 = [number, number, number];
+export type Arrangement = "sides" | "right" | "stack";
 export type Quat = [number, number, number, number];
 
 export interface CardItem {
@@ -125,9 +126,10 @@ export interface LayoutInput {
    * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
    * the middle and stands the supply beside the board; "right" stands the supply, then the rivals,
    * in columns to the right of the board, which suits a screen the board would otherwise leave
-   * short. Tabletop lays out both and keeps whichever draws the board larger.
+   * short; "stack" stands the rivals in a row under the middle, which suits a tall screen like a
+   * phone's. Tabletop lays out each that fits the screen and keeps whichever draws the board larger.
    */
-  arrangement?: "sides" | "right";
+  arrangement?: Arrangement;
 }
 
 const IDENTITY: Quat = [0, 0, 0, 1];
@@ -252,6 +254,8 @@ const CHIPS_IN = 0.6;
 
 /** Screen pixels per table unit when none is given: about the scale with both side panels open. */
 const PX_PER_UNIT = 7;
+/** A note wraps onto at most this many lines (badge-note's line clamp in styles.css). */
+const NOTE_LINES = 4;
 
 /**
  * The HTML chips drawn over mats (counters, notes, the turn pill) in table units. They are a fixed
@@ -270,8 +274,12 @@ function chipSizes(px: number) {
     pile: 52 / px,
     /** The "Thinking…" pill at the head of a rival's chips. */
     turnPill: (24 + 7 * 10) / px,
-    /** Extra depth for a note too long for one line across `room`: it wraps onto a second. */
-    noteLines: (note: string | undefined, room: number) => (note && (24 + 6.6 * Math.min(note.length, 44)) / px > room ? 14 / px : 0),
+    /** Extra depth for a note too long for one line across `room`: it wraps, up to NOTE_LINES lines. */
+    noteLines(note: string | undefined, room: number): number {
+      if (!note || !(room > 0)) return 0;
+      const lines = Math.min(NOTE_LINES, Math.ceil((24 + 6.6 * note.length) / px / room));
+      return (Math.max(1, lines) - 1) * (13 / px);
+    },
     /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
     rows(widths: number[], room: number): number {
       let rows = 1;
@@ -510,18 +518,22 @@ function down(blocks: Block[], gap: number): Block {
   };
 }
 
-/** Upright mats in as few columns as keep each no taller than `height`, unless one alone is. */
+/**
+ * Upright mats in as few columns as keep each no taller than `height`, unless one alone is. A
+ * height or depth that is not a number starts a column per mat rather than failing.
+ */
 function columns(blocks: Block[], height: number): Block | undefined {
   if (blocks.length === 0) return undefined;
   const columns: Block[][] = [];
-  let used = Infinity;
+  let used = 0;
   for (const block of blocks) {
-    if (used + 2 + block.depth > height) {
+    const column = columns.at(-1);
+    if (column && used + 2 + block.depth <= height) {
+      column.push(block);
+      used += 2 + block.depth;
+    } else {
       columns.push([block]);
       used = block.depth;
-    } else {
-      columns.at(-1)!.push(block);
-      used += 2 + block.depth;
     }
   }
   return across(
@@ -531,7 +543,9 @@ function columns(blocks: Block[], height: number): Block | undefined {
 }
 
 function boardBlock(geometry: Geometry, size: number): Block {
-  const scale = size / Math.max(geometry.width, geometry.height);
+  // A board with no extent (no cells yet, or all at one point) is drawn at the size of one unit.
+  const span = Math.max(geometry.width, geometry.height);
+  const scale = span > 0 && Number.isFinite(span) ? size / span : 1;
   const width = geometry.width * scale + 2.4;
   const depth = geometry.height * scale + 2.4;
   return {
@@ -565,7 +579,8 @@ export function layoutTable(input: LayoutInput): TableLayout {
     .sort((a, b) => (((a.owner ?? 0) - human + 99) % 99) - (((b.owner ?? 0) - human + 99) % 99));
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
-  const sizes = chipSizes(input.pxPerUnit ?? PX_PER_UNIT);
+  const px = input.pxPerUnit;
+  const sizes = chipSizes(px !== undefined && Number.isFinite(px) && px > 0 ? px : PX_PER_UNIT);
   const rivalMat = (p: Panel) => seatColumnBlock(p, input, sizes);
   const half = Math.ceil(rivals.length / 2);
   const leftSide = rivals.slice(0, half).reverse().map(rivalMat);
@@ -600,6 +615,17 @@ export function layoutTable(input: LayoutInput): TableLayout {
       );
     }
     const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes }) : undefined;
+    if (input.arrangement === "stack") {
+      // Rivals in a row under the middle, the viewer's mat below them.
+      const row = rivals.length > 0 ? across([...leftSide.reverse(), ...rightSide], SIDE_GAP) : undefined;
+      center = down(
+        [middle, row, you].filter((b): b is Block => b !== undefined),
+        ROW_GAP,
+      );
+      table = center;
+      table.place(0, table.depth / 2, out);
+      return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);
+    }
     center = down(
       [middle, you].filter((b): b is Block => b !== undefined),
       ROW_GAP,
@@ -613,8 +639,11 @@ export function layoutTable(input: LayoutInput): TableLayout {
   }
   table.place(0, table.depth / 2, out);
   // The viewer's hand is held up in front of the middle.
-  let z = table.depth / 2 + center.depth / 2 + ROW_GAP;
+  return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);
+}
 
+/** Holds the viewer's hand up in front of the table from depth `z`, then outlines everything placed. */
+function finish(out: TableLayout, hand: Panel | undefined, z: number, targets: Set<string>): TableLayout {
   // The hand is held up toward the camera and fanned.
   const held = hand?.cards ?? [];
   if (held.length > 0) {
@@ -635,7 +664,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
         quaternion: q.toArray() as Quat,
         scale: HAND_SCALE,
         spawn: deck ? [deck.position[0], MAT_TOP + 1, deck.position[2]] : [0, 8, anchor.z],
-        target: input.targets.has(card.id),
+        target: targets.has(card.id),
         zone: "hand",
       });
     });

@@ -2,6 +2,7 @@ import { createRng, resolveParams, type CardView, type GameModule, type Geometry
 import { Printer, X } from "lucide-react";
 import { useMemo } from "react";
 import { startingGeometry } from "../art";
+import { useEscape } from "../escape";
 import { resourceById } from "../icons";
 import { rulesFor } from "../rules";
 import { Board } from "./Board";
@@ -42,6 +43,7 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
 
 /** A print-and-play kit: the rules, the components, the board and every card, laid out for A4 with cut lines. */
 export function PrintSheet({ game, params, art, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; onClose(): void }) {
+  useEscape(onClose);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
   const inventory = useMemo(() => cardInventory(game, art), [game, art]);
   // The board as printed: its spaces and labels, without the pieces of one particular opening.

@@ -3,14 +3,15 @@ import { tableBot } from "@boarddream/library";
 import { Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 
+export type HintState = { move: unknown; text: string } | "thinking" | undefined;
+
 /**
  * Asks the game's own bot (or, for generated games, the planner) what it would play in the
- * human's seat, and offers to play it. The bot sees only what the human may see.
+ * human's seat. The bot sees only what the human may see. The answer lasts until the state changes.
  */
-export function Hint({ game, state, human, onMove }: { game: GameModule; state: unknown; human: number; onMove(move: unknown): void }) {
-  const [hint, setHint] = useState<{ move: unknown; text: string } | "thinking">();
+export function useHint(game: GameModule, state: unknown, human: number) {
+  const [hint, setHint] = useState<HintState>();
   useEffect(() => setHint(undefined), [state]);
-
   const ask = () => {
     setHint("thinking");
     // Let the button repaint before the planner's playouts take the thread.
@@ -21,7 +22,11 @@ export function Hint({ game, state, human, onMove }: { game: GameModule; state: 
       setHint({ move, text: game.describeMove?.(state, move, human) ?? JSON.stringify(move) });
     }, 20);
   };
+  return { hint, ask };
+}
 
+/** The Hint button, then the hint and a button to play it; the table marks where it acts. */
+export function Hint({ hint, onAsk, onMove }: { hint: HintState; onAsk(): void; onMove(move: unknown): void }) {
   if (hint && hint !== "thinking") {
     return (
       <>
@@ -35,7 +40,7 @@ export function Hint({ game, state, human, onMove }: { game: GameModule; state: 
     );
   }
   return (
-    <button type="button" className="ghost hint-button" onClick={ask} disabled={hint === "thinking"}>
+    <button type="button" className="quiet hint-button" onClick={onAsk} disabled={hint === "thinking"}>
       <Lightbulb size={15} /> {hint === "thinking" ? "Thinking…" : "Hint"}
     </button>
   );

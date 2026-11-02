@@ -1,9 +1,11 @@
 import type { GameModule, Params } from "@boarddream/engine";
 import { BookOpen } from "lucide-react";
+import { useEscape } from "../escape";
 import { rulesFor } from "../rules";
 
 /** How to play: the game's rules and how the table works. Opens the first time a game is played here. */
 export function RulesCard({ game, params, onClose }: { game: GameModule; params: Params; onClose(): void }) {
+  useEscape(onClose);
   const rules = rulesFor(game, params);
   return (
     <div className="overlay rules-overlay" onClick={onClose}>

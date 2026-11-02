@@ -1,10 +1,12 @@
 import type { ResourceSpec } from "@boarddream/engine";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Star } from "lucide-react";
-import { useMemo, type RefObject } from "react";
+import { useMemo, type CSSProperties, type RefObject } from "react";
 import { Vector3 } from "three";
 import { iconFor } from "../icons";
 import { CARD_H, CARD_W, type TableLayout, type Vec3 } from "./layout";
+import type { TargetKind } from "../instructions";
+import { SPOT_TOP, TILE_TOP } from "./Board3D";
 
 /**
  * Live numbers on the table (scores, resource counts, deck size) are HTML, pinned to 3D points.
@@ -35,21 +37,89 @@ export function labelAnchors(layout: TableLayout): Map<string, Vec3> {
   return anchors;
 }
 
+/** A mark drawn over something that can be clicked: a pulsing ring, or the hint's "Try this". */
+export interface TargetMark {
+  id: string;
+  kind: TargetKind;
+  /** The hinted move acts on it. */
+  hint: boolean;
+  /** Pulses: a board spot or space, which has no glow of its own that reads at a glance. */
+  ring: boolean;
+}
+
+/** What a target id is on the table, as the player would call it. */
+export function targetKind(layout: TableLayout, id: string): TargetKind | undefined {
+  const cell = layout.board?.geometry.cells.find((c) => c.id === id);
+  if (cell) return cell.kind === "vertex" ? "corner" : cell.kind === "edge" ? "edge" : "space";
+  if (layout.cards.some((c) => c.id === id)) return "card";
+  if (layout.piles.some((p) => p.id === id)) return "pile";
+  if (layout.decks.some((d) => d.id === id)) return "deck";
+  if (layout.badges.some((b) => b.counters.some((c) => c.id === id))) return "counter";
+  return undefined;
+}
+
+/**
+ * Where each mark sits: over a board cell's middle (with a second point a cell's radius away, so
+ * the ring is as wide as the cell on screen), a card's middle or a pile's top.
+ */
+export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<string, Vec3> {
+  const anchors = new Map<string, Vec3>();
+  const board = layout.board;
+  for (const mark of marks) {
+    const cell = board?.geometry.cells.find((c) => c.id === mark.id);
+    if (board && cell) {
+      const k = board.scale;
+      const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / cell.polygon.length;
+      const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / cell.polygon.length;
+      const spot = cell.kind === "vertex" || cell.kind === "edge";
+      const reach = Math.max(...cell.polygon.map(([x, y]) => Math.hypot(x - cx, y - cy))) * k * (spot ? 1.15 : 0.8);
+      const at: Vec3 = [board.position[0] + (cx - board.geometry.width / 2) * k, board.position[1] + (spot ? SPOT_TOP : TILE_TOP), board.position[2] + (cy - board.geometry.height / 2) * k];
+      anchors.set(`mark:${mark.id}`, at);
+      anchors.set(`markspan:${mark.id}`, [at[0] + reach, at[1], at[2]]);
+      continue;
+    }
+    const card = layout.cards.find((c) => c.id === mark.id);
+    if (card) {
+      anchors.set(`mark:${mark.id}`, card.position);
+      anchors.set(`markspan:${mark.id}`, [card.position[0] + (CARD_W / 2) * card.scale, card.position[1], card.position[2]]);
+      continue;
+    }
+    const pile = layout.piles.find((p) => p.id === mark.id) ?? layout.decks.find((d) => d.id === mark.id);
+    if (pile) {
+      anchors.set(`mark:${mark.id}`, [pile.position[0], pile.position[1] + 0.6, pile.position[2]]);
+      anchors.set(`markspan:${mark.id}`, [pile.position[0] + 2.4 * pile.scale, pile.position[1] + 0.6, pile.position[2]]);
+    }
+  }
+  return anchors;
+}
+
 interface LabelsProps {
   layout: TableLayout;
+  /** Rings over glowing board cells, and the hinted target. */
+  marks?: TargetMark[];
   resources: Map<string, ResourceSpec>;
   layer: RefObject<HTMLDivElement | null>;
   /** Ids legal moves act on; a targeted counter chip becomes a button. */
   targets: Set<string>;
   /** Table talk to show at a seat's mat. */
   speech?: { id: number; seat: number; text: string };
+  /** Under 1 when the table is drawn smaller than the chips were sized for (a phone). */
+  chipScale?: number;
   onPick(id: string, x: number, y: number): void;
 }
 
-export function Labels({ layout, resources, layer, targets, speech, onPick }: LabelsProps) {
+export function Labels({ layout, marks = [], resources, layer, targets, speech, chipScale = 1, onPick }: LabelsProps) {
   const speaker = speech && layout.badges.find((b) => b.seat === speech.seat);
+  const hinted = marks.find((m) => m.hint);
   return (
-    <div className="labels" ref={layer}>
+    <div className="labels" ref={layer} style={{ "--chip-scale": chipScale } as CSSProperties}>
+      {marks
+        .filter((mark) => mark.ring || mark.hint)
+        .map((mark) => (
+          <div key={`mark:${mark.id}`} className="label mark" data-anchor={`mark:${mark.id}`} data-span={`markspan:${mark.id}`}>
+            <span className={mark.hint ? "target-ring hint" : "target-ring"} />
+          </div>
+        ))}
       {speech && speaker && (
         <div key={`speech-${speech.id}`} className="label" data-anchor={`badge:${speaker.id}`}>
           <div className="speech above">{speech.text}</div>
@@ -69,7 +139,7 @@ export function Labels({ layout, resources, layer, targets, speech, onPick }: La
               )}
               {rest.map((c) =>
                 targets.has(c.id) ? (
-                  <button key={c.id} type="button" className="badge-chip target" onClick={(e) => onPick(c.id, e.clientX, e.clientY)}>
+                  <button key={c.id} type="button" className={hinted?.id === c.id ? "badge-chip target hinted" : "badge-chip target"} onClick={(e) => onPick(c.id, e.clientX, e.clientY)}>
                     <small>{c.label}</small>
                     {c.value}
                   </button>
@@ -109,6 +179,11 @@ export function Labels({ layout, resources, layer, targets, speech, onPick }: La
           </div>
         );
       })}
+      {hinted && hinted.kind !== "counter" && (
+        <div key={`flag:${hinted.id}`} className="label mark" data-anchor={`mark:${hinted.id}`} data-span={`markspan:${hinted.id}`}>
+          <span className="hint-flag">Try this</span>
+        </div>
+      )}
       {layout.decks.map((deck) => (
         <div key={deck.id} className="label" data-anchor={`deck:${deck.id}`}>
           <span className="tag-count" title={deck.label}>
@@ -146,6 +221,8 @@ export function LabelTracker({ anchors, layer }: { anchors: Map<string, Vec3>; l
   useFrame(() => {
     const root = layer.current;
     if (!root) return;
+    // Chips drawn smaller (--chip-scale) measure their room in their own, unshrunk pixels.
+    const zoom = parseFloat(root.style.getPropertyValue("--chip-scale")) || 1;
     for (const el of Array.from(root.children) as HTMLElement[]) {
       const anchor = anchors.get(el.dataset.anchor ?? "");
       if (!anchor) continue;
@@ -154,10 +231,20 @@ export function LabelTracker({ anchors, layer }: { anchors: Map<string, Vec3>; l
       const y = ((1 - v.y) / 2) * size.height;
       el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       el.style.visibility = v.z < 1 ? "visible" : "hidden";
+      // A mark is as wide on screen as what it marks: its span anchor is that far off to the side.
+      const span = anchors.get(el.dataset.span ?? "");
+      if (span) {
+        v.fromArray(span).project(camera);
+        const px = Math.round(Math.hypot(((v.x + 1) / 2) * size.width - x, ((1 - v.y) / 2) * size.height - y));
+        if (el.dataset.spanned !== String(px)) {
+          el.dataset.spanned = String(px);
+          el.style.setProperty("--span", `${px}px`);
+        }
+      }
       const room = anchors.get(el.dataset.room ?? "");
       if (room) {
         v.fromArray(room).project(camera);
-        const width = Math.round(x - ((v.x + 1) / 2) * size.width);
+        const width = Math.round((x - ((v.x + 1) / 2) * size.width) / zoom);
         const key = `${width}|${el.textContent}`;
         if (el.dataset.fitted !== key) {
           el.dataset.fitted = key;

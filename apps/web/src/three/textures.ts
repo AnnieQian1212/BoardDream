@@ -776,8 +776,8 @@ export function matTexture(width: number, depth: number, color: string, title: s
     ctx.lineWidth = Math.max(2, 0.06 * u);
     ctx.strokeStyle = alpha(INK, 0.75);
     ctx.stroke();
-    // Name.
-    ctx.font = `600 ${1.25 * u}px ${FONT_DISPLAY}`;
+    // Name, large enough to read across the table.
+    ctx.font = `650 ${1.6 * u}px ${FONT_DISPLAY}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     if (shared) {
@@ -952,13 +952,14 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
       ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
       best.lines.forEach((line, i) => {
         const y = py + at.name + (i - (best.lines.length - 1) / 2) * LINE * best.size;
-        // A pale halo keeps a tile's name legible on grass, stone or water.
+        // A pale halo keeps a tile's name legible on grass, stone or water, however busy the ground.
         if (!isLabel) {
-          ctx.lineWidth = best.size * 0.2;
-          ctx.strokeStyle = alpha(TOKEN, 0.7);
+          ctx.lineWidth = best.size * 0.26;
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = alpha(TOKEN, 0.92);
           ctx.strokeText(line, px, y);
         }
-        ctx.fillStyle = isLabel ? INK : alpha(INK, 0.88);
+        ctx.fillStyle = INK;
         ctx.fillText(line, px, y);
       });
     }

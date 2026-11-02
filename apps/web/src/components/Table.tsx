@@ -6,7 +6,7 @@ import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
 import { tidyPanels } from "../panels";
 import { Board } from "./Board";
-import { Hint } from "./Hint";
+import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
 import { ResourceChip } from "./ResourceChip";
@@ -30,6 +30,7 @@ interface Menu {
 export function Table({ game, state, numPlayers, human, onMove, onRestart }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null);
   useEffect(() => setMenu(null), [state]);
+  const { hint, ask } = useHint(game, state, human);
 
   const over = game.isTerminal(state);
   const active = over ? undefined : game.activePlayers(state)[0];
@@ -119,7 +120,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
       {!over && (
         <div className="action-bar">
           <span className="status">{status}</span>
-          {myTurn && <Hint game={game} state={state} human={human} onMove={onMove} />}
+          {myTurn && <Hint hint={hint} onAsk={ask} onMove={onMove} />}
           {loose.map((move, i) => (
             <button key={i} type="button" className={loose.length <= 3 ? "action" : "action secondary"} onClick={() => onMove(move)}>
               {label(move)}

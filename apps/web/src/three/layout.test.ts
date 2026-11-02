@@ -3,12 +3,12 @@ import { fixtureGames, referenceGames } from "@boarddream/library";
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
 import { fitCamera, FOV } from "./camera";
-import { layoutTable, type TableLayout } from "./layout";
+import { layoutTable, type Arrangement, type TableLayout } from "./layout";
 
 const resourcesOf = (game: GameModule) => new Map((game.meta.resources ?? []).map((r) => [r.id, r]));
 
 /** Layouts of a random playout from seat 0's point of view, with seat 0's legal moves as targets. */
-function* playout(game: GameModule, seed: number, steps: number, arrangement: "sides" | "right" = "sides"): Generator<{ layout: TableLayout; targets: Set<string> }> {
+function* playout(game: GameModule, seed: number, steps: number, arrangement: Arrangement = "sides"): Generator<{ layout: TableLayout; targets: Set<string> }> {
   const rng = createRng(seed);
   const numPlayers = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
   let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
@@ -72,8 +72,8 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
     }
   });
 
-  test("with everything standing to the right of the board, lets no mat overlap another or the board", () => {
-    for (const { layout } of playout(game, 5, 20, "right")) {
+  test.each(["right", "stack"] as const)("with the %s arrangement, lets no mat overlap another or the board", (arrangement) => {
+    for (const { layout } of playout(game, 5, 20, arrangement)) {
       const rects = [
         ...layout.mats.map((m) => ({ id: m.id, x: m.position[0], z: m.position[2], w: m.width, d: m.depth })),
         ...(layout.board ? [{ id: "board", x: layout.board.position[0], z: layout.board.position[2], w: layout.board.width, d: layout.board.depth }] : []),
@@ -107,5 +107,26 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
         expect(y).toBeLessThanOrEqual(height - insets.bottom + 1);
       }
     }
+  });
+});
+
+describe("a table laid out before the window has a size", () => {
+  // A hidden tab or a reload mid-resize measures no scale, and a draft's board can have no extent
+  // yet; either once made columns() push onto a column that did not exist.
+  const game = referenceGames.find((g) => g.meta.id === "lantern-isles")!;
+  const state = game.setup({ numPlayers: 3, params: resolveParams(game.params), rng: createRng(1) });
+  const panels = game.panels?.(state, 0) ?? [];
+  const geometry = game.geometry!(state, 0);
+
+  test.each(["sides", "right", "stack"] as const)("still lays out with no scale (%s)", (arrangement) => {
+    const layout = layoutTable({ panels, geometry, human: 0, targets: new Set(), resources: resourcesOf(game), pxPerUnit: Number.NaN, arrangement });
+    expect(layout.mats.length).toBeGreaterThan(0);
+    for (const p of layout.outline) expect(p.every(Number.isFinite)).toBe(true);
+  });
+
+  test.each(["sides", "right", "stack"] as const)("still lays out a board with no extent (%s)", (arrangement) => {
+    const flat = { ...geometry, width: 0, height: 0, cells: [], pieces: [] };
+    const layout = layoutTable({ panels, geometry: flat, human: 0, targets: new Set(), resources: resourcesOf(game), arrangement });
+    for (const p of layout.outline) expect(p.every(Number.isFinite)).toBe(true);
   });
 });
