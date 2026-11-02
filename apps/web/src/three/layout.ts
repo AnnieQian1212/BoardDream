@@ -304,7 +304,13 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const titleW = 2.4 + 0.7 * title.length;
   const chips = [...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
   const chipsW = chips.reduce((sum, w) => sum + w + sizes.gap, 0);
-  const width = Math.max(slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0, Math.min(26, titleW + 1 + chipsW), 16);
+  // The mat hugs its cards (or its title and piles, with no cards); chips that do not fit beside the
+  // title wrap into the body rather than widen it.
+  const cardsW = slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0;
+  const pilesW = 2 * PAD + Math.min(piles.length, 3) * Math.max(PILE, sizes.pile);
+  // A supply of counters alone is wide enough for two chips to a row.
+  const chipsOnly = slots === 0 && piles.length === 0 && chips.length > 1 ? Math.min(26, 2 * Math.max(...chips) + sizes.gap + 2) : 0;
+  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleW + 2, 14);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
   // Wrapped chips start a little way into the body, clear of the header.

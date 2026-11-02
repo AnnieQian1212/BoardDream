@@ -87,13 +87,19 @@ interface Props {
   onPick(id: string, x: number, y: number): void;
 }
 
+/**
+ * Share of a painted tile a tile's top shows: the painter draws thick inked gaps between tiles,
+ * which the board's own gaps and outlines already draw, so a tile shows its painting without them.
+ */
+const ART_CROP = 0.84;
+
 /** Maps a tile's top onto its source tile in the painting (board units, flipped for the texture). */
 function paintUvs(g: BufferGeometry, painted: { paint: BoardPaint; source: [number, number] }, k: number) {
   const [sx, sy] = painted.source;
   const { width: w, height: h } = painted.paint;
   const pos = g.attributes.position;
   const uv = g.attributes.uv;
-  const unit = k * TILE_SHARE;
+  const unit = (k * TILE_SHARE) / ART_CROP;
   for (let i = 0; i < pos.count; i++) uv.setXY(i, (sx + pos.getX(i) / unit) / w, 1 - (sy + pos.getZ(i) / unit) / h);
   uv.needsUpdate = true;
 }
@@ -101,11 +107,19 @@ function paintUvs(g: BufferGeometry, painted: { paint: BoardPaint; source: [numb
 /** The board's water: one rippling grid under every water tile, and how the pointer stirs it. */
 interface Water {
   uniforms: WaterUniforms;
+  /**
+   * Changes whenever the surface is rebuilt (the water moved or changed shape). A compiled shader
+   * keeps the uniforms it was compiled with, so each pool's material is rebuilt with it.
+   */
+  id: number;
   /** The pointer passing over the water at a world point: a trail of small dips. */
   wake(x: number, z: number): void;
   /** A click on the water: one deeper dip. */
   splash(x: number, z: number): void;
 }
+
+/** Counts water surfaces built, to tell a rebuilt one from the last (Water.id). */
+let surfaces = 0;
 
 function useWater(geometry: BoardItem["geometry"], k: number, position: BoardItem["position"], zones: Map<string, string>): Water | undefined {
   const invalidate = useThree((s) => s.invalidate);
@@ -122,7 +136,7 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
       return pools(c).map((p) => p.map(([x, y]): [number, number] => [wx + x * k, wz + y * k]));
     });
     const grid = new WaterGrid(polygons, k / 20);
-    return { grid, uniforms: waterUniforms(grid, [ox, oz], k) };
+    return { grid, uniforms: waterUniforms(grid, [ox, oz], k), id: ++surfaces };
   }, [key, geometry.width, geometry.height, k, ox, oz]);
   useEffect(() => () => surface?.uniforms.uWave.value.dispose(), [surface]);
 
@@ -176,7 +190,7 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
     else invalidate();
   });
 
-  return useMemo(() => surface && { uniforms: surface.uniforms, wake, splash }, [surface, wake, splash]);
+  return useMemo(() => surface && { uniforms: surface.uniforms, id: surface.id, wake, splash }, [surface, wake, splash]);
 }
 
 /** Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id. */
@@ -243,7 +257,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   const stir = geometry.pieces.map((p) => `${p.id}@${p.x},${p.y}`).join("|") + geometry.cells.map((c) => `${c.owner ?? ""}${c.label ?? ""}`).join("|");
   const field = useGrassField(k, size, stir, growing);
   useEffect(() => {
-    if (water && paint) water.uniforms.uMapScale.value.set(1 / (k * TILE_SHARE * paint.width), -1 / (k * TILE_SHARE * paint.height));
+    if (water && paint) water.uniforms.uMapScale.value.set(ART_CROP / (k * TILE_SHARE * paint.width), -ART_CROP / (k * TILE_SHARE * paint.height));
   }, [water, paint, k]);
   useEffect(() => {
     if (!water) return;
@@ -645,7 +659,7 @@ function Tile({ cell, k, at, target, painted, water: boardWater, zone, box, grou
         <mesh geometry={surface} position={[0, TILE_TOP - SLAB + 0.006, 0]} raycast={noRaycast} receiveShadow>
           {/* A glossy clear coat over a softer body, like a jelly sweet. */}
           <meshPhysicalMaterial
-            key={painted ? "painted" : "plain"}
+            key={`${painted ? "painted" : "plain"}-${water.id}`}
             ref={surfaceMaterial}
             map={painted?.texture ?? null}
             color={painted ? tint : waterColor}

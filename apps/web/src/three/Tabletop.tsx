@@ -147,7 +147,12 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
       if (otherScale > scale * 1.08) [arrangement, scale] = [other, otherScale];
     }
     arranged.current = arrangement;
-    return layoutTable({ ...input, arrangement, pxPerUnit: Math.min(24, Math.max(5, scale)) });
+    // Laid out for its chips the table may grow and be drawn smaller: check once more and size the
+    // chips' room for whichever scale is smaller.
+    const clamp = (px: number) => Math.min(24, Math.max(5, px));
+    const first = layoutTable({ ...input, arrangement, pxPerUnit: clamp(scale) });
+    const drawn = tableScale(first, viewport.width, viewport.height, insets);
+    return drawn < scale * 0.97 ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn * 0.97) }) : first;
   }, [game, state, panels, human, active, targets, resources, viewport, insets]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const labelLayer = useRef<HTMLDivElement>(null);
