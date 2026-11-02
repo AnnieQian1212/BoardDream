@@ -39,7 +39,7 @@ export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 24) 
 const titleEnd = (title: string) => MAT_TITLE.x + 1 + MAT_TITLE.perLetter * title.length;
 
 export type Vec3 = [number, number, number];
-export type Arrangement = "sides" | "right" | "stack";
+export type Arrangement = "sides" | "stack";
 export type Quat = [number, number, number, number];
 
 export interface CardItem {
@@ -137,10 +137,11 @@ export interface LayoutInput {
   pxPerUnit?: number;
   /**
    * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
-   * the middle and stands the supply beside the board; "right" stands the supply, then the rivals,
-   * in columns to the right of the board, which suits a screen the board would otherwise leave
-   * short; "stack" stands the rivals in a row under the middle, which suits a tall screen like a
-   * phone's. Tabletop lays out each that fits the screen and keeps whichever draws the board larger.
+   * the middle, as many on the left as on the right (one more on the left when they are odd), and
+   * stands the supply beside the board; "stack" stands the rivals in a row under the middle, which
+   * suits a tall screen like a phone's. Tabletop lays out each that fits the screen and keeps
+   * whichever draws the board larger. Rivals are never all put on one side: the table stays
+   * balanced, as players sit round a real one.
    */
   arrangement?: Arrangement;
 }
@@ -481,12 +482,13 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
   const showCards = cards.length > 0 || panel.cards !== undefined;
   const [cw, ch, gap] = [CARD_W * 0.66, CARD_H * 0.66, 0.4];
   const pile = Math.max(PILE * 0.8, sizes.pile);
-  const width = SEAT_W;
+  // Resources stand in one column, so the mat is only as wide as its title and a pile need.
+  const width = Math.max(titleEnd(title) + 1, pile + 2 * PAD, 10);
   const inner = width - 2 * PAD;
   // Room for the turn pill whether or not it shows, so a mat keeps its size between turns.
   const chips = [sizes.turnPill, ...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
   const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4;
-  const perRow = Math.max(1, Math.floor(inner / pile));
+  const perRow = 1;
   const pileRows = Math.ceil(piles.length / perRow);
   const pilesDepth = pileRows * pile + (pileRows > 0 ? 0.4 : 0);
   const cols = Math.max(1, Math.floor((inner + gap) / (cw + gap)));
@@ -647,7 +649,7 @@ export function fitTable(
   const { width, height, insets } = screen;
   const scaleOf = (arrangement: Arrangement) => tableScale(layoutTable({ ...input, arrangement }), width, height, insets);
   const tall = height > width * 1.15;
-  const offered: Arrangement[] = [...(input.geometry ? (["sides", "right"] as const) : (["sides"] as const)), ...(tall ? (["stack"] as const) : [])];
+  const offered: Arrangement[] = ["sides", ...(tall ? (["stack"] as const) : [])];
   let arrangement = offered.includes(previous) ? previous : offered[0];
   let scale = scaleOf(arrangement);
   for (const other of offered) {
@@ -699,52 +701,41 @@ export function layoutTable(input: LayoutInput): TableLayout {
   let middle: Block | undefined;
   let center: Block;
   let table: Block;
-  if (geometry && input.arrangement === "right") {
+  if (geometry) {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
-    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, board.width), title: "You", you: true, sizes }) : undefined;
-    center = down(
-      [board, you].filter((b): b is Block => b !== undefined),
-      ROW_GAP,
+    const supply = columns(
+      shared.map((p) => supplyBlock(p, input, sizes)),
+      Math.max(board.depth, 40),
     );
-    const beside = columns([...shared.map((p) => supplyBlock(p, input, sizes)), ...rivals.map(rivalMat)], Math.max(center.depth, 40));
-    table = beside ? across([center, beside], SIDE_GAP) : center;
-  } else {
-    if (geometry) {
-      const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
-      const supply = columns(
-        shared.map((p) => supplyBlock(p, input, sizes)),
-        Math.max(board.depth, 40),
-      );
-      middle = supply ? across([board, supply], 3) : board;
-    } else if (shared.length > 0) {
-      middle = across(
-        shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false, sizes })),
-        3,
-      );
-    }
-    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes }) : undefined;
-    if (input.arrangement === "stack") {
-      // Rivals in a row under the middle, the viewer's mat below them.
-      const row = rivals.length > 0 ? across([...leftSide.reverse(), ...rightSide], SIDE_GAP) : undefined;
-      center = down(
-        [middle, row, you].filter((b): b is Block => b !== undefined),
-        ROW_GAP,
-      );
-      table = center;
-      table.place(0, table.depth / 2, out);
-      return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);
-    }
-    center = down(
-      [middle, you].filter((b): b is Block => b !== undefined),
-      ROW_GAP,
-    );
-    table = across(
-      [leftSide.length > 0 ? down(leftSide, 2) : undefined, center, rightSide.length > 0 ? down(rightSide, 2) : undefined].filter(
-        (b): b is Block => b !== undefined,
-      ),
-      SIDE_GAP,
+    middle = supply ? across([board, supply], 3) : board;
+  } else if (shared.length > 0) {
+    middle = across(
+      shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false, sizes })),
+      3,
     );
   }
+  const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes }) : undefined;
+  if (input.arrangement === "stack") {
+    // Rivals in a row under the middle, the viewer's mat below them.
+    const row = rivals.length > 0 ? across([...leftSide.reverse(), ...rightSide], SIDE_GAP) : undefined;
+    center = down(
+      [middle, row, you].filter((b): b is Block => b !== undefined),
+      ROW_GAP,
+    );
+    table = center;
+    table.place(0, table.depth / 2, out);
+    return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);
+  }
+  center = down(
+    [middle, you].filter((b): b is Block => b !== undefined),
+    ROW_GAP,
+  );
+  table = across(
+    [leftSide.length > 0 ? down(leftSide, 2) : undefined, center, rightSide.length > 0 ? down(rightSide, 2) : undefined].filter(
+      (b): b is Block => b !== undefined,
+    ),
+    SIDE_GAP,
+  );
   table.place(0, table.depth / 2, out);
   // The viewer's hand is held up in front of the middle.
   return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);

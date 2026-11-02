@@ -73,7 +73,7 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
     }
   });
 
-  test.each(["right", "stack"] as const)("with the %s arrangement, lets no mat overlap another or the board", (arrangement) => {
+  test.each(["stack"] as const)("with the %s arrangement, lets no mat overlap another or the board", (arrangement) => {
     for (const { layout } of playout(game, 5, 20, arrangement)) {
       const rects = [
         ...layout.mats.map((m) => ({ id: m.id, x: m.position[0], z: m.position[2], w: m.width, d: m.depth })),
@@ -119,13 +119,13 @@ describe("a table laid out before the window has a size", () => {
   const panels = game.panels?.(state, 0) ?? [];
   const geometry = game.geometry!(state, 0);
 
-  test.each(["sides", "right", "stack"] as const)("still lays out with no scale (%s)", (arrangement) => {
+  test.each(["sides", "stack"] as const)("still lays out with no scale (%s)", (arrangement) => {
     const layout = layoutTable({ panels, geometry, human: 0, targets: new Set(), resources: resourcesOf(game), pxPerUnit: Number.NaN, arrangement });
     expect(layout.mats.length).toBeGreaterThan(0);
     for (const p of layout.outline) expect(p.every(Number.isFinite)).toBe(true);
   });
 
-  test.each(["sides", "right", "stack"] as const)("still lays out a board with no extent (%s)", (arrangement) => {
+  test.each(["sides", "stack"] as const)("still lays out a board with no extent (%s)", (arrangement) => {
     const flat = { ...geometry, width: 0, height: 0, cells: [], pieces: [] };
     const layout = layoutTable({ panels, geometry: flat, human: 0, targets: new Set(), resources: resourcesOf(game), arrangement });
     for (const p of layout.outline) expect(p.every(Number.isFinite)).toBe(true);
@@ -144,7 +144,7 @@ describe("a table fitted to a screen", () => {
 
   test("a wide screen keeps chips full size; a phone stacks the rivals and shrinks the chips", () => {
     const wide = fitTable(inputAt(state, 0), desktop);
-    expect(["sides", "right"]).toContain(wide.arrangement);
+    expect(wide.arrangement).toBe("sides");
     expect(wide.chipScale).toBe(1);
     const tall = fitTable(inputAt(state, 0), phone);
     expect(tall.arrangement).toBe("stack");
@@ -174,4 +174,26 @@ test("the chips' measures match the stylesheet", () => {
   expect(rule(".badge-chip,\n.badge-note,\n.turn-pill {")).toContain(`height: ${CHIP.height}px`);
   expect(rule(".badge-note > span {")).toContain(`-webkit-line-clamp: ${CHIP.noteLines}`);
   expect(rule(".badge-note > span {")).toContain(`line-height: ${CHIP.noteLine}px`);
+});
+
+describe("rivals round the table", () => {
+  const board = { width: 10, height: 8, cells: [{ id: "c", polygon: [[0, 0], [10, 0], [10, 8], [0, 8]] as [number, number][] }], pieces: [] };
+  const seat = (owner: number) => ({ id: `seat${owner}`, title: `Player ${owner + 1}`, zone: "players" as const, owner, counters: [] });
+  test.each([
+    [2, 1, 1],
+    [3, 2, 1],
+    [4, 2, 2],
+    [5, 3, 2],
+  ])("seats %i rivals as %i on the left and %i on the right", (rivals, left, right) => {
+    const panels = [seat(0), ...Array.from({ length: rivals }, (_, i) => seat(i + 1))];
+    const { layout, arrangement } = fitTable(
+      { panels, geometry: board, human: 0, active: 0, targets: new Set(), resources: new Map() },
+      { width: 1707, height: 960, insets: { top: 60, right: 0, bottom: 80, left: 0 } },
+    );
+    expect(arrangement).toBe("sides");
+    const middle = layout.board!.position[0];
+    const rivalMats = layout.mats.filter((m) => !m.shared && m.id !== "seat0");
+    expect(rivalMats.filter((m) => m.position[0] < middle).length).toBe(left);
+    expect(rivalMats.filter((m) => m.position[0] > middle).length).toBe(right);
+  });
 });
