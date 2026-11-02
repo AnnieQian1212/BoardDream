@@ -1,4 +1,4 @@
-import type { ResourceSpec } from "@boarddream/engine";
+import { scoreOf, type ResourceSpec } from "@boarddream/engine";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Star } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
@@ -14,7 +14,6 @@ import { SPOT_TOP, TILE_TOP } from "./Board3D";
  * crisp and avoids a React root per label.
  */
 
-const SCORE = /score|points|vp/i;
 
 /** Stacks stop growing at 24 cards: taller ones hide the title of their mat in perspective. */
 export const deckHeight = (count: number) => Math.max(0.05, Math.min(count, 24) * 0.04);
@@ -171,7 +170,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
         </div>
       )}
       {layout.badges.map((badge) => {
-        const score = badge.counters.find((c) => SCORE.test(c.label));
+        const score = scoreOf(badge.counters);
         const rest = badge.counters.filter((c) => c !== score);
         return (
           <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`} data-room={`room:${badge.id}`}>

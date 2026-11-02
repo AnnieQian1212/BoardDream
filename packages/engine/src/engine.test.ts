@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { fitBounds, fuzz, overlappingCells, playMatch, randomBot, rectPolygon, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
+import { fitBounds, fuzz, isDeck, isScore, overlappingCells, playMatch, randomBot, rectPolygon, scoreOf, simulate, squareGridGeometry, type Bot, type Counter, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -165,5 +165,23 @@ describe("board cells that cover each other", () => {
 
   test("building spots, roads and labels may sit on tiles", () => {
     expect(overlappingCells([square("tile", 0, 0, 2), square("v1", 0.9, 0.9, 0.2, "vertex"), square("e1", 0.5, 0.5, 0.2, "edge"), square("name", 0, 0, 2, "label")])).toBeNull();
+  });
+});
+
+describe("the table's vocabulary", () => {
+  const counter = (label: string, resource?: string): Counter => ({ id: label, label, value: 1, resource });
+
+  test("reads the names games give their points as the score, but never a resource", () => {
+    for (const label of ["Score", "Victory points", "VP", "Prestige", "Renown", "Glory", "Honour"]) expect(isScore(counter(label)), label).toBe(true);
+    for (const label of ["Coins", "Cards in hand", "Round", "Waves"]) expect(isScore(counter(label)), label).toBe(false);
+    expect(isScore(counter("Prestige", "prestige"))).toBe(false);
+    expect(scoreOf([counter("Coins", "coins"), counter("Round"), counter("Score")])?.label).toBe("Score");
+    expect(scoreOf(undefined)).toBeUndefined();
+  });
+
+  test("reads stacks of cards as decks", () => {
+    for (const label of ["Deck", "Draw pile", "Discard pile", "Event stack"]) expect(isDeck(counter(label)), label).toBe(true);
+    expect(isDeck(counter("Coins"))).toBe(false);
+    expect(isDeck(counter("Stacked stone", "stone"))).toBe(false);
   });
 });

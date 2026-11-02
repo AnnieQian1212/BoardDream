@@ -6,4 +6,5 @@ export * from "./match";
 export * from "./fuzz";
 export * from "./sim";
 export * from "./heuristic";
+export * from "./table";
 export * from "./profile";

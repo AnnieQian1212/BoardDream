@@ -1,4 +1,4 @@
-import type { Panel, ResourceSpec } from "@boarddream/engine";
+import { scoreOf, type Panel, type ResourceSpec } from "@boarddream/engine";
 import type { CSSProperties } from "react";
 import { playerColor } from "../colors";
 import { Card } from "./Card";
@@ -19,7 +19,7 @@ interface Props {
 export function PlayerMat({ panel, resources, you, active, targets, onTarget, layout }: Props) {
   const color = playerColor(panel.owner);
   const counters = panel.counters ?? [];
-  const score = counters.find((c) => /score|points|vp/i.test(c.label));
+  const score = scoreOf(counters);
   const rest = counters.filter((c) => c !== score);
   return (
     <section className={["mat", layout, active && "active"].filter(Boolean).join(" ")} style={{ "--seat": color } as CSSProperties}>

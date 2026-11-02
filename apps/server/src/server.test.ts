@@ -7,11 +7,11 @@ import { cleanDials } from "./agent/dials";
 import { ALL_SETTINGS, ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
 import type { Dials } from "./agent/spec";
 import { ModelClient } from "./meta/client";
-import { extractCode, specMessages } from "./agent/prompts";
+import { extractCode, revisionMessages, specMessages } from "./agent/prompts";
 import { alignmentReport, maskIoU, rasterizePolygon } from "./art/alignment";
 import { renderGuide } from "./art/board";
 import { encodePng, pngSize } from "./art/png";
-import { squareGridGeometry } from "@boarddream/engine";
+import { isDeck, isScore, squareGridGeometry } from "@boarddream/engine";
 import { loadGameFromSource } from "./sandbox";
 
 // What a generated module looks like: take 1-3 stones, last stone wins.
@@ -131,6 +131,16 @@ module.exports = {
     const stats = playtest(backwards, { games: 20 });
     expect(stats.plannerWinRate!).toBeLessThan(0.375);
     expect(playIssues(stats, "competitive").join(" ")).toMatch(/mid-game scores mislead/);
+  });
+});
+
+describe("the rules prompt", () => {
+  it("names the score and deck counters with words the table reads", () => {
+    const system = String(revisionMessages("", "a change")[0].content);
+    const labels = [...system.matchAll(/counter\s+labelled "([^"]+)"/g)].map((m) => m[1]);
+    expect(labels).toEqual(["Score", "Deck"]);
+    expect(isScore({ id: "s", label: labels[0], value: 0 })).toBe(true);
+    expect(isDeck({ id: "d", label: labels[1], value: 0 })).toBe(true);
   });
 });
 

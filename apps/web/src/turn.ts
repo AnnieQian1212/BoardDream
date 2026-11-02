@@ -1,4 +1,4 @@
-import type { Counter, GameModule, Geometry, Panel } from "@boarddream/engine";
+import { isDeck, type GameModule, type Geometry, type Panel } from "@boarddream/engine";
 import { instruction, type TargetKind } from "./instructions";
 
 /**
@@ -25,9 +25,6 @@ export interface Turn {
   /** What to do this turn ("Click a glowing corner to settle"), when anything glows. */
   instruction?: string;
 }
-
-/** A shared counter that counts a stack of cards: drawn as a face-down deck, not a chip. */
-export const isDeck = (c: Counter) => !c.resource && /deck|draw|pile|stack/i.test(c.label);
 
 /**
  * What an id the moves point at is on the table: a board cell (corner, edge or space), a card, a

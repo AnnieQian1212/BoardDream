@@ -1,7 +1,6 @@
-import type { CardView, Counter, Geometry, Panel, ResourceSpec } from "@boarddream/engine";
+import { isDeck, type CardView, type Counter, type Geometry, type Panel, type ResourceSpec } from "@boarddream/engine";
 import { Quaternion, Vector3 } from "three";
 import { playerColor } from "../colors";
-import { isDeck } from "../turn";
 import { tableScale, type Insets } from "./camera";
 
 /**

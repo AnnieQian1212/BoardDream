@@ -1,5 +1,6 @@
 import type { Bot } from "./match";
 import type { Rng } from "./rng";
+import { scoreOf } from "./table";
 import type { GameModule, Geometry, Panel, PlayerId } from "./types";
 
 /**
@@ -7,8 +8,6 @@ import type { GameModule, Geometry, Panel, PlayerId } from "./types";
  * counts the table shows, prefers moves that improve its lead, and optionally checks its best few
  * candidates with short random playouts.
  */
-
-const SCORE = /score|points|\bvp\b|victory|prestige|influence|renown|glory|fame|honou?r/i;
 
 function safely<T>(fn: () => T, fallback: T): T {
   try {
@@ -21,7 +20,7 @@ function safely<T>(fn: () => T, fallback: T): T {
 /** Worth of one seat's panel: its score, plus a little for resources held and cards played. */
 function seatValue(panel: Panel): number {
   const counters = panel.counters ?? [];
-  const score = counters.find((c) => SCORE.test(c.label))?.value ?? 0;
+  const score = scoreOf(counters)?.value ?? 0;
   const goods = counters.filter((c) => c.resource).reduce((sum, c) => sum + c.value, 0);
   return score + 0.12 * goods + 0.3 * (panel.cards?.length ?? 0);
 }
@@ -45,7 +44,7 @@ function scoreLead(game: GameModule, state: unknown, player: PlayerId, seats: Pa
   if (scores && scores.length > 1 && scores.every(Number.isFinite)) {
     return (scores[player] ?? 0) - Math.max(...scores.filter((_, seat) => seat !== player));
   }
-  const counters = seats.map((p) => ({ seat: p.owner!, score: p.counters?.find((c) => SCORE.test(c.label))?.value ?? 0 }));
+  const counters = seats.map((p) => ({ seat: p.owner!, score: scoreOf(p.counters)?.value ?? 0 }));
   const mine = counters.find((c) => c.seat === player)?.score ?? 0;
   const rivals = counters.filter((c) => c.seat !== player).map((c) => c.score);
   return rivals.length ? mine - Math.max(...rivals) : 0;
