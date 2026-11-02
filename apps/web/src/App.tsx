@@ -1,10 +1,11 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles, Trash2 } from "lucide-react";
+import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, LayoutGrid, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
 import { CreatePanel } from "./components/CreatePanel";
+import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
 import { LogPanel, type LogEntry } from "./components/LogPanel";
@@ -95,6 +96,7 @@ export function App() {
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
   const [stats, setStats] = useState<BalanceStats>();
   const [results, setResults] = useState(query.has("results"));
+  const [library, setLibrary] = useState(query.has("games"));
   const [printing, setPrinting] = useState(false);
   // The rules card opens the first time a game is played in this browser (not while bots play alone).
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -346,7 +348,9 @@ export function App() {
               ))}
           </select>
         </label>
-        {generatedSource(game) && !generating && <DeleteGame key={game.meta.id} onDelete={() => removeGame(game)} />}
+        <button type="button" className="ghost" onClick={() => setLibrary(true)} title="Every game on one page: the demo games and the ones generated here">
+          <LayoutGrid size={15} /> Games
+        </button>
         <span className="tagline">{game.meta.summary}</span>
         <button
           type="button"
@@ -444,8 +448,21 @@ export function App() {
         )}
         <LogPanel entries={match.log} human={HUMAN} />
       </aside>
-      {rulesOpen && !results && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
+      {rulesOpen && !results && !library && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
       {results && <ResultsPage onClose={() => setResults(false)} />}
+      {library && (
+        <GameLibrary
+          games={games}
+          current={game}
+          busy={generating}
+          onPlay={(g) => {
+            selectGame(g);
+            setLibrary(false);
+          }}
+          onDelete={removeGame}
+          onClose={() => setLibrary(false)}
+        />
+      )}
       {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}
     </div>
   );
@@ -467,26 +484,6 @@ function markRulesSeen(id: string) {
   } catch {
     // Not remembered; nothing else depends on it.
   }
-}
-
-/** Deletes the generated game on the table, after asking once. */
-function DeleteGame({ onDelete }: { onDelete(): void }) {
-  const [asking, setAsking] = useState(false);
-  return asking ? (
-    <span className="delete-ask" role="group" aria-label="Delete this game?">
-      Delete this game?
-      <button type="button" className="ghost danger" onClick={onDelete}>
-        Delete
-      </button>
-      <button type="button" className="ghost" onClick={() => setAsking(false)}>
-        Keep
-      </button>
-    </span>
-  ) : (
-    <button type="button" className="ghost icon-only" onClick={() => setAsking(true)} title="Delete this generated game" aria-label="Delete this generated game">
-      <Trash2 size={15} />
-    </button>
-  );
 }
 
 function BrandMark() {

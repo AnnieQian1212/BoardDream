@@ -273,8 +273,7 @@ type ChipSizes = ReturnType<typeof chipSizes>;
 
 /**
  * A shared supply standing upright beside the board: its piles in rows under the header, then its
- * deck and cards in a grid one to three cards wide, so a market runs down the table instead of
- * across it.
+ * deck and cards two to a row, so a market runs down the table instead of across it.
  */
 function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block {
   const title = panel.title;
@@ -285,7 +284,8 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const cards = panel.cards ?? [];
   const gap = 0.6;
   const slots = decks.length + cards.length;
-  const cols = slots > 8 ? 3 : slots > 3 ? 2 : 1;
+  // Two cards to a row, then the next row.
+  const cols = slots > 1 ? 2 : 1;
   const rows = Math.ceil(slots / cols);
   // The header holds the title and, when they fit beside it, the counters' chips and the note.
   // Too many for that, and they wrap in rows across the top of the mat's body instead.

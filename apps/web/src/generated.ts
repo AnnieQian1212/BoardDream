@@ -16,7 +16,23 @@ interface SavedGame {
   id: string;
   title?: string;
   rules?: string[];
+  createdAt?: string;
+  idea?: string;
 }
+
+/** What is known about a generated game beyond its rules: when it was made, and from what idea. */
+export interface GameOrigin {
+  createdAt?: string;
+  idea?: string;
+}
+
+const origins = new WeakMap<GameModule, GameOrigin>();
+
+/** When a generated game was made and from what idea, where known. */
+export const gameOrigin = (game: GameModule) => origins.get(game);
+
+/** Records a generated game's origin (a game just made, which the server has not listed yet). */
+export const rememberOrigin = (game: GameModule, origin: GameOrigin) => void origins.set(game, origin);
 
 /**
  * Games generated earlier: those bundled with the web app (public/demo-games, so a static deploy
@@ -39,11 +55,14 @@ export async function savedGames(): Promise<GameModule[]> {
   ];
   const hidden = hiddenGames();
   const games: GameModule[] = [];
-  for (const { id, title, rules, url } of sources) {
+  for (const { id, title, rules, url, createdAt, idea } of sources) {
     if (hidden.has(id) || games.some((g) => g.meta.id === id)) continue;
     try {
       const res = await fetch(url);
-      if (res.ok) games.push(loadGeneratedGame(await res.text(), id, rules, title));
+      if (!res.ok) continue;
+      const game = loadGeneratedGame(await res.text(), id, rules, title);
+      origins.set(game, { createdAt, idea });
+      games.push(game);
     } catch {
       // Skip it; the others still load.
     }

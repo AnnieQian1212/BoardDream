@@ -1,7 +1,7 @@
 import type { GameModule, PlayMode } from "@boarddream/engine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mechanicLabel } from "./dials";
-import { loadGeneratedGame } from "./generated";
+import { loadGeneratedGame, rememberOrigin } from "./generated";
 import { readEvents } from "./sse";
 
 /** Mirrors Dials in apps/server/src/agent/spec.ts. */
@@ -263,6 +263,7 @@ export function useGeneration(onReady: (game: GameModule) => void) {
         if (!result) throw new Error(failure ?? "the server closed the connection");
         if (!result.ok) return update({ ...g, done: { ok: false, title: result.spec.title } });
         const game = loadGeneratedGame(result.source, result.id, result.spec.rules);
+        rememberOrigin(game, { createdAt: new Date().toISOString(), idea: g.idea });
         update({ ...g, done: { ok: true, title: result.spec.title, game } });
         onReady(game);
       } catch (err) {
