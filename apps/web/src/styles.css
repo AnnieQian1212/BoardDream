@@ -3133,9 +3133,8 @@ button.pile-count.target {
   gap: clamp(40px, 8vh, 80px);
 }
 
-/* As wide as the row of games under it. */
 .home-hero {
-  width: 100%;
+  width: min(760px, 100%);
   margin: 0 auto;
   text-align: center;
 }
@@ -3151,9 +3150,8 @@ button.pile-count.target {
 }
 
 .home-lede {
-  max-width: 920px;
+  max-width: 540px;
   margin: 0 auto 28px;
-  text-wrap: balance;
   color: var(--muted);
   font-size: 17px;
   line-height: 1.5;
