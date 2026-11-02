@@ -1385,6 +1385,10 @@ button.card {
   transform: translate(-100%, 0);
 }
 
+.mat-badge.wrap.start {
+  justify-content: flex-start;
+}
+
 .badge-chip,
 .badge-note,
 .turn-pill {

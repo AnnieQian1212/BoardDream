@@ -173,7 +173,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
         const rest = badge.counters.filter((c) => c !== score);
         return (
           <div key={badge.id} className="label" data-anchor={`badge:${badge.id}`} data-room={`room:${badge.id}`}>
-            <div className={badge.wrap ? "mat-badge wrap" : "mat-badge"}>
+            <div className={["mat-badge", badge.wrap && "wrap", badge.wrap && badge.start && "start"].filter(Boolean).join(" ")}>
               {badge.active && <span className="turn-pill">{badge.you ? "Your turn" : "Thinking…"}</span>}
               {badge.note && (
                 <span className="badge-note" title={badge.note}>

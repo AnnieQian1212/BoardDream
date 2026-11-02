@@ -98,6 +98,12 @@ export interface BadgeItem {
   seat?: number;
   /** Too many chips for the header: they wrap in rows from `position` down across the mat. */
   wrap?: boolean;
+  /**
+   * Wrapped chips line up on the mat's left instead of its right. A rival mat left of the middle
+   * leans away from the camera's centre, its right edge drawing in row by row, so chips held to
+   * that edge would run over it a few rows down; its left edge draws away from them.
+   */
+  start?: boolean;
 }
 
 export interface BoardItem {
@@ -515,6 +521,7 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
         you: false,
         seat,
         wrap: true,
+        start: x < 0,
       });
       const body = top + HEADER + chipsDepth;
       const pileLeft = x - (Math.min(piles.length, perRow) * pile) / 2;
