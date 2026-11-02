@@ -4,6 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Hint, useHint } from "../components/Hint";
+import { useFontsReady } from "../fonts";
 import { thinkingLine, turnOf, type MoveButton } from "../turn";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
@@ -11,7 +12,6 @@ import { tidyPanels } from "../panels";
 import { setCursor, setHover, useHover } from "./hover";
 import { labelAnchors, Labels, markAnchors, type TargetMark } from "./Labels";
 import { fitTable, type Arrangement } from "./layout";
-import { FONT_DISPLAY, FONT_UI } from "./paint";
 import { initialTier, settings, stepDown } from "./quality";
 import type { BoardPaint } from "./Board3D";
 import { Scene, type Insets } from "./Scene";
@@ -92,16 +92,6 @@ function useViewport() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   return size;
-}
-
-/** Canvas text needs the web fonts loaded before the first card is painted. */
-function useFontsReady(): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const faces = [`600 40px ${FONT_DISPLAY}`, `500 20px ${FONT_UI}`, `700 20px ${FONT_UI}`];
-    Promise.all(faces.map((font) => document.fonts.load(font))).finally(() => setReady(true));
-  }, []);
-  return ready;
 }
 
 /** The seat whose move produced the current state. */
