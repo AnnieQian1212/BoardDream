@@ -5,6 +5,7 @@ import { useEscape } from "../escape";
 import { AccountButton } from "./Account";
 import { splitVersion } from "../names";
 import { BrandMark } from "./BrandMark";
+import { ThemeToggle } from "./ThemeToggle";
 import { FavoriteButton } from "./GameLibrary";
 import { useFavorites } from "../favorites";
 
@@ -79,6 +80,7 @@ export function TopBar(props: Props) {
           <MoreMenu {...props} />
         </>
       )}
+      <ThemeToggle />
       {props.onInvite && <AccountButton />}
       <button type="button" className="action topbar-new" onClick={props.onHome} disabled={making} title="Dream up a new game" aria-label="New game">
         <Wand2 size={16} /> <span className="btn-label">New game</span>

@@ -4,6 +4,7 @@ import { gameOrigin, generatedSource } from "../generated";
 import { splitVersion } from "../names";
 import type { Dials } from "../generation";
 import { AccountButton } from "./Account";
+import { ThemeToggle } from "./ThemeToggle";
 import { BrandMark } from "./BrandMark";
 import { DreamForm } from "./DreamForm";
 import { GameCover } from "./GameCover";
@@ -65,6 +66,7 @@ export function Home({ games, covers, available, making, onGenerate, onPlay, onW
           <button type="button" className="quiet" onClick={onResults} title="How every game is tested, and the benchmarks behind it" aria-label="Behind the scenes">
             <BarChart3 size={16} /> <span className="btn-label">Behind the scenes</span>
           </button>
+          <ThemeToggle />
           {accounts && <AccountButton />}
         </nav>
       </header>

@@ -18,6 +18,7 @@ import type { Quality } from "./quality";
 import { InkViewport } from "./Ink";
 import { lean } from "./focus";
 import { tableTexture, textureUpdates } from "./textures";
+import { useTheme } from "../theme";
 
 export type { Insets } from "./camera";
 
@@ -45,7 +46,8 @@ interface Props {
 export function Scene({ layout, resources, targets, insets, labels, mover, quality, boardPaint, onSlow, onPick }: Props) {
   const leaving = useLeaving(layout, mover);
   const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => invalidate(), [layout, quality, invalidate]);
+  const theme = useTheme();
+  useEffect(() => invalidate(), [layout, quality, theme, invalidate]);
   // Tokens fall with real physics, except at the lowest quality or when less motion is asked for.
   const physics = quality.tier !== "lowest" && !reducedMotion;
   useEffect(() => {
@@ -58,12 +60,13 @@ export function Scene({ layout, resources, targets, insets, labels, mover, quali
   const extent = Math.max(max[0] - min[0], max[2] - min[2]) / 2 + 12;
   return (
     <>
-      <color attach="background" args={["#e6dac8"]} />
+      {/* The room round the table: daylight, or a lamp-lit evening in the dark theme. */}
+      <color attach="background" args={[theme === "dark" ? "#17120e" : "#e6dac8"]} />
       <CameraRig layout={layout} insets={insets} />
       <InkViewport />
       <FrameMonitor onSlow={onSlow} />
-      <Lights center={center} extent={extent} quality={quality} />
-      <Environment resolution={128} environmentIntensity={0.5}>
+      <Lights center={center} extent={extent} quality={quality} evening={theme === "dark"} />
+      <Environment resolution={128} environmentIntensity={theme === "dark" ? 0.32 : 0.5}>
         <Lightformer form="rect" intensity={2} color="#fffaf0" position={[-20, 60, 10]} rotation-x={Math.PI / 2} scale={[80, 50, 1]} />
         <Lightformer form="rect" intensity={1} color="#dfe8ff" position={[70, 25, -20]} rotation-y={-Math.PI / 2} scale={[60, 20, 1]} />
         <Lightformer form="rect" intensity={0.8} color="#fff1dc" position={[0, 18, 80]} rotation-y={Math.PI} scale={[80, 16, 1]} />
@@ -146,19 +149,22 @@ function FrameMonitor({ onSlow }: { onSlow?(): void }) {
   return null;
 }
 
-/** Sky light, a key light that casts the shadows, and a cool fill. */
-function Lights({ center, extent, quality }: { center: Vec3; extent: number; quality: Quality }) {
+/**
+ * Sky light, a key light that casts the shadows, and a cool fill. In the dark theme the room is an
+ * evening one: less sky, a warmer lamp, the same key so everything on the table still reads.
+ */
+function Lights({ center, extent, quality, evening }: { center: Vec3; extent: number; quality: Quality; evening: boolean }) {
   const target = useMemo(() => new Object3D(), []);
   const [x, , z] = center;
   return (
     <>
       <primitive object={target} position={center} />
-      <hemisphereLight args={["#fffaf0", "#c9ae8c", 1.15]} />
+      <hemisphereLight args={[evening ? "#ffe9c9" : "#fffaf0", evening ? "#7a5f45" : "#c9ae8c", evening ? 0.72 : 1.15]} />
       <directionalLight
         target={target}
         position={[x - 45, 90, z + 35]}
-        intensity={1.9}
-        color="#fff3e0"
+        intensity={evening ? 1.75 : 1.9}
+        color={evening ? "#ffe4bd" : "#fff3e0"}
         castShadow={quality.shadows}
         shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
         shadow-bias={-0.0004}
@@ -171,7 +177,7 @@ function Lights({ center, extent, quality }: { center: Vec3; extent: number; qua
         shadow-camera-near={20}
         shadow-camera-far={260}
       />
-      <directionalLight position={[x + 60, 40, z - 40]} intensity={0.4} color="#dce6ff" />
+      <directionalLight position={[x + 60, 40, z - 40]} intensity={evening ? 0.22 : 0.4} color="#dce6ff" />
     </>
   );
 }

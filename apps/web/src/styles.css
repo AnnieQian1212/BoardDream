@@ -1,4 +1,10 @@
-:root {
+/*
+ * Light values: the page in the light theme, and in either theme the things that stand for objects
+ * on a real table (the 3D table and its chips, the flat table, the print sheet), which stay printed
+ * on paper in the dark theme too.
+ */
+:root,
+:is(.stage, .flat-stage, .print-overlay, .cover-board) {
   --page: #eadcc0;
   --wood-1: #ead6b6;
   --wood-2: #dcc29b;
@@ -20,16 +26,73 @@
   --cover: #4d6b4a;
   --paper: #fbf5e8;
   --paper-2: #efe3c9;
+  /* Ink for text and drawn lines. */
   --ink: #2d2016;
   --ink-muted: #5f5547;
+  --ink-rgb: 45 32 22;
+  /* Borders and the hard shadow under them: ink in the light theme. */
+  --rule: var(--ink);
+  --shadow: var(--ink);
+  /* Soft shadows, and the pale paper that buttons and glass panes are tinted with. */
+  --shadow-rgb: 70 48 25;
+  --surface-rgb: 255 250 239;
+  /* Pale tints that set a section off (a game card's library sheet, a soft success). */
+  --sheet: #ece3d6;
+  --tip-bg: var(--ink);
+  --tip-text: #fbf3e1;
+  /* Text fields, the page color as numbers (for the top bar's fade), and the home page's glow. */
+  --field: #fff;
+  --code: #fbf8f1;
+  --page-rgb: 234 220 192;
+  --glow: rgba(255, 248, 232, 0.9);
+  --sheen: rgba(255, 255, 255, 0.9);
   /* Storybook print: an inked edge with a hard shadow under it, like a printed sticker. */
-  --edge: 1.5px solid var(--ink);
-  --lift: 0 2px 0 var(--ink);
-  --lift-panel: 0 3px 0 var(--ink), 0 14px 30px rgba(70, 48, 25, 0.16);
+  --edge: 1.5px solid var(--rule);
+  --lift: 0 2px 0 var(--shadow);
+  --lift-panel: 0 3px 0 var(--shadow), 0 14px 30px rgb(var(--shadow-rgb) / 0.16);
   --font-display: "Fraunces Variable", Georgia, serif;
   --display-soft: "SOFT" 100, "WONK" 1;
   --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
+  /* Text inherited from a dark page would be pale on the table's paper. */
+  color: var(--text);
+}
+
+/*
+ * The dark theme: a lamp-lit evening, warm browns rather than grey, with the same teal and gold.
+ * Borders are a soft line and the hard shadow is near black, so the printed-sticker look holds.
+ */
+:root[data-theme="dark"] {
+  --page: #17120e;
+  --glass: rgba(255, 240, 220, 0.04);
+  --glass-strong: rgba(40, 32, 25, 0.85);
+  --panel: #241d17;
+  --card: #2d251e;
+  --line: rgba(255, 236, 210, 0.13);
+  --text: #f1e6d4;
+  --muted: #c9b79d;
+  --faint: #9c8a73;
+  --accent: #2fb3c4;
+  --accent-strong: #5cc8d6;
+  --accent-soft: rgba(47, 179, 196, 0.16);
+  --paper: #2a221b;
+  --paper-2: #33291f;
+  --ink: #f1e6d4;
+  --ink-muted: #c9b79d;
+  --ink-rgb: 241 230 212;
+  --rule: #5d4c3b;
+  --shadow: #0b0806;
+  --shadow-rgb: 0 0 0;
+  --surface-rgb: 44 36 29;
+  --sheet: #1d1712;
+  --tip-bg: #f1e6d4;
+  --tip-text: #1d1712;
+  --field: #1c1611;
+  --code: #1c1611;
+  --page-rgb: 23 18 14;
+  --glow: rgba(217, 162, 51, 0.1);
+  --sheen: rgba(255, 236, 205, 0.05);
+  color-scheme: dark;
 }
 
 * {
@@ -78,6 +141,26 @@ button {
   background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 60%, rgba(110, 72, 36, 0.16));
 }
 
+/* In the dark theme the table is lamp-lit: the light falls off toward the room's edges. */
+/* Colours that carry a meaning, lifted so they read on the dark page. */
+:root[data-theme="dark"] :is(.gen-reason, .dream-problem, .room-problem, .account-problem) {
+  color: #f0a27e !important;
+}
+
+:root[data-theme="dark"] .ghost.favorite.on {
+  color: #f2c65e;
+  background: rgba(217, 162, 51, 0.16);
+  border-color: rgba(242, 198, 94, 0.45);
+}
+
+:root[data-theme="dark"] .tok-string {
+  color: #8fc47f;
+}
+
+:root[data-theme="dark"] .stage::after {
+  background: radial-gradient(ellipse 80% 75% at 50% 48%, transparent 50%, rgba(12, 8, 5, 0.6));
+}
+
 .flat-stage {
   display: flex;
   padding-top: 76px;
@@ -100,7 +183,7 @@ button {
   align-items: center;
   gap: 4px;
   padding: 10px 16px 20px;
-  background: linear-gradient(180deg, rgba(234, 220, 192, 0.95), rgba(234, 220, 192, 0.7) 60%, rgba(234, 220, 192, 0));
+  background: linear-gradient(180deg, rgb(var(--page-rgb) / 0.95), rgb(var(--page-rgb) / 0.7) 60%, rgb(var(--page-rgb) / 0));
   pointer-events: none;
 }
 
@@ -148,8 +231,8 @@ button {
   gap: 7px;
   padding: 7px 14px;
   border-radius: 999px;
-  border: 1.5px solid rgba(45, 32, 22, 0.28);
-  background: rgba(255, 250, 239, 0.75);
+  border: 1.5px solid rgb(var(--ink-rgb) / 0.28);
+  background: rgb(var(--surface-rgb) / 0.75);
   cursor: pointer;
   font-weight: 600;
   transition:
@@ -159,7 +242,7 @@ button {
 
 .ghost:hover:not(:disabled) {
   background: var(--card);
-  border-color: var(--ink);
+  border-color: var(--rule);
 }
 
 .ghost:active:not(:disabled) {
@@ -173,7 +256,7 @@ button {
 
 .ghost.on {
   color: var(--accent-strong);
-  background: #dff0ec;
+  background: var(--accent-soft);
 }
 
 .ghost.icon-only {
@@ -275,7 +358,7 @@ textarea,
 .field input[type="number"] {
   font: inherit;
   color: var(--text);
-  background: #fff;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 12px;
@@ -331,7 +414,7 @@ input[type="range"] {
   grid-template-columns: repeat(3, 1fr);
   padding: 3px;
   border-radius: 12px;
-  background: rgba(45, 32, 22, 0.06);
+  background: rgb(var(--ink-rgb) / 0.06);
   border: var(--edge);
 }
 
@@ -349,7 +432,7 @@ input[type="range"] {
 .segmented button.on {
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 0 0 1.5px var(--ink);
+  box-shadow: 0 0 0 1.5px var(--rule);
 }
 
 .toggle {
@@ -371,7 +454,7 @@ input[type="range"] {
   width: 34px;
   height: 20px;
   border-radius: 999px;
-  background: rgba(42, 37, 32, 0.18);
+  background: rgb(var(--ink-rgb) / 0.18);
   position: relative;
   transition: background 0.2s;
 }
@@ -512,12 +595,12 @@ input[type="range"] {
 
 .action:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 0 var(--ink), inset 0 1.5px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 3px 0 var(--shadow), inset 0 1.5px 0 rgba(255, 255, 255, 0.25);
 }
 
 .action:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: 0 1px 0 var(--ink);
+  box-shadow: 0 1px 0 var(--shadow);
 }
 
 .action:disabled {
@@ -532,9 +615,9 @@ input[type="range"] {
 }
 
 .action.secondary {
-  background: rgba(255, 250, 239, 0.75);
+  background: rgb(var(--surface-rgb) / 0.75);
   color: var(--text);
-  border: 1.5px solid rgba(45, 32, 22, 0.28);
+  border: 1.5px solid rgb(var(--ink-rgb) / 0.28);
   box-shadow: none;
   font-weight: 600;
   padding: 6px 13px;
@@ -542,7 +625,7 @@ input[type="range"] {
 
 .action.secondary:hover {
   background: var(--card);
-  border-color: var(--ink);
+  border-color: var(--rule);
   box-shadow: none;
 }
 
@@ -623,7 +706,7 @@ input[type="range"] {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.4),
     inset 0 0 120px rgba(120, 80, 40, 0.18),
-    0 18px 40px rgba(70, 48, 25, 0.18);
+    0 18px 40px rgb(var(--shadow-rgb) / 0.18);
   scrollbar-width: thin;
 }
 
@@ -656,7 +739,7 @@ input[type="range"] {
   padding: 7px 14px;
   border-radius: 999px;
   background: rgba(255, 252, 247, 0.92);
-  box-shadow: 0 4px 14px rgba(70, 48, 25, 0.12);
+  box-shadow: 0 4px 14px rgb(var(--shadow-rgb) / 0.12);
   border: 1px solid var(--line);
   font-weight: 600;
   transition: box-shadow 0.3s;
@@ -691,7 +774,7 @@ input[type="range"] {
   border-radius: 18px;
   background: rgba(255, 252, 247, 0.78);
   border: 1px solid var(--line);
-  box-shadow: 0 6px 18px rgba(70, 48, 25, 0.12);
+  box-shadow: 0 6px 18px rgb(var(--shadow-rgb) / 0.12);
   transition: box-shadow 0.35s;
 }
 
@@ -830,7 +913,7 @@ button.chip {
   background: linear-gradient(180deg, var(--paper), var(--paper-2));
   color: var(--ink);
   text-align: left;
-  box-shadow: var(--lift), 0 8px 20px rgba(70, 48, 25, 0.2);
+  box-shadow: var(--lift), 0 8px 20px rgb(var(--shadow-rgb) / 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -957,7 +1040,7 @@ button.card {
 }
 
 .card.target {
-  box-shadow: 0 0 0 2px var(--accent), 0 0 22px -2px rgba(19, 143, 159, 0.7), 0 12px 26px rgba(70, 48, 25, 0.3);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 22px -2px rgba(19, 143, 159, 0.7), 0 12px 26px rgb(var(--shadow-rgb) / 0.3);
 }
 
 .card.target:hover {
@@ -1048,7 +1131,7 @@ button.card {
   bottom: -20px;
   z-index: 2;
   background: rgb(255, 252, 247);
-  box-shadow: 0 -6px 18px rgba(70, 48, 25, 0.12);
+  box-shadow: 0 -6px 18px rgb(var(--shadow-rgb) / 0.12);
 }
 
 .action-dock {
@@ -1121,7 +1204,7 @@ button.card {
   z-index: 35;
   display: grid;
   place-items: center;
-  background: rgba(60, 42, 24, 0.28);
+  background: rgb(var(--shadow-rgb) / 0.28);
   animation: fade 0.4s ease;
 }
 
@@ -1140,7 +1223,7 @@ button.card {
   padding: 26px 30px;
   border-radius: 20px;
   background: var(--panel);
-  border: 2px solid var(--ink);
+  border: 2px solid var(--rule);
   box-shadow: var(--lift-panel);
   text-align: center;
 }
@@ -1172,8 +1255,8 @@ button.card {
   border-radius: 22px;
   text-align: center;
   background: var(--panel);
-  border: 2px solid var(--ink);
-  box-shadow: 0 4px 0 var(--ink), 0 30px 70px rgba(70, 48, 25, 0.3);
+  border: 2px solid var(--rule);
+  box-shadow: 0 4px 0 var(--shadow), 0 30px 70px rgb(var(--shadow-rgb) / 0.3);
   animation: rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
@@ -1505,7 +1588,7 @@ button.badge-chip {
   font-variant-numeric: tabular-nums;
   border: var(--edge);
   box-shadow: var(--lift);
-  text-shadow: 0 1px 0 rgba(45, 32, 22, 0.45);
+  text-shadow: 0 1px 0 rgb(var(--ink-rgb) / 0.45);
   white-space: nowrap;
 }
 
@@ -1543,8 +1626,8 @@ button.pile-count.target {
   border-radius: 16px;
   pointer-events: none;
   box-shadow:
-    0 0 0 1px rgba(42, 37, 32, 0.08),
-    0 24px 50px rgba(70, 48, 25, 0.35);
+    0 0 0 1px rgb(var(--ink-rgb) / 0.08),
+    0 24px 50px rgb(var(--shadow-rgb) / 0.35);
   animation: pop-in 0.18s ease-out;
 }
 
@@ -1574,7 +1657,7 @@ button.pile-count.target {
   height: 30px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(42, 37, 32, 0.07);
+  background: rgb(var(--ink-rgb) / 0.07);
   display: grid;
   place-items: center;
   font-size: 12.5px;
@@ -1635,7 +1718,7 @@ button.pile-count.target {
   border: var(--edge);
   box-shadow:
     var(--lift),
-    0 10px 26px rgba(70, 48, 25, 0.28);
+    0 10px 26px rgb(var(--shadow-rgb) / 0.28);
   animation: speech-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
 }
 
@@ -1750,7 +1833,7 @@ button.pile-count.target {
   z-index: 60;
   overflow-y: auto;
   padding: 32px 20px 48px;
-  background: #ece3d6;
+  background: var(--sheet);
 }
 
 .library-sheet {
@@ -1804,14 +1887,14 @@ button.pile-count.target {
   max-width: min(340px, calc(100vw - 48px));
   padding: 8px 12px;
   border-radius: 10px;
-  background: var(--ink);
-  color: #fbf3e1;
+  background: var(--tip-bg);
+  color: var(--tip-text);
   font-family: var(--font-ui);
   font-variation-settings: normal;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.45;
-  box-shadow: 0 10px 24px rgba(70, 48, 25, 0.25);
+  box-shadow: 0 10px 24px rgb(var(--shadow-rgb) / 0.25);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-3px);
@@ -1959,7 +2042,7 @@ button.pile-count.target {
   gap: 14px;
   padding: 20px;
   text-align: center;
-  background: rgba(251, 243, 225, 0.94);
+  background: rgb(var(--surface-rgb) / 0.94);
 }
 
 .game-card-ask p {
@@ -1978,7 +2061,7 @@ button.pile-count.target {
   z-index: 60;
   overflow-y: auto;
   padding: 32px 16px;
-  background: #ece3d6;
+  background: var(--sheet);
 }
 
 .results-sheet {
@@ -2021,7 +2104,7 @@ button.pile-count.target {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(70, 48, 25, 0.08);
+  box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / 0.08);
 }
 
 .stat {
@@ -2157,7 +2240,7 @@ button.pile-count.target {
   display: block;
   height: 100%;
   border-radius: 0 4px 4px 0;
-  background: #cfc6b9;
+  background: rgb(var(--ink-rgb) / 0.22);
 }
 
 .bar.best {
@@ -2227,8 +2310,8 @@ button.pile-count.target {
   padding: 26px 30px 24px;
   border-radius: 22px;
   background: var(--panel);
-  border: 2px solid var(--ink);
-  box-shadow: 0 4px 0 var(--ink), 0 30px 70px rgba(70, 48, 25, 0.3);
+  border: 2px solid var(--rule);
+  box-shadow: 0 4px 0 var(--shadow), 0 30px 70px rgb(var(--shadow-rgb) / 0.3);
   animation: rise 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
@@ -2336,7 +2419,7 @@ button.pile-count.target {
   padding: 12mm;
   background: #fff;
   color: #1d1914;
-  box-shadow: 0 8px 30px rgba(40, 30, 20, 0.25);
+  box-shadow: 0 8px 30px rgb(var(--shadow-rgb) / 0.25);
 }
 
 .print-page h1 {
@@ -2549,7 +2632,7 @@ button.pile-count.target {
 .gen-bar {
   height: 8px;
   border-radius: 999px;
-  background: rgba(42, 37, 32, 0.08);
+  background: rgb(var(--ink-rgb) / 0.08);
   overflow: hidden;
 }
 
@@ -2612,7 +2695,7 @@ button.pile-count.target {
   top: 24px;
   bottom: 2px;
   width: 2px;
-  background: rgba(42, 37, 32, 0.1);
+  background: rgb(var(--ink-rgb) / 0.1);
 }
 
 .gen-item.done:not(:last-child)::before {
@@ -2627,7 +2710,7 @@ button.pile-count.target {
   display: grid;
   place-items: center;
   color: var(--faint);
-  background: rgba(42, 37, 32, 0.05);
+  background: rgb(var(--ink-rgb) / 0.05);
 }
 
 .gen-item.done .gen-mark {
@@ -2711,7 +2794,7 @@ button.pile-count.target {
 }
 
 .gen-item.later .gen-model {
-  background: rgba(42, 37, 32, 0.06);
+  background: rgb(var(--ink-rgb) / 0.06);
   color: var(--faint);
 }
 
@@ -2741,7 +2824,7 @@ button.pile-count.target {
 .gen-code {
   padding: 6px 8px;
   border-radius: 8px;
-  background: #fbf8f1;
+  background: var(--code);
   border: 1px solid var(--line);
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 10.5px;
@@ -2756,7 +2839,7 @@ button.pile-count.target {
 }
 
 .tok-comment {
-  color: #8b8172;
+  color: var(--faint);
   font-style: italic;
 }
 
@@ -2826,7 +2909,7 @@ button.pile-count.target {
 }
 
 .gen-grid rect {
-  fill: rgba(42, 37, 32, 0.08);
+  fill: rgb(var(--ink-rgb) / 0.08);
 }
 
 .gen-grid rect.played {
@@ -2897,10 +2980,10 @@ button.pile-count.target {
   padding: 30px 34px 26px;
   border-radius: 24px;
   background:
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 18% 0%, var(--sheen), transparent 55%),
     var(--paper);
-  border: 2px solid var(--ink);
-  box-shadow: 0 4px 0 var(--ink), 0 24px 60px rgba(70, 48, 25, 0.18);
+  border: 2px solid var(--rule);
+  box-shadow: 0 4px 0 var(--shadow), 0 24px 60px rgb(var(--shadow-rgb) / 0.18);
   animation: rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
@@ -2921,11 +3004,11 @@ button.pile-count.target {
   border-radius: 18px;
   background: linear-gradient(160deg, #5a7c55, var(--cover));
   color: #f6efe1;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--rule);
   box-shadow:
     inset 0 0 0 4px rgba(241, 227, 194, 0.35),
-    0 3px 0 var(--ink),
-    0 10px 24px rgba(45, 32, 22, 0.2);
+    0 3px 0 var(--shadow),
+    0 10px 24px rgb(var(--ink-rgb) / 0.2);
 }
 
 .stage-cover .rules-kicker {
@@ -2994,7 +3077,7 @@ button.pile-count.target {
   background: var(--card);
   border: var(--edge);
   border-top: 6px solid var(--gold);
-  box-shadow: var(--lift), 0 6px 14px rgba(70, 48, 25, 0.12);
+  box-shadow: var(--lift), 0 6px 14px rgb(var(--shadow-rgb) / 0.12);
   transform: rotate(var(--tilt, 0deg));
   animation: deal 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
 }
@@ -3062,8 +3145,8 @@ button.pile-count.target {
   gap: 8px;
   padding: 9px 10px;
   border-radius: 10px;
-  background: rgba(255, 250, 239, 0.8);
-  border: 1.5px dashed rgba(45, 32, 22, 0.35);
+  background: rgb(var(--surface-rgb) / 0.8);
+  border: 1.5px dashed rgb(var(--ink-rgb) / 0.35);
   font-size: 12.5px;
   line-height: 1.35;
   animation: gen-in 0.4s ease-out both;
@@ -3128,7 +3211,7 @@ button.pile-count.target {
   display: block;
   height: 14px;
   border-radius: 7px;
-  background: linear-gradient(90deg, rgba(42, 37, 32, 0.06), rgba(42, 37, 32, 0.12), rgba(42, 37, 32, 0.06));
+  background: linear-gradient(90deg, rgb(var(--ink-rgb) / 0.06), rgb(var(--ink-rgb) / 0.12), rgb(var(--ink-rgb) / 0.06));
   background-size: 200% 100%;
   animation: gen-flow 1.4s linear infinite;
 }
@@ -3167,7 +3250,7 @@ button.pile-count.target {
   border-radius: 14px;
   background: var(--panel);
   border: 1px solid var(--line);
-  box-shadow: 0 10px 24px rgba(70, 48, 25, 0.14);
+  box-shadow: 0 10px 24px rgb(var(--shadow-rgb) / 0.14);
   animation: gen-in 0.4s ease-out both;
 }
 
@@ -3211,7 +3294,7 @@ button.pile-count.target {
 }
 
 .quiet:hover:not(:disabled) {
-  background: rgba(45, 32, 22, 0.08);
+  background: rgb(var(--ink-rgb) / 0.08);
 }
 
 .quiet.on {
@@ -3243,7 +3326,7 @@ button.pile-count.target {
 .app.home-screen {
   overflow-y: auto;
   background:
-    radial-gradient(ellipse 60% 45% at 50% 22%, rgba(255, 248, 232, 0.9), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 50% 22%, var(--glow), transparent 70%),
     var(--page);
 }
 
@@ -3311,10 +3394,10 @@ button.pile-count.target {
   justify-content: center;
   gap: 12px 16px;
   padding: 20px;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--rule);
   border-radius: 22px;
   background: var(--card);
-  box-shadow: 0 4px 0 var(--ink), 0 24px 60px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 4px 0 var(--shadow), 0 24px 60px rgb(var(--shadow-rgb) / 0.16);
   font-size: 16px;
 }
 
@@ -3329,15 +3412,15 @@ button.pile-count.target {
 /* An inked box on a hard ink shadow, like a printed sticker, with a soft shadow under it all. */
 .dream-box {
   padding: 16px 16px 10px;
-  border: 1.5px solid var(--ink);
+  border: 1.5px solid var(--rule);
   border-radius: 22px;
   background: var(--card);
-  box-shadow: 0 4px 0 var(--ink), 0 24px 60px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 4px 0 var(--shadow), 0 24px 60px rgb(var(--shadow-rgb) / 0.16);
   transition: box-shadow 0.2s;
 }
 
 .dream-box:focus-within {
-  box-shadow: 0 4px 0 var(--ink), 0 0 0 5px rgba(19, 143, 159, 0.18), 0 24px 60px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 4px 0 var(--shadow), 0 0 0 5px rgba(19, 143, 159, 0.18), 0 24px 60px rgb(var(--shadow-rgb) / 0.16);
 }
 
 .dream-box textarea {
@@ -3433,7 +3516,7 @@ button.pile-count.target {
   gap: 4px;
   margin-top: 8px;
   padding-top: 10px;
-  border-top: 1.5px dashed rgba(45, 32, 22, 0.16);
+  border-top: 1.5px dashed rgb(var(--ink-rgb) / 0.16);
 }
 
 .dream-go {
@@ -3478,9 +3561,9 @@ button.pile-count.target {
 
 .dream-examples button {
   padding: 6px 13px;
-  border: 1.5px solid rgba(45, 32, 22, 0.22);
+  border: 1.5px solid rgb(var(--ink-rgb) / 0.22);
   border-radius: 999px;
-  background: rgba(255, 250, 239, 0.65);
+  background: rgb(var(--surface-rgb) / 0.65);
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
@@ -3488,7 +3571,7 @@ button.pile-count.target {
 }
 
 .dream-examples button:hover:not(:disabled) {
-  border-color: var(--ink);
+  border-color: var(--rule);
   background: var(--card);
 }
 
@@ -3508,7 +3591,7 @@ button.pile-count.target {
   border: var(--edge);
   border-radius: 18px;
   background: var(--panel);
-  box-shadow: 0 2px 6px rgba(70, 48, 25, 0.08), 0 14px 30px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 2px 6px rgb(var(--shadow-rgb) / 0.08), 0 14px 30px rgb(var(--shadow-rgb) / 0.16);
   animation: rise 0.3s ease;
 }
 
@@ -3572,7 +3655,7 @@ button.pile-count.target {
   border-radius: 16px;
   background: var(--panel);
   /* Soft shadows only, like the idea box: a hard ink one doubled the line at the corners. */
-  box-shadow: 0 2px 6px rgba(70, 48, 25, 0.08), 0 14px 30px rgba(70, 48, 25, 0.16);
+  box-shadow: 0 2px 6px rgb(var(--shadow-rgb) / 0.08), 0 14px 30px rgb(var(--shadow-rgb) / 0.16);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -3585,7 +3668,7 @@ button.pile-count.target {
 
 .home-game:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 4px 10px rgba(70, 48, 25, 0.1), 0 18px 36px rgba(70, 48, 25, 0.2);
+  box-shadow: 0 4px 10px rgb(var(--shadow-rgb) / 0.1), 0 18px 36px rgb(var(--shadow-rgb) / 0.2);
 }
 
 .home-game:disabled {
@@ -3786,14 +3869,14 @@ button.pile-count.target {
 }
 
 .brand-home:hover {
-  background: rgba(45, 32, 22, 0.07);
+  background: rgb(var(--ink-rgb) / 0.07);
 }
 
 .table-title {
   min-width: 0;
   margin: 0 0 0 4px;
   padding-left: 14px;
-  border-left: 1.5px solid rgba(45, 32, 22, 0.2);
+  border-left: 1.5px solid rgb(var(--ink-rgb) / 0.2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3946,7 +4029,7 @@ button.pile-count.target {
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
-  background: rgba(45, 32, 22, 0.07);
+  background: rgb(var(--ink-rgb) / 0.07);
 }
 
 .designer-head [role="tab"] {
@@ -3964,7 +4047,7 @@ button.pile-count.target {
 .designer-head [role="tab"].on {
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 1px 0 rgba(45, 32, 22, 0.35);
+  box-shadow: 0 1px 0 rgb(var(--ink-rgb) / 0.35);
 }
 
 .designer-body {
@@ -3982,7 +4065,7 @@ button.pile-count.target {
 }
 
 .designer .panel + .panel {
-  border-top: 1.5px dashed rgba(45, 32, 22, 0.16);
+  border-top: 1.5px dashed rgb(var(--ink-rgb) / 0.16);
 }
 
 @media (max-width: 760px) {
@@ -4181,10 +4264,10 @@ button.pile-count.target {
   left: 50%;
   bottom: 100%;
   padding: 1px 7px;
-  border: 1.5px solid var(--ink);
+  border: 1.5px solid var(--rule);
   border-radius: 999px;
   background: var(--card);
-  box-shadow: 0 2px 0 var(--ink);
+  box-shadow: 0 2px 0 var(--shadow);
   font-size: 13px;
   font-weight: 800;
   line-height: 1.3;
@@ -4260,7 +4343,7 @@ a.quiet {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(60, 42, 24, 0.32);
+  background: rgb(var(--shadow-rgb) / 0.32);
   animation: fade 0.25s ease;
 }
 
@@ -4319,7 +4402,7 @@ a.quiet {
   font: inherit;
   font-size: 15px;
   color: var(--text);
-  background: #fff;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 12px;
@@ -4444,7 +4527,7 @@ a.quiet {
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgb(var(--surface-rgb) / 0.55);
   font-weight: 600;
 }
 
@@ -4461,7 +4544,7 @@ a.quiet {
 .room-tag {
   padding: 2px 9px;
   border-radius: 999px;
-  background: rgba(45, 32, 22, 0.08);
+  background: rgb(var(--ink-rgb) / 0.08);
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -4534,7 +4617,7 @@ a.quiet {
   padding: 5px 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 252, 247, 0.88);
+  background: rgb(var(--surface-rgb) / 0.88);
   font-size: 13px;
   font-weight: 600;
   transition: box-shadow 0.2s, border-color 0.2s;
