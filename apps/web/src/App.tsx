@@ -18,7 +18,10 @@ import { Home } from "./components/Home";
 import { TableGuard } from "./components/TableGuard";
 import { TopBar } from "./components/TopBar";
 import { BalanceSection, TuneSection } from "./components/TuningPanel";
+import { useAccount } from "./account";
+import { SignInDialog } from "./components/Account";
 import { useCovers } from "./covers";
+import { openTable } from "./room";
 import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
 import { useGeneration, type Dials } from "./generation";
@@ -31,6 +34,7 @@ import type { SimRequest } from "./sim.worker";
 import { BATTLE_SECONDS } from "./three/Battle3D";
 import { reducedMotion } from "./three/motion";
 import { Tabletop } from "./three/Tabletop";
+import { hasWebGL } from "./webgl";
 
 const HUMAN = 0;
 const SIM_GAMES = 200;
@@ -52,13 +56,6 @@ const TOP_INSET = 66;
 const GUIDE_INSET = 112;
 const BOTTOM_INSET = 92;
 
-function hasWebGL(): boolean {
-  try {
-    return document.createElement("canvas").getContext("webgl2") !== null;
-  } catch {
-    return false;
-  }
-}
 /** The game on the table until another is picked: one with a painted board, the table at its best. */
 const FIRST_GAME = "lantern-isles";
 const firstGame = demoGames.find((g) => g.meta.id === FIRST_GAME) ?? demoGames[0];
@@ -122,10 +119,13 @@ export function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [opponentModel, setOpponentModel] = useState<string>();
   const [canGenerate, setCanGenerate] = useState(false);
+  // Accounts and tables shared with friends, when the server keeps them.
+  const [tables, setTables] = useState(false);
   useEffect(() => {
     fetch("/api/health")
-      .then((res) => res.json() as Promise<{ hasApiKey?: boolean; canGenerate?: boolean; opponentModel?: string }>)
+      .then((res) => res.json() as Promise<{ hasApiKey?: boolean; canGenerate?: boolean; opponentModel?: string; tables?: boolean }>)
       .then((health) => {
+        setTables(Boolean(health.tables));
         setHasApiKey(Boolean(health.hasApiKey));
         setCanGenerate(Boolean(health.canGenerate));
         setOpponentModel(health.opponentModel);
@@ -336,9 +336,43 @@ export function App() {
     setRulesOpen(false);
   };
 
+  // Inviting friends opens a table for this game on the server and goes there; the link to send
+  // is on that page. Signing in comes first.
+  const { user } = useAccount();
+  const [inviting, setInviting] = useState<"sign-in" | "opening">();
+  const [inviteProblem, setInviteProblem] = useState<string>();
+  useEffect(() => {
+    if (!inviteProblem) return;
+    const timer = setTimeout(() => setInviteProblem(undefined), 6000);
+    return () => clearTimeout(timer);
+  }, [inviteProblem]);
+  const openForFriends = async () => {
+    setInviting("opening");
+    try {
+      const code = await openTable(game.meta.id, numPlayers, params);
+      window.location.assign(`${import.meta.env.BASE_URL}?room=${code}`);
+    } catch (err) {
+      setInviting(undefined);
+      setInviteProblem(`Could not open a table: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+  const invite = tables && !generating ? () => (user ? void openForFriends() : setInviting("sign-in")) : undefined;
+
   const overlays = (
     <>
       {results && <ResultsPage onClose={() => setResults(false)} />}
+      {inviting === "sign-in" && (
+        <SignInDialog
+          reason={`Sign in to invite friends to ${game.meta.name}. They sign in too, and the link seats them at your table.`}
+          onDone={() => void openForFriends()}
+          onClose={() => setInviting(undefined)}
+        />
+      )}
+      {inviteProblem && (
+        <div className="room-toast" role="alert">
+          {inviteProblem}
+        </div>
+      )}
       {library && (
         <GameLibrary
           games={games}
@@ -366,6 +400,7 @@ export function App() {
           onWatch={toTable}
           onLibrary={() => setLibrary(true)}
           onResults={() => setResults(true)}
+          accounts={tables}
         />
         {overlays}
       </div>
@@ -411,6 +446,7 @@ export function App() {
         onPrint={() => setPrinting(true)}
         onLog={() => openDesigner("log")}
         onResults={() => setResults(true)}
+        onInvite={invite}
       />
 
       {generation && (

@@ -1,5 +1,6 @@
 import * as engine from "@boarddream/engine";
 import { randomPlayout, type GameModule, type Geometry } from "@boarddream/engine";
+import { referenceGames } from "@boarddream/library";
 import * as mechanics from "@boarddream/library/mechanics";
 
 const MODULES: Record<string, unknown> = {
@@ -33,6 +34,36 @@ export const gameOrigin = (game: GameModule) => origins.get(game);
 
 /** Records a generated game's origin (a game just made, which the server has not listed yet). */
 export const rememberOrigin = (game: GameModule, origin: GameOrigin) => void origins.set(game, origin);
+
+/**
+ * One game by its id, wherever it lives: the library, the server's saved games, or those bundled
+ * with the web app. For a table shared with friends, which names its game by id.
+ */
+export async function gameById(id: string): Promise<GameModule | undefined> {
+  const library = referenceGames.find((g) => g.meta.id === id);
+  if (library) return library;
+  const bundled = `${import.meta.env.BASE_URL}demo-games/`;
+  const places = [
+    { list: "/api/games", url: (game: string) => `/api/games/${game}` },
+    { list: `${bundled}index.json`, url: (game: string) => `${bundled}${game}.js` },
+  ];
+  for (const place of places) {
+    try {
+      const res = await fetch(place.list);
+      if (!res.ok) continue;
+      const entry = ((await res.json()) as SavedGame[]).find((g) => g.id === id);
+      if (!entry) continue;
+      const source = await fetch(place.url(id));
+      if (!source.ok) continue;
+      const game = loadGeneratedGame(await source.text(), id, entry.rules, entry.title);
+      origins.set(game, { createdAt: entry.createdAt, idea: entry.idea });
+      return game;
+    } catch {
+      // Try the next place.
+    }
+  }
+  return undefined;
+}
 
 /**
  * Games generated earlier: those bundled with the web app (public/demo-games, so a static deploy

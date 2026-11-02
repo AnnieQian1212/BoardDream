@@ -3,6 +3,7 @@ import { ArrowRight, BarChart3, LayoutGrid, Loader2, Play } from "lucide-react";
 import { gameOrigin, generatedSource } from "../generated";
 import { splitVersion } from "../names";
 import type { Dials } from "../generation";
+import { AccountButton } from "./Account";
 import { BrandMark } from "./BrandMark";
 import { DreamForm } from "./DreamForm";
 import { GameCover } from "./GameCover";
@@ -33,13 +34,15 @@ interface Props {
   onWatch(): void;
   onLibrary(): void;
   onResults(): void;
+  /** The server keeps accounts, for tables shared with friends. */
+  accounts?: boolean;
 }
 
 /**
  * The first page: one question, what to play, with a box to answer it in; below it, ready games to
  * deal into straight away. Everything about how games are tested lives behind the scenes.
  */
-export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults }: Props) {
+export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults, accounts }: Props) {
   const demos = games.filter((g) => !generatedSource(g)).sort((a, b) => shelfRank(a) - shelfRank(b));
   const recent = games
     .filter((g) => generatedSource(g))
@@ -62,6 +65,7 @@ export function Home({ games, covers, available, making, onGenerate, onPlay, onW
           <button type="button" className="quiet" onClick={onResults} title="How every game is tested, and the benchmarks behind it" aria-label="Behind the scenes">
             <BarChart3 size={16} /> <span className="btn-label">Behind the scenes</span>
           </button>
+          {accounts && <AccountButton />}
         </nav>
       </header>
 

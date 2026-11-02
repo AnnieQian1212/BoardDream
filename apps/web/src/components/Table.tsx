@@ -18,7 +18,10 @@ interface Props {
   numPlayers: number;
   human: number;
   onMove(move: unknown): void;
-  onRestart(): void;
+  /** Deal again; absent at a shared table for everyone but its host. */
+  onRestart?(): void;
+  /** Players' names by seat, at a table shared with friends. */
+  names?: (string | undefined)[];
 }
 
 interface Menu {
@@ -30,7 +33,7 @@ interface Menu {
 }
 
 /** The play area: rival mats, board and market, your mat and hand, and the moves you can make. */
-export function Table({ game, state, numPlayers, human, onMove, onRestart }: Props) {
+export function Table({ game, state, numPlayers, human, onMove, onRestart, names }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null);
   useEffect(() => setMenu(null), [state]);
   const { hint, ask } = useHint(game, state, human);
@@ -60,7 +63,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const shared = panels.filter((p) => p.zone === "shared");
   const hand = panels.find((p) => p.zone === "hand");
 
-  const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : active !== undefined ? `Player ${active + 1} is thinking…` : "";
+  const status = myTurn ? `Your turn${todo ? ` · ${todo}` : ""}` : active !== undefined ? `${names?.[active] ?? `Player ${active + 1}`} is thinking…` : "";
 
   return (
     <div className="table">
@@ -135,7 +138,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
         </div>
       )}
 
-      {over && <Result game={game} state={state} human={human} onRestart={onRestart} />}
+      {over && <Result game={game} state={state} human={human} onRestart={onRestart} names={names} />}
     </div>
   );
 }
@@ -170,7 +173,7 @@ function SharedPanel(props: { panel: Panel; resources: Map<string, ResourceSpec>
   );
 }
 
-export function Result({ game, state, human, onRestart }: { game: GameModule; state: unknown; human: number; onRestart(): void }) {
+export function Result({ game, state, human, onRestart, names }: { game: GameModule; state: unknown; human: number; onRestart?(): void; names?: (string | undefined)[] }) {
   const outcome = game.outcome(state);
   const { scores } = outcome;
   const headline = resultHeadline(game.meta.mode, outcome, human);
@@ -187,15 +190,19 @@ export function Result({ game, state, human, onRestart }: { game: GameModule; st
               .map(({ score, seat }) => (
                 <li key={seat} style={{ "--seat": playerColor(seat) } as CSSProperties}>
                   <span className="seat-dot" />
-                  {seat === human ? "You" : `Player ${seat + 1}`}
+                  {seat === human ? "You" : (names?.[seat] ?? `Player ${seat + 1}`)}
                   <b>{score}</b>
                 </li>
               ))}
           </ol>
         )}
-        <button type="button" className="action" onClick={onRestart}>
-          Play again
-        </button>
+        {onRestart ? (
+          <button type="button" className="action" onClick={onRestart}>
+            Play again
+          </button>
+        ) : (
+          <p className="result-wait">The host can deal another game.</p>
+        )}
       </div>
     </div>
   );

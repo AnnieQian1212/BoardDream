@@ -33,7 +33,10 @@ interface Props {
   /** A game's first visit: a short guide (how to win, where to look) instead of the full rules. */
   guide?: Guide;
   onMove(move: unknown): void;
-  onRestart(): void;
+  /** Deal again; absent at a shared table for everyone but its host. */
+  onRestart?(): void;
+  /** Players' names by seat, at a table shared with friends. */
+  names?: (string | undefined)[];
 }
 
 export interface Guide {
@@ -108,7 +111,7 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
@@ -263,7 +266,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
                 {todo && <span className="todo">{todo}</span>}
               </span>
             ) : (
-              <span className="status">{active !== undefined ? `Player ${active + 1} is thinking…` : ""}</span>
+              <span className="status">{active !== undefined ? `${names?.[active] ?? `Player ${active + 1}`} is thinking…` : ""}</span>
             )}
             {myTurn && <Hint hint={hint} onAsk={ask} onMove={onMove} />}
             {buttons.map((button) => (
@@ -285,7 +288,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
         </div>
       )}
 
-      {over && <Result game={game} state={state} human={human} onRestart={onRestart} />}
+      {over && <Result game={game} state={state} human={human} onRestart={onRestart} names={names} />}
     </div>
   );
 }

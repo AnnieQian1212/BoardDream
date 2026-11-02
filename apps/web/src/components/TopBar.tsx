@@ -1,7 +1,8 @@
 import type { GameModule } from "@boarddream/engine";
-import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, ScrollText, SlidersHorizontal, Sparkles, Wand2 } from "lucide-react";
+import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, ScrollText, SlidersHorizontal, Sparkles, Users, Wand2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEscape } from "../escape";
+import { AccountButton } from "./Account";
 import { splitVersion } from "../names";
 import { BrandMark } from "./BrandMark";
 
@@ -22,6 +23,8 @@ interface Props {
   onPrint(): void;
   onLog(): void;
   onResults(): void;
+  /** Opens a table friends can join; absent where no server keeps accounts (the static demo). */
+  onInvite?(): void;
 }
 
 /**
@@ -62,9 +65,15 @@ export function TopBar(props: Props) {
           >
             <SlidersHorizontal size={16} /> <span className="btn-label">Designer</span>
           </button>
+          {props.onInvite && (
+            <button type="button" className="quiet" onClick={props.onInvite} title="Open a table for this game and send friends the link" aria-label="Invite friends">
+              <Users size={16} /> <span className="btn-label">Invite friends</span>
+            </button>
+          )}
           <MoreMenu {...props} />
         </>
       )}
+      {props.onInvite && <AccountButton />}
       <button type="button" className="action topbar-new" onClick={props.onHome} disabled={making} title="Dream up a new game" aria-label="New game">
         <Wand2 size={16} /> <span className="btn-label">New game</span>
       </button>

@@ -31,7 +31,7 @@ flowchart LR
 
 ## Try it
 
-Requires Node 22+.
+Requires Node 22.13+.
 
 ```sh
 npm install
@@ -41,6 +41,7 @@ npm run dev               # http://localhost:5173
 
 - The home page asks what you want to play. Type an idea, pick an example or press **Surprise me**, then **Dream it up**; the dials are under **Advanced settings**. Below are the four demo games and your newest one.
 - A first game opens with a short note on how to win. The bar at the bottom says what to do each turn, what you can click glows, and **Hint** marks the bot's move on the table. **Rules** has the full rules.
+- **Invite friends** (on the table's bar) opens a table for the game and gives you a link. Friends sign in with a name and a password and take a seat; seats nobody takes are played by bots, and the server referees every move. It needs the full server, not the static demo.
 - **Print and play** (in the `…` menu) makes an A4 kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
 - `?game=lantern-isles&watch` lets bots play a whole game.

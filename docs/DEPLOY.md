@@ -8,6 +8,7 @@ Two setups, depending on what the public demo should do.
 | Generated games bundled in `apps/web/public/demo-games` | yes | yes |
 | AI opponents (Muse Spark Open) | yes, through an edge function | yes |
 | Generating new games, painting art | no | yes |
+| Accounts, and tables shared with friends | no | yes |
 | Host | Cloudflare Pages (free plan) | any container host |
 
 ## Static demo: Cloudflare Pages
@@ -40,4 +41,5 @@ docker run -p 7860:7860 -e MODEL_API_KEY=... -e OPEN_MODEL_API_KEY=... -e OPEN_M
 - `PUBLIC_DEMO=1` turns on the rate limits: per client 3 generations an hour, 2 paintings an hour and 120 opponent moves per 10 minutes; in all, 40 generations, 20 paintings and 5,000 moves a day.
 - Generation runs fuzzing in worker threads capped at 512 MB each: give it about 2 CPUs and 2 GB.
 - Generated games are saved under `data/`, which most hosts wipe on restart; bundled demo games are part of the image.
+- Accounts, sessions and shared tables live in `data/boarddream.db` (SQLite through Node's built-in driver, nothing to install). Mount a persistent volume at `/app/data` to keep them, and generated games, across restarts. Passwords are stored as scrypt hashes; the session cookie is http-only and SameSite=Lax, and is marked Secure behind HTTPS (the server reads `X-Forwarded-Proto`).
 - Without a container host: `npm run build -w @boarddream/web`, then `SERVE_WEB=1 npm run start -w @boarddream/server`.
