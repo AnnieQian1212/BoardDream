@@ -72,7 +72,6 @@ export function Home({ games, covers, available, making, onGenerate, onPlay, onW
       <main className="home-main">
         <section className="home-hero">
           <h1>What do you want to play tonight?</h1>
-          <p className="home-lede">Describe a board game in a sentence. BoardDream designs it, playtests it a thousand times and deals you in.</p>
           {making ? (
             <div className="home-making" role="status">
               <Loader2 size={18} className="spin" />

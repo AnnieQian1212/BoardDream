@@ -1,4 +1,4 @@
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { signIn, signOut, useAccount, type User } from "../account";
 import { useEscape } from "../escape";
@@ -34,8 +34,11 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
   return (
     <div className="modal" role="presentation" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <form className="account-card" role="dialog" aria-modal="true" aria-labelledby="account-title" onSubmit={submit}>
+        <button type="button" className="ghost icon-only account-close" onClick={onClose} aria-label="Close">
+          <X size={16} />
+        </button>
         <h2 id="account-title">{signingUp ? "Make an account" : "Sign in"}</h2>
-        <p className="account-why">{reason ?? "Sign in to invite friends to play your games."}</p>
+        {reason && <p className="account-why">{reason}</p>}
         <label className="account-field">
           <span>Name</span>
           <input ref={first} value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" maxLength={24} required />

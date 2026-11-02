@@ -3263,22 +3263,20 @@ button.pile-count.target {
   text-align: center;
 }
 
+/* One line at any width: the question may run wider than the box under it, never onto two lines. */
 .home-hero h1 {
-  margin: 0 0 14px;
+  position: relative;
+  left: 50%;
+  width: max-content;
+  margin: 0 0 28px;
+  transform: translateX(-50%);
+  white-space: nowrap;
   font-family: var(--font-display);
   font-variation-settings: var(--display-soft);
-  font-size: clamp(32px, 5.2vw, 58px);
+  font-size: clamp(20px, calc((100vw - 32px) / 17.5), 54px);
   font-weight: 650;
   line-height: 1.04;
   letter-spacing: -0.015em;
-}
-
-.home-lede {
-  max-width: 540px;
-  margin: 0 auto 28px;
-  color: var(--muted);
-  font-size: 17px;
-  line-height: 1.5;
 }
 
 .home-note {
@@ -4247,7 +4245,14 @@ a.quiet {
   animation: fade 0.25s ease;
 }
 
+.account-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
 .account-card {
+  position: relative;
   width: min(380px, 100%);
   display: flex;
   flex-direction: column;

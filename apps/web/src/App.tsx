@@ -364,7 +364,6 @@ export function App() {
       {results && <ResultsPage onClose={() => setResults(false)} />}
       {inviting === "sign-in" && (
         <SignInDialog
-          reason={`Sign in to invite friends to ${game.meta.name}. They sign in too, and the link seats them at your table.`}
           onDone={() => void openForFriends()}
           onClose={() => setInviting(undefined)}
         />

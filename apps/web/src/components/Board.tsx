@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { PLAYER_COLORS, TILE_COLORS } from "../colors";
 import { useFontsReady } from "../fonts";
 import { tileColor, zoneColors } from "../three/ground";
+import { sizeGroups } from "../sizeGroups";
 
 interface Props {
   geometry: Geometry;
@@ -125,13 +126,31 @@ function useFittedPrint(geometry: Geometry) {
     // Sizes are tuned for cells about one unit wide; boards drawn in bigger units scale them up.
     const unit = Math.max(1, tiles.sort((a, b) => a - b)[Math.floor(tiles.length / 2)] ?? 1);
     const next = new Map<string, Fit>();
-    for (const cell of geometry.cells) {
-      const badge = cell.kind === "label" || cell.badge === undefined ? undefined : String(cell.badge);
-      if (!cell.label && !badge) continue;
-      const key = `${cell.id}|${cell.label ?? ""}|${badge ?? ""}|${cell.polygon.join(";")}|${unit}`;
-      const known = cache.current.get(key) ?? fitCell(text, cell, badge, unit);
+    const fit = (cell: GeometryCell, badge: string | undefined, cap?: number) => {
+      const key = `${cell.id}|${cell.label ?? ""}|${badge ?? ""}|${cell.polygon.join(";")}|${unit}|${cap ?? ""}`;
+      const known = cache.current.get(key) ?? fitCell(text, cell, badge, unit, cap);
       cache.current.set(key, known);
-      next.set(cell.id, known);
+      return known;
+    };
+    const badgeOf = (cell: GeometryCell) => (cell.kind === "label" || cell.badge === undefined ? undefined : String(cell.badge));
+    // Places of one kind and size print their names at one size, that of the name with least room:
+    // a row of stalls with names as large as each could hold reads as untidy.
+    const sizeGroup = sizeGroups(geometry.cells);
+    const groupOf = (cell: GeometryCell) => (cell.kind === "label" ? undefined : sizeGroup(cell));
+    const groups = new Map<string, number>();
+    for (const cell of geometry.cells) {
+      if (!cell.label && badgeOf(cell) === undefined) continue;
+      const own = fit(cell, badgeOf(cell));
+      next.set(cell.id, own);
+      const group = groupOf(cell);
+      if (group && cell.label) groups.set(group, Math.min(groups.get(group) ?? Infinity, own.size));
+    }
+    for (const cell of geometry.cells) {
+      const group = groupOf(cell);
+      const own = next.get(cell.id);
+      if (!own || !group || !cell.label) continue;
+      const size = groups.get(group)!;
+      if (own.size > size * 1.001) next.set(cell.id, fit(cell, badgeOf(cell), size));
     }
     if (cache.current.size > 2000) cache.current = new Map([...cache.current].slice(-1000));
     setFits(next);
@@ -153,7 +172,7 @@ function measure(text: SVGTextElement, lines: string[], size: number): DOMRect {
   return text.getBBox();
 }
 
-function fitCell(text: SVGTextElement, cell: GeometryCell, badge: string | undefined, unit: number): Fit {
+function fitCell(text: SVGTextElement, cell: GeometryCell, badge: string | undefined, unit: number, capAt?: number): Fit {
   const isLabel = cell.kind === "label";
   const [cx, cy] = centroid(cell.polygon);
   const share = isLabel ? 0.95 : 0.8;
@@ -166,7 +185,7 @@ function fitCell(text: SVGTextElement, cell: GeometryCell, badge: string | undef
   const label = cell.label ?? "";
   if (!label) return { lines: [], size: 0, nameY: cy, tokenY: cy, r };
   const gap = badge ? 0.04 * unit : 0;
-  const cap = (isLabel ? 0.34 : 0.3) * unit;
+  const cap = Math.min((isLabel ? 0.34 : 0.3) * unit, capAt ?? Infinity);
   // The block's middle and the token's, for a name box `h` tall whose middle sits `oy` below its y.
   const place = (h: number, oy: number) => {
     const total = h + gap + 2 * r;

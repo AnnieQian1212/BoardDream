@@ -4,6 +4,7 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "thr
 import { iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
 import { RIM_INK, TILE_SHARE, zoneColors } from "./ground";
+import { sizeGroups } from "../sizeGroups";
 import { growthsOf, inside, type PrintBox } from "./growth";
 import { MAT_TITLE } from "./layout";
 import {
@@ -915,6 +916,8 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     });
   const overlap = (a: (typeof places)[number], b: (typeof places)[number]) =>
     Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+  const plans: { cell: Geometry["cells"][number]; isLabel: boolean; px: number; py: number; lines: string[]; size: number; drop: number; group?: string }[] = [];
+  const sizeGroup = sizeGroups(geometry.cells);
   for (const cell of geometry.cells) {
     const isLabel = cell.kind === "label";
     if (!cell.label) continue;
@@ -1008,27 +1011,32 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
         best = free;
       }
     }
-    const at = place(best.lines, best.size, best.drop);
-    if (label) {
-      ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
-      best.lines.forEach((line, i) => {
-        const y = py + at.name + (i - (best.lines.length - 1) / 2) * LINE * best.size;
-        // A pale halo keeps a tile's name legible on grass, stone or water, however busy the ground.
-        if (!isLabel) {
-          ctx.lineWidth = best.size * 0.26;
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = alpha(TOKEN, 0.92);
-          ctx.strokeText(line, px, y);
-        }
-        ctx.fillStyle = INK;
-        ctx.fillText(line, px, y);
-      });
-    }
-    ctx.font = `600 ${best.size}px ${FONT_DISPLAY}`;
+    plans.push({ cell, isLabel, px, py, lines: best.lines, size: best.size, drop: best.drop, group: isLabel ? undefined : sizeGroup(cell) });
+  }
+  // Places of one kind and size print their names at one size, that of the name with least room:
+  // a row of stalls with names as large as each could hold read as untidy, short names shouting.
+  const groupSize = new Map<string, number>();
+  for (const plan of plans) if (plan.group) groupSize.set(plan.group, Math.min(groupSize.get(plan.group) ?? Infinity, plan.size));
+  for (const { cell, isLabel, px, py, lines, drop, group, size: own } of plans) {
+    const size = group ? Math.min(own, groupSize.get(group)!) : own;
+    const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
+    ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
+    lines.forEach((line, i) => {
+      const y = py + drop + (i - (lines.length - 1) / 2) * LINE * size;
+      // A pale halo keeps a tile's name legible on grass, stone or water, however busy the ground.
+      if (!isLabel) {
+        ctx.lineWidth = size * 0.26;
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = alpha(TOKEN, 0.92);
+        ctx.strokeText(line, px, y);
+      }
+      ctx.fillStyle = INK;
+      ctx.fillText(line, px, y);
+    });
     boxes.set(cell.id, {
-      halfWidth: measure(best.lines) / scale,
-      top: (at.name - at.half) / scale,
-      bottom: (at.name + at.half) / scale,
+      halfWidth: Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2 / scale,
+      top: (drop - half) / scale,
+      bottom: (drop + half) / scale,
     });
   }
   return { texture: texture(canvas), boxes };
