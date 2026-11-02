@@ -6,7 +6,7 @@ import { Vector3 } from "three";
 import { iconFor } from "../icons";
 import { CARD_H, CARD_W, deckHeight, type TableLayout, type Vec3 } from "./layout";
 import type { TargetKind } from "../instructions";
-import { PATH_TOP, pathCells, SPOT_TOP, TILE_TOP } from "./Board3D";
+import { islandCells, PATH_TOP, pathCells, SPOT_TOP, TILE_TOP } from "./Board3D";
 
 /**
  * Live numbers on the table (scores, resource counts, deck size) are HTML, pinned to 3D points.
@@ -53,6 +53,7 @@ export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<strin
   const anchors = new Map<string, Vec3>();
   const board = layout.board;
   const paths = board ? pathCells(board.geometry.cells) : new Set<string>();
+  const islandLift = board ? islandCells(board.geometry.cells, board.scale) : new Map<string, number>();
   for (const mark of marks) {
     const cell = board?.geometry.cells.find((c) => c.id === mark.id);
     if (board && cell) {
@@ -62,7 +63,7 @@ export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<strin
       const spot = cell.kind === "vertex" || cell.kind === "edge";
       // A long road or path is marked at its middle by a ring the size of a spot, not one round its length.
       const reach = Math.min(Math.max(...cell.polygon.map(([x, y]) => Math.hypot(x - cx, y - cy))) * (spot ? 1.15 : 0.8), spot ? 0.9 : Infinity) * k;
-      const top = paths.has(cell.id) ? PATH_TOP : spot ? SPOT_TOP : TILE_TOP;
+      const top = paths.has(cell.id) ? PATH_TOP : spot ? SPOT_TOP : TILE_TOP + (islandLift.get(cell.id) ?? 0);
       const at: Vec3 = [board.position[0] + (cx - board.geometry.width / 2) * k, board.position[1] + top, board.position[2] + (cy - board.geometry.height / 2) * k];
       anchors.set(`mark:${mark.id}`, at);
       anchors.set(`markspan:${mark.id}`, [at[0] + reach, at[1], at[2]]);

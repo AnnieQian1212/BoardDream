@@ -50,6 +50,18 @@ export const SPOT_TOP = SLAB + SPOT + 2 * BEVEL;
 /** A path between places that stand apart lies low on the board, under the tiles' tops. */
 const PATH = 0.12;
 export const PATH_TOP = SLAB + PATH + BEVEL;
+/**
+ * How far a place inside water (an island in a sea, a rock in a lagoon) stands above the tiles: the
+ * water stays as deep as any water tile, and the island rises clearly out of it.
+ */
+const ISLAND = TILE * 0.7;
+
+/** Places inside water, by id, with how far they stand above the tiles (`k`: the board's scale). */
+export function islandCells(cells: GeometryCell[], k: number): Map<string, number> {
+  const tiles = cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""));
+  const seas = tiles.filter((c) => !c.segments && isWaterCell(c) && tiles.some((inner) => inner !== c && containsCell(c.polygon, inner.polygon)));
+  return new Map(tiles.filter((inner) => seas.some((sea) => sea !== inner && containsCell(sea.polygon, inner.polygon))).map((c) => [c.id, ISLAND + DOME * k]));
+}
 
 /**
  * Edges that are paths, not roads. A road (kind "edge" along one side of a tile, on the border two
@@ -278,9 +290,14 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   // Scenery that places lie inside (a sea around its harbors) is drawn low, as ground, so the places
   // stand on it instead of flickering through it.
   const sceneryKey = geometry.cells.map((c) => (c.kind === "label" || SPOTS.has(c.kind ?? "") ? "" : `${c.id}:${c.polygon.flat().join(",")}`)).join("|");
-  const scenery = useMemo(() => {
+  // Water with places in it is not sunk: it keeps a water tile's depth, and the places in it stand up
+  // out of it as islands. Sunk to the board, a sea was a film of water with its islands awash.
+  const { scenery, islands } = useMemo(() => {
     const tiles = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""));
-    return new Set(tiles.filter((outer) => tiles.some((inner) => inner !== outer && containsCell(outer.polygon, inner.polygon))).map((c) => c.id));
+    const holders = tiles.filter((outer) => tiles.some((inner) => inner !== outer && containsCell(outer.polygon, inner.polygon)));
+    const seas = holders.filter((c) => !c.segments && isWaterCell(c));
+    const islands = new Set(tiles.filter((inner) => seas.some((sea) => sea !== inner && containsCell(sea.polygon, inner.polygon))).map((c) => c.id));
+    return { scenery: new Set(holders.filter((c) => !seas.includes(c)).map((c) => c.id)), islands };
   }, [sceneryKey]);
   // Grass: sized from a typical cell, thinned on boards with a lot of green.
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.terrain ?? ""}${c.segments?.join("") ?? ""}`).join("|");
@@ -339,6 +356,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             at={toWorld(...centroid(cell.polygon))}
             target={targets.has(cell.id)}
             low={scenery.has(cell.id)}
+            island={islands.has(cell.id) ? ISLAND + DOME * k : undefined}
             path={paths.has(cell.id)}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water}
@@ -364,7 +382,13 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
           piece={piece}
           k={k}
           at={toWorld(piece.x, piece.y)}
-          base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : paths.has(piece.cellId ?? "") ? PATH_TOP : TILE_TOP + (poolCells.has(piece.cellId ?? "") ? DOME * k : 0)}
+          base={
+            spotCells.has(piece.cellId ?? "")
+              ? SPOT_TOP
+              : paths.has(piece.cellId ?? "")
+                ? PATH_TOP
+                : TILE_TOP + (islands.has(piece.cellId ?? "") ? ISLAND + DOME * k : poolCells.has(piece.cellId ?? "") ? DOME * k : 0)
+          }
           exit={exit}
         />
       ))}
@@ -451,6 +475,8 @@ interface TileProps {
   target: boolean;
   /** Scenery other cells lie inside: sunk into the slab, so it reads as ground under them. */
   low?: boolean;
+  /** A place inside water, raised this far so it stands out of the water as an island. */
+  island?: number;
   /** The painted board and where this tile's art sits on it. */
   painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
   /** The board's water; the tile draws a surface where it holds some (waterPolygons). */
@@ -470,11 +496,11 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
+function Tile({ cell, path, k, at, target, low, island, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
   // Ground that places stand on (a sea round its harbors) is sunk so they stand clear above it, but
   // only part way: sunk to the board, a sea was a film of water.
-  const rest = low ? SLAB - TILE * 0.45 : SLAB;
+  const rest = low ? SLAB - TILE * 0.45 : SLAB + (island ?? 0);
   const segmentsKey = cell.segments?.join(",");
   const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE, TILE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
   // A large pool sways less: the tilt is per board unit, so across a long sea it grew with its length.
@@ -565,7 +591,7 @@ function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone
   // The names are printed on one plane at the tiles' height, so a legal tile lifted under the
   // pointer would cover its own. It carries a copy of its part of the print on its top instead.
   const decal = useMemo(() => {
-    if (!target || !cell.label || SPOTS.has(cell.kind ?? "")) return undefined;
+    if (!(target || island) || !cell.label || SPOTS.has(cell.kind ?? "")) return undefined;
     const [cx, cy] = centroid(cell.polygon);
     const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * TILE_SHARE, -(y - cy) * k * TILE_SHARE))));
     g.rotateX(-Math.PI / 2);
@@ -575,7 +601,7 @@ function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone
     for (let i = 0; i < pos.count; i++) uv.setXY(i, 0.5 + (at[0] + pos.getX(i)) / print.width, 0.5 - (at[1] + pos.getZ(i)) / print.depth);
     uv.needsUpdate = true;
     return g;
-  }, [target, cell.label, cell.kind, cell.polygon, k, at[0], at[1], print.width, print.depth]);
+  }, [target, island, cell.label, cell.kind, cell.polygon, k, at[0], at[1], print.width, print.depth]);
   useEffect(() => () => decal?.dispose(), [decal]);
   const decalMesh = useRef<Mesh>(null);
   // A stony tile glitters under the pointer, like the rocks on it.
@@ -671,7 +697,7 @@ function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone
       moving = wobble.step(dt) || moving;
       jelly.uJelly.value.set(DOME * k, wobble.squash, (wobble.sway[0] / k) * swayScale, (wobble.sway[1] / k) * swayScale);
     }
-    if (decalMesh.current) decalMesh.current.visible = mesh.current.position.y > rest + 0.01;
+    if (decalMesh.current) decalMesh.current.visible = Boolean(island) || mesh.current.position.y > rest + 0.01;
     if (moving) state.invalidate();
   });
 
