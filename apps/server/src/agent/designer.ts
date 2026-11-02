@@ -4,11 +4,13 @@ import type { ChatMessage, ModelClient } from "../meta/client";
 import { checkRulesIsolated, type RulesCheck } from "./check";
 import { mechanicTitles } from "./dials";
 import { loadGameFromSource } from "../sandbox";
-import type { PlayStats } from "./playtest";
 import { composeMessages, designRepairMessages, extractCode, formatFailures, repairMessages, revisionMessages, specMessages, type DesignBrief } from "./prompts";
 import { engineInterfaceSource, loadReference, type Reference } from "./references";
 import { expandedSearch, rerank } from "./retrieve";
+import type { DesignEvent, DesignResult, RevisionResult } from "./protocol";
 import { gameSpecSchema, type GameRequest, type GameSpec } from "./spec";
+
+export type { DesignEvent, DesignResult, RevisionResult } from "./protocol";
 
 /** Candidates the reranker sees, and how many of its top picks go into the compose prompt. */
 const RERANK_POOL = 20;
@@ -36,33 +38,6 @@ export interface DesignDeps {
   onEvent?: (event: DesignEvent) => void;
   /** Stops the work between steps and midway through writing, e.g. when the player has left. */
   signal?: AbortSignal;
-}
-
-/** Steps of the design as they happen, with what each made. */
-export type DesignEvent =
-  /** The plan, once written. */
-  | { type: "spec"; spec: GameSpec }
-  /** The library entries the rules build on. */
-  | { type: "mechanics"; mechanics: { id: string; title: string; description: string }[] }
-  /** Rules are being written: from scratch (attempt 0), or again to fix what the last check found. */
-  | { type: "writing"; attempt: number }
-  /** A piece of the rules as Muse Spark writes them. */
-  | { type: "code"; text: string }
-  /** Complete rules, about to be checked. */
-  | { type: "draft"; attempt: number; source: string }
-  /** How far the check has got: fuzzing runs and playtest games started, of about how many. */
-  | { type: "checking"; attempt: number; done: number; total: number }
-  /** The check's verdict: rules that break, or that work but play badly (issues), go back for a fix. */
-  | { type: "checked"; attempt: number; ok: boolean; problem?: string; issues?: string[]; play?: PlayStats };
-
-export interface DesignResult {
-  ok: boolean;
-  spec: GameSpec;
-  /** Catalog ids handed to the compose step, most useful first. */
-  retrieved: string[];
-  source: string;
-  /** One entry per fuzz pass: attempt 0 is the first draft, then one per repair. */
-  attempts: RulesCheck[];
 }
 
 /** Prompt + dials -> spec -> retrieved mechanics -> rules code -> fuzz/repair loop. */
@@ -149,19 +124,6 @@ async function settle(brief: DesignBrief, draft: string, deps: DesignDeps): Prom
       source = extractCode(await write(repairMessages(brief, source, formatFailures(check)), deps));
     }
   }
-}
-
-export interface RevisionResult {
-  ok: boolean;
-  /** The game as it was. */
-  game: Pick<GameMeta, "name" | "summary" | "family" | "mode" | "minPlayers" | "maxPlayers">;
-  source: string;
-  attempts: RulesCheck[];
-  /** Playtest of the game as it was and as revised, for a before-and-after comparison. */
-  before?: PlayStats;
-  after?: PlayStats;
-  rulesBefore: string[];
-  rulesAfter: string[];
 }
 
 /**

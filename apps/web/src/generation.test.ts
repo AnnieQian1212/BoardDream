@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { componentItems, progressOf, stepOf, type Generation } from "./generation";
+import { componentItems, progressOf, revisionStatus, stepOf, type Generation, type Plan } from "./generation";
 
 const t0 = 1_000_000;
 const base: Generation = { surprise: false, started: t0, idea: "rival lighthouse keepers", attempt: 0, writing: false, code: "", checks: [], rounds: [] };
-const plan = { title: "Beacon", pitch: "", family: "map", mode: "competitive" as const, minPlayers: 2, maxPlayers: 4, components: "", rules: [], winCondition: "", tunables: [] };
+const plan: Plan = { title: "Beacon", pitch: "", family: "map", mode: "competitive", minPlayers: 2, maxPlayers: 4, components: "", rules: [], winCondition: "", mechanics: [], tunables: [] };
 const planned: Generation = { ...base, plan, mechanics: [{ id: "mech:market", title: "Card market", description: "" }] };
 
 describe("generation progress", () => {
@@ -50,5 +50,22 @@ describe("components in the box", () => {
     ]);
     expect(componentItems("a 19-hex board, 60 tiles (6 edges, 3 kinds), one deck")).toEqual(["a 19-hex board", "60 tiles (6 edges, 3 kinds)", "one deck"]);
     expect(componentItems("19-hex atoll board; 60 reef tiles, each with 6 edges; 4 diver sets")).toEqual(["19-hex atoll board", "60 reef tiles, each with 6 edges", "4 diver sets"]);
+  });
+});
+
+describe("a revision's status", () => {
+  it("follows the typed design events: rewrite, playtest, fix, smooth", () => {
+    expect(revisionStatus({ type: "writing", attempt: 0 })).toBe("Rewriting the rules and playtesting the old ones…");
+    expect(revisionStatus({ type: "checking", attempt: 0, done: 10, total: 1000 })).toBe("Playtesting the new rules over 1,000 games…");
+    expect(revisionStatus({ type: "checked", attempt: 0, ok: false, problem: "a game never ended" })).toBe("Fixing what the change broke…");
+    expect(revisionStatus({ type: "checking", attempt: 2, done: 0, total: 1000 })).toBe("Playtesting fix 2…");
+    expect(revisionStatus({ type: "checked", attempt: 2, ok: true, issues: ["seat 1 wins 70%"] })).toBe("Smoothing a design problem the playtest found…");
+  });
+
+  it("says nothing new for events that change nothing worth saying", () => {
+    expect(revisionStatus({ type: "writing", attempt: 1 })).toBeUndefined();
+    expect(revisionStatus({ type: "code", text: "export default" })).toBeUndefined();
+    expect(revisionStatus({ type: "draft", attempt: 0, source: "" })).toBeUndefined();
+    expect(revisionStatus({ type: "checked", attempt: 0, ok: true })).toBeUndefined();
   });
 });

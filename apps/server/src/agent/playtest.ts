@@ -1,4 +1,5 @@
 import { createRng, heuristicBot, plannerWinRate, randomBot, resolveParams, simulate, type GameModule } from "@boarddream/engine";
+import type { PlayStats } from "./protocol";
 
 /**
  * After rules pass fuzzing (they never break), a quick playtest looks for games that work but
@@ -6,25 +7,7 @@ import { createRng, heuristicBot, plannerWinRate, randomBot, resolveParams, simu
  * one kind of move, or decisions that barely change who wins.
  */
 
-export interface PlayStats {
-  numPlayers: number;
-  games: number;
-  medianTurns: number;
-  drawRate: number;
-  winRateBySeat: number[];
-  truncatedRate: number;
-  /** Distinct move kinds seen (the "type" field of object moves, or the value's type). */
-  moveKinds: string[];
-  /** Share of turns where the mover had more than one legal move. */
-  choiceRate: number;
-  /**
-   * Share of games a player who plans ahead (short playouts) wins against random opponents, over
-   * every seat. Measured for competitive games without bluffing, where it shows whether skill pays.
-   */
-  plannerWinRate?: number;
-  /** Games behind plannerWinRate: fewer than asked for when a slow game ran out of time. */
-  plannerGames?: number;
-}
+export type { PlayStats } from "./protocol";
 
 export interface PlaytestOptions {
   games?: number;

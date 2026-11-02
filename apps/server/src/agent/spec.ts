@@ -1,28 +1,8 @@
-import type { GameFamily, PlayMode } from "@boarddream/engine";
 import type { JsonSchema } from "../meta/client";
+import type { Dials, GameSpec, RecentGame } from "./protocol";
 
-/** How much players get in each other's way. */
-export type Interaction = "gentle" | "some" | "cutthroat";
-/** The genre of a game's setting. */
-export type Theme = "nature" | "history" | "fantasy" | "scifi";
-
-/** The dials on the create screen. The optional ones are left to the designer when absent. */
-export interface Dials {
-  minPlayers: number;
-  maxPlayers: number;
-  playMinutes: number;
-  /** 1 (gateway hobby game) to 5 (heavy strategy game). */
-  complexity: number;
-  /** 0 = pure strategy, 1 = pure luck. */
-  luck: number;
-  mode: PlayMode;
-  family?: Exclude<GameFamily, "race">;
-  interaction?: Interaction;
-  /** For Surprise me, and for ideas that name no setting. */
-  theme?: Theme;
-  /** Library mechanics (catalog ids) to build the game around, at most three. */
-  mustUse?: string[];
-}
+// The plain types live in protocol.ts, which the web app reads too.
+export type { Dials, GameSpec, Interaction, RecentGame, Theme } from "./protocol";
 
 export interface GameRequest {
   prompt: string;
@@ -32,37 +12,6 @@ export interface GameRequest {
    * when the idea leaves those open.
    */
   recent?: RecentGame[];
-}
-
-/** What a game made earlier was like: its name, family, the shape of its table and its core mechanics. */
-export interface RecentGame {
-  title: string;
-  family: string;
-  board: string;
-  mechanics?: string[];
-}
-
-/** The designer's plan for a game, written before any rules code. */
-export interface GameSpec {
-  title: string;
-  pitch: string;
-  family: GameFamily;
-  mode: PlayMode;
-  minPlayers: number;
-  maxPlayers: number;
-  /**
-   * The shape of the table, chosen from the setting: a hex map, a network of places joined by
-   * routes, a track, a ring or grid of action spaces, regions, tiles laid edge to edge, or no board
-   * (cards, a market and player boards). Older saved games have none.
-   */
-  board?: string;
-  components: string;
-  rules: string[];
-  winCondition: string;
-  /** Mechanic vocabulary; doubles as the retrieval query. */
-  mechanics: string[];
-  /** Integer knobs that become params and UI sliders. */
-  tunables: { key: string; label: string; min: number; max: number; default: number }[];
 }
 
 const str = { type: "string" };

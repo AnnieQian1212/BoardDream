@@ -1,72 +1,20 @@
-import type { GameModule, PlayMode } from "@boarddream/engine";
+import type { GameModule } from "@boarddream/engine";
+import type { CheckSummary, DesignEvent, Dials, GameSpec, GenerateReply, MechanicSummary, PlayStats } from "../../server/src/agent/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mechanicLabel } from "./dials";
 import { loadGeneratedGame, rememberOrigin } from "./generated";
 import { readEvents } from "./sse";
 
-/** Mirrors Dials in apps/server/src/agent/spec.ts. */
-export interface Dials {
-  minPlayers: number;
-  maxPlayers: number;
-  playMinutes: number;
-  complexity: number;
-  luck: number;
-  mode: PlayMode;
-  family?: "engine" | "map" | "grid" | "bluff";
-  interaction?: "gentle" | "some" | "cutthroat";
-  theme?: "nature" | "history" | "fantasy" | "scifi";
-  /** Library mechanics (catalog ids) to build the game around. */
-  mustUse?: string[];
-}
+// The design stream's types come from the server's protocol file (types only), so the two cannot drift.
+export type { Dials } from "../../server/src/agent/protocol";
 
-/** The designer's plan, as far as the live view shows it (GameSpec in apps/server/src/agent/spec.ts). */
-export interface Plan {
-  title: string;
-  pitch: string;
-  family: string;
-  mode: PlayMode;
-  minPlayers: number;
-  maxPlayers: number;
-  /** The shape of the table (plans written before boards were named have none). */
-  board?: string;
-  components: string;
-  rules: string[];
-  winCondition: string;
-  tunables: { key: string; label: string; min: number; max: number; default: number }[];
-}
-
-export interface Mechanic {
-  id: string;
-  title: string;
-  description: string;
-}
-
-/** The playtest of rules that passed (PlayStats in apps/server/src/agent/playtest.ts). */
-export interface PlayStats {
-  numPlayers: number;
-  games: number;
-  medianTurns: number;
-  winRateBySeat: number[];
-  plannerWinRate?: number;
-}
-
-export interface Check {
-  attempt: number;
-  ok: boolean;
-  problem?: string;
-  issues?: string[];
-  play?: PlayStats;
-}
-
-/** Mirrors DesignEvent in apps/server/src/agent/designer.ts. */
-type DesignEvent =
-  | { type: "spec"; spec: Plan }
-  | { type: "mechanics"; mechanics: Mechanic[] }
-  | { type: "writing"; attempt: number }
-  | { type: "code"; text: string }
-  | { type: "draft"; attempt: number; source: string }
-  | { type: "checking"; attempt: number; done: number; total: number }
-  | ({ type: "checked" } & Check);
+/** The designer's plan, as the live view shows it. */
+export type Plan = GameSpec;
+/** A library entry the rules build on. */
+export type Mechanic = MechanicSummary;
+/** The verdict on one round of rules. */
+export type Check = CheckSummary;
+export type { PlayStats };
 
 /** One round of rules: written (the first draft, or a fix for what the last check found), then checked. */
 export interface Round {
@@ -186,6 +134,25 @@ function apply(g: Generation, event: DesignEvent): Generation {
   }
 }
 
+/**
+ * What a revision is doing, read from the design stream's typed events (never from the server's
+ * log lines): rewriting, playtesting the first version or a fix, fixing a fault, or smoothing a
+ * design problem. Undefined for events that change nothing worth saying.
+ */
+export function revisionStatus(event: DesignEvent): string | undefined {
+  switch (event.type) {
+    case "writing":
+      return event.attempt === 0 ? "Rewriting the rules and playtesting the old ones…" : undefined;
+    case "checking":
+      return event.attempt === 0 ? "Playtesting the new rules over 1,000 games…" : `Playtesting fix ${event.attempt}…`;
+    case "checked":
+      if (!event.ok) return "Fixing what the change broke…";
+      return event.issues?.length ? "Smoothing a design problem the playtest found…" : undefined;
+    default:
+      return undefined;
+  }
+}
+
 /** Typical lengths, for the progress bar: rules run to about this many characters. */
 const RULES_LENGTH = 26_000;
 /** Seconds Muse Spark thinks before the rules start to arrive. */
@@ -208,13 +175,6 @@ export function progressOf(g: Generation, now: number): number {
   let start = 0.8;
   for (let i = 1; i < g.attempt; i++) start += 0.6 * (0.98 - start);
   return start + 0.6 * (0.98 - start) * (0.75 * written + 0.25 * checked);
-}
-
-interface GenerateResult {
-  id?: string;
-  ok: boolean;
-  spec: { title: string; rules?: string[] };
-  source: string;
 }
 
 /**
@@ -255,11 +215,11 @@ export function useGeneration(onReady: (game: GameModule) => void) {
           signal: abort.signal,
         });
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-        let result: GenerateResult | undefined;
+        let result: GenerateReply | undefined;
         let failure: string | undefined;
         await readEvents(res, (event, data) => {
           if (event === "design") update(apply(g, JSON.parse(data) as DesignEvent));
-          else if (event === "result") result = JSON.parse(data) as GenerateResult;
+          else if (event === "result") result = JSON.parse(data) as GenerateReply;
           else if (event === "error") failure = data;
         });
         if (!result) throw new Error(failure ?? "the server closed the connection");

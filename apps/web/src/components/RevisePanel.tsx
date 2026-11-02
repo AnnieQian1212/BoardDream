@@ -1,30 +1,10 @@
 import type { GameModule } from "@boarddream/engine";
 import { PencilLine } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import type { DesignEvent, PlayStats, ReviseReply } from "../../../server/src/agent/protocol";
 import { generatedSource, loadGeneratedGame } from "../generated";
+import { revisionStatus } from "../generation";
 import { readEvents } from "../sse";
-
-/** Random-play statistics from the server's playtest (apps/server/src/agent/playtest.ts). */
-interface PlayStats {
-  numPlayers: number;
-  medianTurns: number;
-  drawRate: number;
-  winRateBySeat: number[];
-  choiceRate: number;
-  plannerWinRate?: number;
-}
-
-interface RevisionResult {
-  ok: boolean;
-  id?: string;
-  title?: string;
-  source: string;
-  attempts: unknown[];
-  before?: PlayStats;
-  after?: PlayStats;
-  rulesBefore: string[];
-  rulesAfter: string[];
-}
 
 /** What the change did, kept until another game is revised. */
 interface Comparison {
@@ -37,15 +17,6 @@ interface Comparison {
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-
-function progressText(event: string): string {
-  if (event === "rewriting the rules") return "Rewriting the rules and playtesting the old ones…";
-  const fuzzing = event.match(/^fuzzing attempt (\d+)/);
-  if (fuzzing) return Number(fuzzing[1]) === 0 ? "Playtesting the new rules over 1,000 games…" : `Playtesting fix ${fuzzing[1]}…`;
-  if (event.startsWith("repairing")) return "Fixing what the change broke…";
-  if (event.startsWith("improving")) return "Smoothing a design problem the playtest found…";
-  return event;
-}
 
 /**
  * Change a generated game in words: the server rewrites its rules, playtests them like a new game
@@ -70,11 +41,13 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
         body: JSON.stringify({ id: game.meta.id, source, request }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-      let result: RevisionResult | undefined;
+      let result: ReviseReply | undefined;
       let failure: string | undefined;
       await readEvents(res, (event, data) => {
-        if (event === "progress") setStatus(progressText(data));
-        else if (event === "result") result = JSON.parse(data) as RevisionResult;
+        if (event === "design") {
+          const status = revisionStatus(JSON.parse(data) as DesignEvent);
+          if (status) setStatus(status);
+        } else if (event === "result") result = JSON.parse(data) as ReviseReply;
         else if (event === "error") failure = data;
       });
       if (!result) throw new Error(failure ?? "the server closed the connection");

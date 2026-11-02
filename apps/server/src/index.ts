@@ -150,9 +150,10 @@ app.delete("/api/games/:id", (c) => {
 });
 
 /**
- * Server-sent events for a design under way: "progress" log lines and "design" events (DesignEvent
- * as JSON). Pieces of rules are sent in batches and check progress a few times a second, so a fast
- * stream does not flood the page. When the player leaves, the work stops: no more model calls.
+ * Server-sent events for a design under way: "design" events (DesignEvent in agent/protocol.ts, as
+ * JSON), the one vocabulary the page reads; the log lines stay in the server's console. Pieces of
+ * rules are sent in batches and check progress a few times a second, so a fast stream does not
+ * flood the page. When the player leaves, the work stops: no more model calls.
  */
 function designStream(stream: SSEStreamingApi, label: string) {
   const controller = new AbortController();
@@ -170,10 +171,7 @@ function designStream(stream: SSEStreamingApi, label: string) {
   const timer = setInterval(flush, 150);
   return {
     signal: controller.signal,
-    onProgress: (line: string) => {
-      console.log(`[${label}] ${line}`);
-      void stream.writeSSE({ event: "progress", data: line });
-    },
+    onProgress: (line: string) => console.log(`[${label}] ${line}`),
     onEvent: (event: DesignEvent) => {
       if (event.type === "code") return void (code += event.text);
       flush();
