@@ -1,6 +1,6 @@
 import type { GeometryCell } from "@boarddream/engine";
-import { describe, expect, it } from "vitest";
-import { isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
+import { describe, expect, it, test } from "vitest";
+import { insetConvex, isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
 
 const square = (x: number, z: number, size: number): [number, number][] => [
   [x, z],
@@ -105,5 +105,26 @@ describe("WaterGrid", () => {
   it("grows its spacing for a sea too large to step every frame", () => {
     const grid = new WaterGrid([square(0, 0, 100)], 0.1);
     expect(grid.cols * grid.rows).toBeLessThanOrEqual(40_000);
+  });
+});
+
+describe("an even shore", () => {
+  test("a long sea is drawn in by the same distance on every side", () => {
+    const sea = { id: "sea", kind: "sea", polygon: [[0, 0], [20, 0], [20, 4], [0, 4]] as [number, number][] };
+    // The tile fills 0.9 of the cell; the water lies an even shore inside the tile.
+    const [pool] = waterPolygons(sea, 0.86, 0.75, 0.9);
+    const shore = 2 * (0.9 - 0.86);
+    const xs = pool.map(([x]) => x);
+    const ys = pool.map(([, y]) => y);
+    expect(10 * 0.9 - Math.max(...xs)).toBeCloseTo(shore);
+    expect(Math.min(...xs) + 10 * 0.9).toBeCloseTo(shore);
+    expect(2 * 0.9 - Math.max(...ys)).toBeCloseTo(shore);
+    expect(Math.min(...ys) + 2 * 0.9).toBeCloseTo(shore);
+  });
+
+  test("an outline that is not convex, or too small, is left to the scaled one", () => {
+    const ell: [number, number][] = [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]];
+    expect(insetConvex(ell, 0.1, [1.5, 1.5])).toBeUndefined();
+    expect(insetConvex([[0, 0], [1, 0], [1, 1], [0, 1]], 0.6, [0.5, 0.5])).toBeUndefined();
   });
 });

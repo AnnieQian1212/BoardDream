@@ -52,25 +52,32 @@ const PATH = 0.12;
 export const PATH_TOP = SLAB + PATH + BEVEL;
 
 /**
- * Edges that are paths, not roads. A road (kind "edge" on a border two tiles share, as in a game of
- * settling an island) stands above the tiles so it shows in the narrow gap between them. An edge
- * whose middle lies on no tile joins two places that stand apart, like a channel on a ring of
- * spaces: raised, it looked like a bar floating over the board, so it lies low instead.
+ * Edges that are paths, not roads. A road (kind "edge" along one side of a tile, on the border two
+ * tiles share, as in a game of settling an island) stands above the tiles so it shows in the narrow
+ * gap between them. Any other edge, one whose middle lies on no tile or one longer than a tile's
+ * side, joins places that stand apart (a channel on a ring of spaces, a tether across a valley):
+ * raised, it floated over the board and covered the tiles it crossed, so it lies low, under them.
  */
 export function pathCells(cells: GeometryCell[]): Set<string> {
   const tiles = cells
     .filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? ""))
     .map((c) => {
       const [cx, cy] = centroid(c.polygon);
+      const side = Math.max(...c.polygon.map(([x, y], i) => {
+        const [nx, ny] = c.polygon[(i + 1) % c.polygon.length];
+        return Math.hypot(nx - x, ny - y);
+      }));
       // A little larger than the tile, so a road on the border between two still counts as on them.
-      return c.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * 1.06, cy + (y - cy) * 1.06]);
+      return { side, outline: c.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * 1.06, cy + (y - cy) * 1.06]) };
     });
   return new Set(
     cells
       .filter((c) => c.kind === "edge")
       .filter((c) => {
         const [x, y] = centroid(c.polygon);
-        return !tiles.some((t) => inside(t, x, y));
+        const length = Math.max(...c.polygon.flatMap(([ax, ay]) => c.polygon.map(([bx, by]) => Math.hypot(bx - ax, by - ay))));
+        const on = tiles.filter((t) => inside(t.outline, x, y));
+        return on.length === 0 || length > 1.6 * Math.max(...on.map((t) => t.side));
       })
       .map((c) => c.id),
   );
@@ -148,7 +155,7 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
   const invalidate = useThree((s) => s.invalidate);
   const [ox, , oz] = position;
   // Rebuilt only when the water itself changes, not on every move.
-  const pools = (c: GeometryCell) => waterPolygons(c, poolShare(zones.has(c.id)), WEDGE_SHARE);
+  const pools = (c: GeometryCell) => waterPolygons(c, poolShare(zones.has(c.id)), WEDGE_SHARE, TILE_SHARE);
   const cells = geometry.cells.filter((c) => c.kind !== "label" && pools(c).length > 0);
   const key = cells.map((c) => `${c.id}:${c.polygon.flat().join(",")}:${c.segments?.join(",") ?? ""}:${zones.has(c.id)}`).join("|");
   const surface = useMemo(() => {
@@ -465,7 +472,7 @@ function Tile({ cell, path, k, at, target, low, painted, water: boardWater, zone
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
   const rest = low ? SLAB - TILE + 0.03 : SLAB;
   const segmentsKey = cell.segments?.join(",");
-  const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
+  const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE, TILE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
   // Unpainted ground is painted in its color: grass and flowers, moss and ferns, furrows or pebbles.
   const ground = groundOf(cell);
   const groundMap = !painted && ground && ground !== "water" ? groundTexture(ground, ownColor(cell)) : undefined;

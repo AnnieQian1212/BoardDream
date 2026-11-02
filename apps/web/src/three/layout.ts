@@ -393,7 +393,9 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const chipsOnly = slots === 0 && piles.length === 0 && chips.length > 1 ? Math.min(26, 2 * Math.max(...chips) + sizes.gap + 2) : 0;
   // A long title does not widen a mat with cards or piles: it is printed smaller to fit (matTexture).
   const titleRoom = slots > 0 || piles.length > 0 ? 0 : titleW + 2;
-  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, 14);
+  // A counter's chip cannot wrap, so the mat is at least as wide as the widest (a note wraps instead).
+  const counterRoom = plain.length > 0 ? Math.max(...plain.map(sizes.counter)) + 2.6 : 0;
+  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, counterRoom, 14);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
   // Wrapped chips start a little way into the body, clear of the header.

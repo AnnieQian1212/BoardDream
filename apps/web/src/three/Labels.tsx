@@ -60,7 +60,8 @@ export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<strin
       const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / cell.polygon.length;
       const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / cell.polygon.length;
       const spot = cell.kind === "vertex" || cell.kind === "edge";
-      const reach = Math.max(...cell.polygon.map(([x, y]) => Math.hypot(x - cx, y - cy))) * k * (spot ? 1.15 : 0.8);
+      // A long road or path is marked at its middle by a ring the size of a spot, not one round its length.
+      const reach = Math.min(Math.max(...cell.polygon.map(([x, y]) => Math.hypot(x - cx, y - cy))) * (spot ? 1.15 : 0.8), spot ? 0.9 : Infinity) * k;
       const top = paths.has(cell.id) ? PATH_TOP : spot ? SPOT_TOP : TILE_TOP;
       const at: Vec3 = [board.position[0] + (cx - board.geometry.width / 2) * k, board.position[1] + top, board.position[2] + (cy - board.geometry.height / 2) * k];
       anchors.set(`mark:${mark.id}`, at);

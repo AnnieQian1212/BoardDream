@@ -127,7 +127,9 @@ diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.0 + 0.55 * thick) * mix(1
 float relief = -dot(slope, normalize(uSun.xz)) * uTilt;
 diffuseColor.rgb *= 1.0 + clamp(relief * 1.5, -0.3, 0.3);
 // A faint sunlit web on the bed that the ripples bend, and bright light where a crest focuses it.
+// It comes and goes in patches: even everywhere, over a large sea it read as the tiles of a pool.
 float web = waterWeb((vWaterXZ + shift * 1.6) * uBedScale * 1.4);
+web *= 0.45 * smoothstep(0.42, 0.78, waterNoise((vWaterXZ + shift) * uBedScale * 0.32));
 float focus = clamp(-curve * 3.0, 0.0, 0.25);
 diffuseColor.rgb += vec3(1.0, 0.97, 0.86) * (web * 0.07 + focus) * (0.3 + 0.7 * deep);
 // The cell's printed name, laid on the jelly's surface after its highlights (NORMAL).

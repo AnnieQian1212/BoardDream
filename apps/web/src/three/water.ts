@@ -19,12 +19,28 @@ export const isWaterCell = (cell: GeometryCell): boolean => (cell.terrain ? cell
  * to `share`, or an edge-matched tile's water wedges shrunk to `wedge`. Neighboring water wedges
  * join into one fan, so no dry seam runs between them.
  */
-export function waterPolygons(cell: GeometryCell, share: number, wedge: number): Polygon[] {
+/**
+ * Where a cell's water pools, around its middle. `share` is how much of the cell the water fills
+ * and `tile` how much the tile it lies in fills (Board3D's TILE_SHARE), so the shore is the band
+ * between them.
+ */
+export function waterPolygons(cell: GeometryCell, share: number, wedge: number, tile = 0.9): Polygon[] {
   const n = cell.polygon.length;
   const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / n;
   const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / n;
   const corner = (i: number, f: number): [number, number] => [(cell.polygon[i % n][0] - cx) * f, (cell.polygon[i % n][1] - cy) * f];
-  if (!cell.segments) return isWaterCell(cell) ? [cell.polygon.map((_, i) => corner(i, share))] : [];
+  if (!cell.segments) {
+    if (!isWaterCell(cell)) return [];
+    // An even shore all round: the tile's outline drawn in by one distance, the shore a square cell
+    // of the same narrowness would have. Scaled toward its middle instead, a long sea kept a wide
+    // shore at its ends and a thin one along its sides, like a framed pool.
+    const xs = cell.polygon.map(([x]) => x);
+    const ys = cell.polygon.map(([, y]) => y);
+    const narrow = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2;
+    const outline = cell.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * tile, cy + (y - cy) * tile]);
+    const even = share < tile ? insetConvex(outline, narrow * (tile - share), [cx, cy]) : undefined;
+    return [even ? even.map(([x, y]): [number, number] => [x - cx, y - cy]) : cell.polygon.map((_, i) => corner(i, share))];
+  }
   const wet = cell.segments.map((kind) => isWaterKind(kind));
   if (wet.every(Boolean)) return [cell.polygon.map((_, i) => corner(i, wedge))];
   // Runs of water wedges, starting just after a dry one so no run wraps past the end.
@@ -37,6 +53,52 @@ export function waterPolygons(cell: GeometryCell, share: number, wedge: number):
     fans[fans.length - 1].push(corner(i + 1, wedge));
   }
   return fans;
+}
+
+/**
+ * A convex outline moved in by `d` on every side, or undefined when the outline is not convex or
+ * too small to move in that far.
+ */
+export function insetConvex(polygon: [number, number][], d: number, center: [number, number]): [number, number][] | undefined {
+  const n = polygon.length;
+  if (n < 3) return undefined;
+  let sign = 0;
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = polygon[i];
+    const [bx, by] = polygon[(i + 1) % n];
+    const [qx, qy] = polygon[(i + 2) % n];
+    const cross = (bx - ax) * (qy - by) - (by - ay) * (qx - bx);
+    if (Math.abs(cross) < 1e-9) continue;
+    if (sign === 0) sign = Math.sign(cross);
+    else if (Math.sign(cross) !== sign) return undefined;
+  }
+  // Each side moved toward the middle, as a point and a direction.
+  const lines = polygon.map(([ax, ay], i) => {
+    const [bx, by] = polygon[(i + 1) % n];
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    let [nx, ny] = [-(by - ay) / len, (bx - ax) / len];
+    if (nx * (center[0] - (ax + bx) / 2) + ny * (center[1] - (ay + by) / 2) < 0) [nx, ny] = [-nx, -ny];
+    return { px: ax + nx * d, py: ay + ny * d, dx: bx - ax, dy: by - ay };
+  });
+  const out: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = lines[(i + n - 1) % n];
+    const b = lines[i];
+    const det = a.dx * b.dy - a.dy * b.dx;
+    if (Math.abs(det) < 1e-9) {
+      out.push([b.px, b.py]);
+      continue;
+    }
+    const t = ((b.px - a.px) * b.dy - (b.py - a.py) * b.dx) / det;
+    out.push([a.px + a.dx * t, a.py + a.dy * t]);
+  }
+  // Moved in too far, the outline turns inside out: its sides then point the other way.
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = out[i];
+    const [bx, by] = out[(i + 1) % n];
+    if ((bx - ax) * lines[i].dx + (by - ay) * lines[i].dy <= 0) return undefined;
+  }
+  return out;
 }
 
 /** How the texture packs slopes and curvature into bytes; the water shader reads them back. */
