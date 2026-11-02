@@ -2,6 +2,7 @@ import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { NEUTRAL_PIECE, PLAYER_COLORS, TILE_COLORS } from "../colors";
 import { useFontsReady } from "../fonts";
+import { motifFor } from "../motifs";
 import { tileColor, zoneColors } from "../three/ground";
 import { sizeGroups, uniformSizes } from "../sizeGroups";
 
@@ -284,6 +285,7 @@ function Wedges({ cell, center: [cx, cy] }: { cell: GeometryCell; center: number
 function Piece({ piece }: { piece: GeometryPiece }) {
   const { x, y, r } = piece;
   const fill = piece.owner === undefined ? "url(#piece-neutral)" : `url(#piece-${piece.owner % PLAYER_COLORS.length})`;
+  const Motif = piece.label && piece.label.length > 3 ? motifFor(piece.label) : undefined;
   return (
     <g className="piece">
       {piece.shape === "square" ? (
@@ -291,11 +293,15 @@ function Piece({ piece }: { piece: GeometryPiece }) {
       ) : (
         <circle cx={x} cy={y} r={r} fill={fill} filter="url(#piece-shadow)" />
       )}
-      {piece.label && (
+      {/* A short label (a number, initials) is printed; a word becomes the motif it names, or
+          nothing: as text it would be too small to read. Hovering the piece names it. */}
+      {piece.label && piece.label.length <= 3 && (
         <text x={x} y={y} className={piece.owner === undefined ? "piece-label neutral" : "piece-label"} fontSize={r * 1.15}>
           {piece.label}
         </text>
       )}
+      {Motif && <Motif x={x - r * 0.62} y={y - r * 0.62} width={r * 1.24} height={r * 1.24} className={piece.owner === undefined ? "piece-motif neutral" : "piece-motif"} />}
+      {piece.label && <title>{piece.label}</title>}
     </g>
   );
 }

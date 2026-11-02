@@ -1045,13 +1045,29 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
 
 const pieceLabels = new Map<string, CanvasTexture>();
 
-export function pieceLabel(label: string): CanvasTexture {
+/**
+ * What is printed on a piece's top: a short label (a number, initials) as large as the top allows,
+ * or for a word the motif it names (a cap for a student, a briefcase for a commuter). A word itself
+ * would be a few unreadable pixels; a word with no motif prints nothing, and the cell's hover tip
+ * names the piece.
+ */
+export function pieceMark(label: string | undefined): CanvasTexture | undefined {
+  if (!label) return undefined;
+  const short = label.length <= 3;
+  const motif = short ? undefined : motifFor(label);
+  if (!short && !motif) return undefined;
   return cached(pieceLabels, label, () => {
     const [canvas, ctx] = canvas2d(128, 128);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    fitFont(ctx, label, 96, 80, 30, (size) => `700 ${size}px ${FONT_DISPLAY}`);
-    inkedText(ctx, label, 64, 70, 10);
+    if (motif) {
+      // Ink with a pale halo, legible on any seat's color and on ivory.
+      drawIcon(ctx, motif, 64, 64, 100, alpha(TOKEN, 0.95), 5);
+      drawIcon(ctx, motif, 64, 64, 100, INK, 2.4);
+    } else {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      fitFont(ctx, label, 104, 92, 30, (size) => `700 ${size}px ${FONT_DISPLAY}`);
+      inkedText(ctx, label, 64, 70, 12);
+    }
     return texture(canvas);
   });
 }

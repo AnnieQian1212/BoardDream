@@ -32,7 +32,7 @@ import { reducedMotion, step } from "./motion";
 import { hash, INK, mix } from "./paint";
 import { Ink } from "./Ink";
 import { Battle3D, BATTLE_SECONDS, KNOCK_AT } from "./Battle3D";
-import { BOARD, blobTexture, boardPrint, groundTexture, pieceLabel } from "./textures";
+import { BOARD, blobTexture, boardPrint, groundTexture, pieceMark } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
 import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow, type PrintBox } from "./growth";
@@ -779,6 +779,7 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
   const pawn = piece.shape === "pawn";
   const height = square ? 2 * r : pawn ? PAWN_HEIGHT * r : 0.55 * r;
   const color = piece.owner === undefined ? NEUTRAL_PIECE : playerColor(piece.owner);
+  const mark = pieceMark(piece.label);
   const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
     ref.current.position.set(at[0], base + 6, at[1]);
@@ -823,10 +824,10 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
           <Ink geometry={pawn ? PAWN : DISC} width={2} grounded />
         </mesh>
       )}
-      {piece.label && (
+      {mark && (
         <mesh rotation-x={-Math.PI / 2} position={[0, height + 0.01, 0]} raycast={noRaycast}>
           <planeGeometry args={[1.6 * r, 1.6 * r]} />
-          <meshBasicMaterial map={pieceLabel(piece.label)} transparent depthWrite={false} />
+          <meshBasicMaterial map={mark} transparent depthWrite={false} />
         </mesh>
       )}
     </group>

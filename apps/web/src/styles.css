@@ -1333,6 +1333,15 @@ button.card {
   font-weight: 800;
 }
 
+.piece-motif {
+  color: #fff;
+  pointer-events: none;
+}
+
+.piece-motif.neutral {
+  color: var(--ink);
+}
+
 /* An ownerless piece is ivory: its label is in ink. */
 .piece-label.neutral {
   fill: var(--ink);
