@@ -2,7 +2,7 @@
 
 - **Submission deadline: Wed Nov 4, 9:00 PM ET.** Target submitting by noon Nov 4 to leave a buffer.
 - Get the main loop working first (describe → generate → fuzz → repair → play), then add balance sliders, AI opponents and art. Every day should end with a version good enough to record.
-- Commit daily and add a line to the "Built during the hackathon" table in the README. The rules require a clear record of what was built during the event.
+- Commit daily and add a line to docs/BUILT.md. The rules require a clear record of what was built during the event.
 - `TODO(day N)` comments in the code map to the schedule below.
 
 ## Direction (updated Oct 27, night)
