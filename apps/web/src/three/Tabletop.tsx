@@ -4,7 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Hint, useHint } from "../components/Hint";
-import { turnOf } from "../turn";
+import { turnOf, type MoveButton } from "../turn";
 import { Result } from "../components/Table";
 import { resourceById } from "../icons";
 import { tidyPanels } from "../panels";
@@ -74,6 +74,8 @@ interface Menu {
   x: number;
   y: number;
   moves: unknown[];
+  /** Opens above the point (for a button in the move bar at the foot of the screen). */
+  up?: boolean;
 }
 
 /** The window's size, which the table fills. */
@@ -130,7 +132,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   }, [game, state, human]);
   // Whose turn, what glows and what each click does: shared with the flat table.
   const turn = useMemo(() => turnOf(game, state, human, panels, geometry), [game, state, human, panels, geometry]);
-  const { over, active, mine: myTurn, byTarget, targets, loose, label } = turn;
+  const { over, active, mine: myTurn, byTarget, targets, buttons, label } = turn;
   const mover = useMover(state, active);
   const viewport = useViewport();
   const arranged = useRef<Arrangement>("sides");
@@ -170,6 +172,13 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     if (!options) return;
     if (options.length === 1) onMove(options[0]);
     else setMenu({ x, y, moves: options });
+  };
+
+  // A move-bar button plays its move, or opens a menu of its kind's moves above it.
+  const press = (button: MoveButton, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (button.moves.length === 1) return onMove(button.moves[0]);
+    const box = e.currentTarget.getBoundingClientRect();
+    setMenu({ x: box.left + box.width / 2, y: box.top, moves: button.moves, up: true });
   };
 
   const free: CSSProperties = { left: insets.left, right: insets.right };
@@ -257,9 +266,9 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
               <span className="status">{active !== undefined ? `Player ${active + 1} is thinking…` : ""}</span>
             )}
             {myTurn && <Hint hint={hint} onAsk={ask} onMove={onMove} />}
-            {loose.map((move, i) => (
-              <button key={i} type="button" className={loose.length <= 3 ? "action" : "action secondary"} onClick={() => onMove(move)}>
-                {label(move)}
+            {buttons.map((button) => (
+              <button key={button.label} type="button" className={buttons.length <= 3 ? "action" : "action secondary"} onClick={(e) => press(button, e)}>
+                {button.label}
               </button>
             ))}
           </div>
@@ -267,7 +276,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
       )}
 
       {menu && (
-        <div className="choice-menu" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
           {menu.moves.map((move, i) => (
             <button key={i} type="button" onClick={() => onMove(move)}>
               {label(move)}

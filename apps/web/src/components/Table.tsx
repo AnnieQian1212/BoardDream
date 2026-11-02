@@ -6,7 +6,7 @@ import { resourceById } from "../icons";
 import { resultHeadline } from "../outcome";
 import { tidyPanels } from "../panels";
 import { Board } from "./Board";
-import { turnOf } from "../turn";
+import { turnOf, type MoveButton } from "../turn";
 import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
@@ -25,6 +25,8 @@ interface Menu {
   x: number;
   y: number;
   moves: unknown[];
+  /** Opens above the point (for a button in the move bar at the foot of the screen). */
+  up?: boolean;
 }
 
 /** The play area: rival mats, board and market, your mat and hand, and the moves you can make. */
@@ -38,12 +40,18 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
   const geometry = raw && fitBounds(raw);
   const panels = tidyPanels(game.panels?.(state, human) ?? []);
   // Whose turn, what glows and what each click does: shared with the 3D table.
-  const { over, active, mine: myTurn, byTarget, targets, loose, label, instruction: todo } = turnOf(game, state, human, panels, geometry);
+  const { over, active, mine: myTurn, byTarget, targets, buttons, label, instruction: todo } = turnOf(game, state, human, panels, geometry);
   const pick = (id: string, event: React.MouseEvent) => {
     const options = byTarget.get(id);
     if (!options) return;
     if (options.length === 1) onMove(options[0]);
     else setMenu({ x: event.clientX, y: event.clientY, moves: options });
+  };
+  // A move-bar button plays its move, or opens a menu of its kind's moves above it.
+  const press = (button: MoveButton, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (button.moves.length === 1) return onMove(button.moves[0]);
+    const box = e.currentTarget.getBoundingClientRect();
+    setMenu({ x: box.left + box.width / 2, y: box.top, moves: button.moves, up: true });
   };
 
   const seats = panels.filter((p) => p.zone === "players");
@@ -109,16 +117,16 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart }: Pro
         <div className="action-bar">
           <span className="status">{status}</span>
           {myTurn && <Hint hint={hint} onAsk={ask} onMove={onMove} />}
-          {loose.map((move, i) => (
-            <button key={i} type="button" className={loose.length <= 3 ? "action" : "action secondary"} onClick={() => onMove(move)}>
-              {label(move)}
+          {buttons.map((button) => (
+            <button key={button.label} type="button" className={buttons.length <= 3 ? "action" : "action secondary"} onClick={(e) => press(button, e)}>
+              {button.label}
             </button>
           ))}
         </div>
       )}
 
       {menu && (
-        <div className="choice-menu" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
           {menu.moves.map((move, i) => (
             <button key={i} type="button" onClick={() => onMove(move)}>
               {label(move)}

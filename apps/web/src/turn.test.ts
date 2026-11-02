@@ -2,7 +2,7 @@ import { createRng, fitBounds, resolveParams, type GameModule } from "@boarddrea
 import { fixtureGames, glasshouse, referenceGames } from "@boarddream/library";
 import { describe, expect, test } from "vitest";
 import { tidyPanels } from "./panels";
-import { kindOf, turnOf } from "./turn";
+import { kindOf, moveButtons, turnOf } from "./turn";
 
 const human = 0;
 
@@ -24,6 +24,9 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
           for (const move of moves) expect(legal).toContainEqual(move);
         }
         expect(turn.loose.length + [...turn.byTarget.values()].flat().length).toBe(legal.length);
+        // Every way a loose move reads is on a button or in its menu.
+        const offered = new Set(turn.buttons.flatMap((b) => b.moves.map(turn.label)));
+        expect(offered).toEqual(new Set(turn.loose.map(turn.label)));
         if (turn.targets.size > 0) expect(turn.instruction).toMatch(/^Click/);
       } else {
         expect(turn.byTarget.size + turn.loose.length).toBe(0);
@@ -48,4 +51,33 @@ test("names resource piles, decks and other counters the same way on both tables
   expect(kindOf("deck", shared, undefined)).toBe("deck");
   expect(kindOf("round", shared, undefined)).toBe("counter");
   expect(kindOf("nowhere", shared, undefined)).toBeUndefined();
+});
+
+describe("the move bar", () => {
+  const read = (move: unknown) => (move as { text: string }).text;
+  const move = (type: string, text: string) => ({ type, text });
+
+  test("shows moves that read the same as one button", () => {
+    const trades = [move("trade", "trade 2 readings for ridge"), move("trade", "trade 2 readings for ridge"), move("trade", "trade 2 readings for mesa")];
+    expect(moveButtons([...trades, move("pass", "pass")], read).map((b) => b.label)).toEqual(["trade 2 readings for ridge", "trade 2 readings for mesa", "pass"]);
+  });
+
+  test("keeps a handful of moves as their own buttons", () => {
+    const few = ["a", "b", "c", "d", "e"].map((t) => move("offer", `offer ${t}`));
+    expect(moveButtons(few, read).every((b) => b.moves.length === 1)).toBe(true);
+  });
+
+  test("puts moves of one kind behind one button when there are many", () => {
+    const offers = ["sap for genes", "sap for water", "genes for sap", "genes for water", "water for sap", "water for genes"].map((t) => move("offer", `offer 1 ${t}`));
+    const buttons = moveButtons([move("research_deck", "research 2 biomes"), ...offers, move("tradeBridge", "trade for a Bridge Deed"), move("end", "end turn")], read);
+    expect(buttons.map((b) => [b.label, b.moves.length])).toEqual([
+      ["research 2 biomes", 1],
+      ["Offer…", 6],
+      ["trade for a Bridge Deed", 1],
+      ["end turn", 1],
+    ]);
+    // Without a type, the first word is the kind.
+    const words = ["north", "south", "east", "west", "up", "down"].map((d) => `sail ${d}`);
+    expect(moveButtons(words, (m) => m as string).map((b) => b.label)).toEqual(["Sail…"]);
+  });
 });

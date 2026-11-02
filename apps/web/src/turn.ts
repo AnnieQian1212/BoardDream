@@ -16,14 +16,61 @@ export interface Turn {
   /** The human's legal moves by the id of the board cell, card or counter each acts on. */
   byTarget: Map<string, unknown[]>;
   targets: Set<string>;
-  /** The human's legal moves with nothing on the table to click: buttons (end turn, pass). */
+  /** The human's legal moves with nothing on the table to click (end turn, pass, a trade). */
   loose: unknown[];
+  /** The move bar's buttons for them: see moveButtons. */
+  buttons: MoveButton[];
   /** How a move reads to the human. */
   label(move: unknown): string;
   /** What a target is, as the player would call it. */
   kindOf(id: string): TargetKind | undefined;
   /** What to do this turn ("Click a glowing corner to settle"), when anything glows. */
   instruction?: string;
+}
+
+/** A button in the move bar: one move, or several of one kind behind a menu. */
+export interface MoveButton {
+  label: string;
+  moves: unknown[];
+}
+
+/** Beyond this many buttons, moves of one kind share a button. */
+const BUTTONS = 5;
+
+/** A move's kind: its `type` field, else the first word of how it reads. */
+function kindKey(move: unknown, text: string): string {
+  const type = move && typeof move === "object" && "type" in move ? (move as { type: unknown }).type : undefined;
+  return typeof type === "string" && type ? type : (text.split(/\s/)[0] ?? text).toLowerCase();
+}
+
+/** "research_deck" or "tradeBridge" as a button reads it: "Research deck", "Trade bridge". */
+function kindName(key: string): string {
+  const words = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim().toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * The move bar's buttons for moves with nothing on the table to click. Moves that read the same
+ * are one button, since the player could not tell them apart (a trade listed once for every pair
+ * of cards it could spend). When more than a handful remain, moves of one kind share a button
+ * ("Offer…") that opens a menu of them, so the bar never becomes a wall of buttons.
+ */
+export function moveButtons(loose: unknown[], label: (move: unknown) => string): MoveButton[] {
+  const distinct = new Map<string, unknown>();
+  for (const move of loose) {
+    const text = label(move);
+    if (!distinct.has(text)) distinct.set(text, move);
+  }
+  const single = [...distinct].map(([text, move]) => ({ label: text, moves: [move] }));
+  if (single.length <= BUTTONS) return single;
+  const groups = new Map<string, MoveButton>();
+  for (const button of single) {
+    const key = kindKey(button.moves[0], button.label);
+    const group = groups.get(key);
+    if (group) group.moves.push(button.moves[0]);
+    else groups.set(key, { label: button.label, moves: [button.moves[0]] });
+  }
+  return [...groups].map(([key, group]) => (group.moves.length === 1 ? group : { label: `${kindName(key)}…`, moves: group.moves }));
 }
 
 /**
@@ -59,5 +106,16 @@ export function turnOf(game: GameModule, state: unknown, human: number, panels: 
     const k = kind(id);
     return k ? moves.map((move) => ({ kind: k, description: label(move) })) : [];
   });
-  return { active, over, mine, byTarget, targets: new Set(byTarget.keys()), loose, label, kindOf: kind, instruction: mine ? instruction(glowing) : undefined };
+  return {
+    active,
+    over,
+    mine,
+    byTarget,
+    targets: new Set(byTarget.keys()),
+    loose,
+    buttons: moveButtons(loose, label),
+    label,
+    kindOf: kind,
+    instruction: mine ? instruction(glowing) : undefined,
+  };
 }
