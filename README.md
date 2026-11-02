@@ -44,7 +44,8 @@ npm run dev               # http://localhost:5173
 - **Print** makes an A4 print-and-play kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
 - `?game=lantern-isles&watch` lets bots play a whole game.
-- `F` hides the side panels.
+- Each side panel folds to a tab at the screen's edge; `F` folds or opens both.
+- A generated game can be deleted from beside the picker, and a newly made one offers **Don't keep it**.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
 - **Results** (or `?results`) shows every benchmark on one page.
 - Deploying: a free static demo with AI opponents on Cloudflare Pages, or the full server in a container ([docs/DEPLOY.md](docs/DEPLOY.md)).
@@ -76,3 +77,4 @@ All code was written after kickoff on Oct 26, 2026. The day-by-day plan and prog
 - **Oct 29:** a night mode with dusk light, glowing lanterns and fog; water that ripples under the pointer; grass, flowers and trees on green cells.
 - **Oct 30:** wheat on grain fields, rocks that glitter and chip on stony ground; a check that each painted tile shows its terrain; resource tokens that fall with Rapier physics; water, grass and stone on every game's ground; a Surprise me button that invents an idea and builds it.
 - **Oct 31:** water as a glossy jelly: each pool domes above its tile with a rounded rim, bends the art beneath like a lens, and bounces when touched. Games are made about four times faster (low reasoning effort, measured on the benchmark; checks shared among worker threads), and a live view shows each step, with bots playing the draft on the table; closing the page stops the work.
+- **Nov 1:** a storybook look: ink outlines on every piece, parchment boards, flat color, and the card and board art repainted to match. Generated maps name their places, show a number token on each (an elevation, a yield), mix their ground with water, and paint it by hand: grass and flowers, ferns, furrows, pebbles. A wider table: rivals stand in columns at the sides, the board is larger and the market stands upright beside it, and the side panels fold away. The table is drawn at the screen's own resolution, so text is sharp. Generated games can be kept or deleted, text stays inside its box, and the design stays up while a draft has a fault.
