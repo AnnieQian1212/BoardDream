@@ -1750,6 +1750,64 @@ button.pile-count.target {
   font-size: 20px;
 }
 
+.library-group-name {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 6px;
+  cursor: help;
+  outline: none;
+}
+
+.library-group-name > svg {
+  color: var(--faint);
+  transition: color 0.12s;
+}
+
+.library-group-name:hover > svg,
+.library-group-name:focus-visible > svg {
+  color: var(--ink);
+}
+
+.library-group-name:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.library-tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 5;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 48px));
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fbf3e1;
+  font-family: var(--font-ui);
+  font-variation-settings: normal;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  box-shadow: 0 10px 24px rgba(70, 48, 25, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition:
+    opacity 0.12s,
+    transform 0.12s,
+    visibility 0.12s;
+  pointer-events: none;
+}
+
+.library-group-name:hover > .library-tip,
+.library-group-name:focus > .library-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
 .library-count {
   padding: 1px 9px;
   border-radius: 999px;

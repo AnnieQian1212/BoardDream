@@ -1,6 +1,6 @@
 import type { GameModule } from "@boarddream/engine";
-import { Play, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { Info, Play, Trash2, X } from "lucide-react";
+import { useId, useState } from "react";
 import { useEscape } from "../escape";
 import { gameOrigin, generatedSource } from "../generated";
 import { splitVersion } from "../names";
@@ -54,25 +54,25 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
     <div className="library" role="dialog" aria-label="Games">
       <div className="library-sheet">
         <header className="results-head">
-          <div>
-            <h1>Games</h1>
-            <p className="hint">
-              Pick one to play. The demo games were designed by hand; the rest {canMake ? "were dreamed up here" : "BoardDream dreamed up from a one-line idea"}, each playtested before it was
-              saved.
-            </p>
-          </div>
+          <h1>Games</h1>
           <button type="button" className="ghost" onClick={onClose} aria-label="Close the game list">
             <X size={16} /> Close
           </button>
         </header>
         <section>
-          <h2 className="library-group">Demo games</h2>
+          <GroupHeading title="Demo games" tip="Original games designed by hand from BoardDream's mechanics library, to show what its table can play. BoardDream also learns from them when it makes a new game." />
           <div className="library-grid">{demos.map(card)}</div>
         </section>
         <section>
-          <h2 className="library-group">
-            {canMake ? "Your generated games" : "Made by BoardDream"} <span className="library-count">{made.length}</span>
-          </h2>
+          <GroupHeading
+            title={canMake ? "Your generated games" : "Made by BoardDream"}
+            count={made.length}
+            tip={
+              canMake
+                ? "Games dreamed up here from a one-line idea, each playtested a thousand times before it was saved."
+                : "Games BoardDream dreamed up from a one-line idea and playtested a thousand times before saving them."
+            }
+          />
           {made.length > 0 ? (
             <div className="library-grid">{made.map(card)}</div>
           ) : (
@@ -81,6 +81,23 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
         </section>
       </div>
     </div>
+  );
+}
+
+/** A group's name, which explains the group in a tip on hover or focus. */
+function GroupHeading({ title, count, tip }: { title: string; count?: number; tip: string }) {
+  const id = useId();
+  return (
+    <h2 className="library-group">
+      <span className="library-group-name" tabIndex={0} aria-describedby={id}>
+        {title}
+        <Info size={15} aria-hidden />
+        <span className="library-tip" role="tooltip" id={id}>
+          {tip}
+        </span>
+      </span>
+      {count !== undefined && <span className="library-count">{count}</span>}
+    </h2>
   );
 }
 
