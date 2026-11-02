@@ -3201,6 +3201,72 @@ button.pile-count.target {
   color: var(--muted);
 }
 
+/* Surprise me's thinking bar, along the top edge of the box. */
+.dream-box {
+  position: relative;
+  overflow: hidden;
+}
+
+.dream-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 4px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(90deg, var(--accent), #3cc6d6);
+  overflow: hidden;
+  transition: width 14s cubic-bezier(0.15, 0.6, 0.3, 1);
+}
+
+.dream-progress.going {
+  width: 92%;
+}
+
+.dream-progress.done {
+  width: 100%;
+  opacity: 0;
+  transition:
+    width 0.3s ease,
+    opacity 0.3s ease 0.35s;
+}
+
+/* A glint running along the bar, so a long wait still looks alive. */
+.dream-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  transform: translateX(-100%);
+  animation: dream-glint 1.4s ease-in-out infinite;
+}
+
+@keyframes dream-glint {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.dream-dice.rolling {
+  animation: dream-roll 0.9s ease-in-out infinite;
+}
+
+@keyframes dream-roll {
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dream-progress::after,
+  .dream-dice.rolling {
+    animation: none;
+  }
+}
+
 .dream-row {
   display: flex;
   align-items: center;

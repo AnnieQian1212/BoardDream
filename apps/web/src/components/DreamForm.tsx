@@ -1,6 +1,6 @@
 import type { PlayMode } from "@boarddream/engine";
 import { ChevronDown, Dices, Wand2, X } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { FAMILIES, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, THEMES } from "../dials";
 import type { Dials } from "../generation";
 
@@ -71,8 +71,17 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
   const changed = countChanged(dials);
   const locked = busy || inventing || !available;
 
+  // The thinking bar: running while Muse Spark writes an idea, then full for a moment once it lands.
+  const [thinking, setThinking] = useState<"running" | "done">();
+  useEffect(() => {
+    if (thinking !== "done") return;
+    const timer = setTimeout(() => setThinking(undefined), 700);
+    return () => clearTimeout(timer);
+  }, [thinking]);
+
   async function surprise() {
     setInventing(true);
+    setThinking("running");
     setProblem(undefined);
     try {
       const res = await fetch("/api/idea", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dials }) });
@@ -84,6 +93,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
       setProblem(`No idea this time: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setInventing(false);
+      setThinking("done");
     }
   }
 
@@ -98,6 +108,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
   return (
     <form className="dream" onSubmit={submit}>
       <div className={["dream-box", locked && "locked"].filter(Boolean).join(" ")}>
+        {thinking && <ThinkingBar done={thinking === "done"} />}
         <textarea
           ref={box}
           value={prompt}
@@ -106,7 +117,13 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
             // Enter makes the game, as in a chat; Shift+Enter starts a new line.
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
           }}
-          placeholder={available ? "Rival beekeepers trade nectar and wax to build hives across a flowering valley…" : "Dreaming up new games needs the full server; play a ready-made one below."}
+          placeholder={
+            inventing
+              ? "Muse Spark is thinking of an idea…"
+              : available
+                ? "Rival beekeepers trade nectar and wax to build hives across a flowering valley…"
+                : "Dreaming up new games needs the full server; play a ready-made one below."
+          }
           rows={3}
           readOnly={locked}
           aria-label="Describe the game you want to play"
@@ -114,7 +131,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
         />
         <div className="dream-row">
           <button type="button" className="quiet" disabled={locked} onClick={() => void surprise()} title="Muse Spark writes an idea into the box; nothing is made until you press Dream it up">
-            <Dices size={16} /> {inventing ? "Thinking of one…" : "Surprise me"}
+            <Dices size={16} className={inventing ? "dream-dice rolling" : "dream-dice"} /> {inventing ? "Thinking of one…" : "Surprise me"}
           </button>
           <button
             type="button"
@@ -273,6 +290,29 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * Progress while Muse Spark writes an idea. The reply comes in one piece after 3 to 8 seconds, so
+ * the bar cannot know how far along it is: it runs quickly at first and ever more slowly toward
+ * 92%, which reads as working at any wait, then fills when the idea lands. It is a CSS transition,
+ * so nothing re-renders while it runs.
+ */
+function ThinkingBar({ done }: { done: boolean }) {
+  const [started, setStarted] = useState(false);
+  // Drawn at zero first, then widened on the next frame, so the transition has somewhere to start.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => setStarted(true)));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <div
+      className={["dream-progress", started && "going", done && "done"].filter(Boolean).join(" ")}
+      role="progressbar"
+      aria-label="Thinking of an idea"
+      aria-busy={!done}
+    />
   );
 }
 
