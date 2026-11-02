@@ -7,7 +7,7 @@ import { Designer, type DesignerTab } from "./components/Designer";
 import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
-import { MOSAIC_HEIGHT, MosaicGame, useMosaicOpen } from "./components/MosaicGame";
+import { Hamlet, HAMLET_HEIGHT, useHamletOpen } from "./components/Hamlet";
 import { LogPanel } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
@@ -318,18 +318,18 @@ export function App() {
   const firstVisit = !WATCH && !preview && !guided.has(game.meta.id) && !rulesSeen(game.meta.id);
   const goal = useMemo(() => goalOf(rulesFor(game, params), game.meta.summary), [game, params]);
   const guiding = firstVisit && !rulesOpen && !generation;
-  const mosaicOpen = useMosaicOpen();
-  const mosaicShown = generating && mosaicOpen;
+  const hamletOpen = useHamletOpen();
+  const hamletShown = generating && hamletOpen;
   // On a narrow screen the drawer covers the table instead of pushing it aside.
   const insets = useMemo(
     () => ({
       left: making ? PANEL_INSET : 0,
       right: drawerOpen && width >= 760 ? DRAWER_INSET : 0,
       top: TOP_INSET,
-      // On a phone the guide wraps onto more lines. A draft on the table stops above the mosaic.
-      bottom: BOTTOM_INSET + (guiding ? (width < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0) + (mosaicShown ? MOSAIC_HEIGHT : 0),
+      // On a phone the guide wraps onto more lines. A draft on the table stops above the hamlet.
+      bottom: BOTTOM_INSET + (guiding ? (width < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0) + (hamletShown ? HAMLET_HEIGHT : 0),
     }),
-    [making, drawerOpen, guiding, mosaicShown],
+    [making, drawerOpen, guiding, hamletShown],
   );
   const endGuide = () => {
     markRulesSeen(game.meta.id);
@@ -412,7 +412,7 @@ export function App() {
   }
 
   return (
-    <div className={["app", making && "making", drawerOpen && "drawer-open", mosaicShown && "has-mosaic"].filter(Boolean).join(" ")}>
+    <div className={["app", making && "making", drawerOpen && "drawer-open", hamletShown && "has-hamlet"].filter(Boolean).join(" ")}>
       {generation && <GenerationStage generation={generation} previewing={showDraft} draftFailed={draftFailed} />}
       {/* Until a draft runs without a fault, the stage stands in for the table. */}
       {(!generation || showDraft || generation.done?.ok) && (
@@ -454,8 +454,8 @@ export function App() {
         onInvite={invite}
       />
 
-      {/* Something to tap at the foot of the page while the game is made. */}
-      {generating && <MosaicGame />}
+      {/* Something to tend at the foot of the page while the game is made. */}
+      {generating && <Hamlet />}
 
       {generation && (
         <aside className="sidebar left">
