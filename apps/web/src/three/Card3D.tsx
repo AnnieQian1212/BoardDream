@@ -26,6 +26,10 @@ const THICK = 0.05;
 const RADIUS = 0.42;
 /** Highlight for anything a legal move acts on: a cool teal that stands out on warm wood and paper. */
 export const HIGHLIGHT = "#19b4c6";
+/** A card whose ability just fired flashes this warm gold, unlike the teal of what can be clicked. */
+const FIRED = "#f5b72f";
+/** How long a fired card's flash lasts, in seconds. */
+const FLASH = 1.1;
 
 function cardShape(w: number, h: number, r: number): Shape {
   const s = new Shape();
@@ -89,6 +93,11 @@ export function Card3D({ item, resources, onPick }: CardProps) {
   const shadow = useRef<Mesh>(null!);
   const shade = useRef<MeshBasicMaterial>(null!);
   const glow = useRef<MeshBasicMaterial>(null);
+  const flash = useRef<MeshBasicMaterial>(null!);
+  // When the card's ability fired last (its pulse changed), in the frame clock's seconds. A card that
+  // arrives already fired, as the table opens mid-game, does not flash.
+  const firedAt = useRef<number | null>(null);
+  const seenPulse = useRef(item.card.pulse);
   const [hovered, setHovered] = useState(false);
   const invalidate = useThree((s) => s.invalidate);
   const face = useMemo(() => (item.card.faceDown ? cardBack() : cardFace(item.card, resources)), [item.card, resources]);
@@ -103,6 +112,13 @@ export function Card3D({ item, resources, onPick }: CardProps) {
     group.current.scale.setScalar(item.scale * 0.85);
   }, []);
   useEffect(() => invalidate(), [item, hovered, invalidate]);
+  const clock = useThree((s) => s.clock);
+  useEffect(() => {
+    if (item.card.pulse === undefined || item.card.pulse === seenPulse.current) return;
+    seenPulse.current = item.card.pulse;
+    firedAt.current = clock.getElapsedTime();
+    invalidate();
+  }, [item.card.pulse, clock, invalidate]);
 
   useFrame((state, delta) => {
     const dt = step(delta);
@@ -118,8 +134,15 @@ export function Card3D({ item, resources, onPick }: CardProps) {
     // Arc over whatever lies between the card and its slot.
     const distance = g.position.distanceTo(goal);
     goal.y += Math.min(6, distance * 0.35);
-    const s = item.scale * (raise ? 1.08 : 1);
-    let moving = easing.damp3(g.position, goal, 0.16, dt);
+    // A fired card jumps a little and glows gold, then settles.
+    const since = firedAt.current === null ? FLASH : state.clock.getElapsedTime() - firedAt.current;
+    const flashing = since < FLASH;
+    const bump = flashing ? Math.sin(Math.min(1, since / (FLASH * 0.45)) * Math.PI) : 0;
+    goal.y += bump * 1.4;
+    flash.current.opacity = flashing ? Math.min(1, since * 8) * (1 - since / FLASH) : 0;
+    flash.current.visible = flashing;
+    const s = item.scale * (raise ? 1.08 : 1) * (1 + bump * 0.06);
+    let moving = easing.damp3(g.position, goal, flashing ? 0.06 : 0.16, dt);
     moving = easing.dampQ(g.quaternion, goalQ, 0.16, dt) || moving;
     moving = easing.damp3(g.scale, [s, s, s], 0.14, dt) || moving;
     if (glow.current) moving = easing.damp(glow.current, "opacity", hovered ? 1 : 0.9, 0.1, dt) || moving;
@@ -130,7 +153,7 @@ export function Card3D({ item, resources, onPick }: CardProps) {
     shadow.current.rotation.y = yaw.setFromQuaternion(g.quaternion).y;
     shadow.current.scale.setScalar(g.scale.x * (1 + height * 0.03));
     shade.current.opacity = 0.34 * Math.max(0.3, 1 - height / 12);
-    if (moving) state.invalidate();
+    if (moving || flashing) state.invalidate();
   });
 
   const over = (e: ThreeEvent<PointerEvent>) => {
@@ -170,6 +193,9 @@ export function Card3D({ item, resources, onPick }: CardProps) {
             <meshBasicMaterial ref={glow} map={SHARED.glowMap} color={HIGHLIGHT} transparent opacity={0} depthWrite={false} toneMapped={false} />
           </mesh>
         )}
+        <mesh geometry={SHARED.glow} raycast={noRaycast} renderOrder={-1} scale={1.08}>
+          <meshBasicMaterial ref={flash} map={SHARED.glowMap} color={FIRED} transparent opacity={0} visible={false} depthWrite={false} toneMapped={false} />
+        </mesh>
       </group>
     </>
   );

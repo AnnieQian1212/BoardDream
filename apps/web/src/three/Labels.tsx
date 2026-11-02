@@ -1,7 +1,7 @@
 import type { ResourceSpec } from "@boarddream/engine";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Star } from "lucide-react";
-import { useMemo, type CSSProperties, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Vector3 } from "three";
 import { iconFor } from "../icons";
 import { CARD_H, CARD_W, type TableLayout, type Vec3 } from "./layout";
@@ -93,6 +93,61 @@ export function markAnchors(layout: TableLayout, marks: TargetMark[]): Map<strin
   return anchors;
 }
 
+/** A counter that just changed, shown as a number floating up off its chip. */
+interface Delta {
+  id: string;
+  amount: number;
+  key: number;
+}
+
+/** How long a change floats above its chip, in milliseconds (the chip-delta animation in styles.css). */
+const DELTA_MS = 1600;
+
+/**
+ * The counters that changed with the last move, by how much: income paid, a cost spent, points
+ * scored. They are compared with the counters the table showed before, so the first layout shows
+ * none, and a new game starts a new table (App keys it by match).
+ */
+function useDeltas(layout: TableLayout): Map<string, Delta[]> {
+  const values = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const badge of layout.badges) for (const counter of badge.counters) out.set(counter.id, counter.value);
+    for (const pile of layout.piles) out.set(pile.id, pile.counter.value);
+    return out;
+  }, [layout]);
+  const before = useRef<Map<string, number>>(undefined);
+  const next = useRef(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [deltas, setDeltas] = useState<Delta[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const old = before.current;
+    before.current = values;
+    if (!old) return;
+    const fresh: Delta[] = [];
+    for (const [id, value] of values) {
+      const was = old.get(id);
+      if (was !== undefined && was !== value) fresh.push({ id, amount: value - was, key: ++next.current });
+    }
+    if (fresh.length === 0) return;
+    setDeltas((current) => [...current, ...fresh]);
+    timers.current.push(setTimeout(() => setDeltas((current) => current.filter((d) => !fresh.includes(d))), DELTA_MS));
+  }, [values]);
+  return useMemo(() => {
+    const byId = new Map<string, Delta[]>();
+    for (const d of deltas) byId.set(d.id, [...(byId.get(d.id) ?? []), d]);
+    return byId;
+  }, [deltas]);
+}
+
+function Floats({ deltas }: { deltas?: Delta[] }) {
+  return deltas?.map((d) => (
+    <span key={d.key} className={d.amount > 0 ? "chip-delta up" : "chip-delta down"} aria-hidden>
+      {d.amount > 0 ? `+${d.amount}` : `−${-d.amount}`}
+    </span>
+  ));
+}
+
 interface LabelsProps {
   layout: TableLayout;
   /** Rings over glowing board cells, and the hinted target. */
@@ -111,6 +166,7 @@ interface LabelsProps {
 export function Labels({ layout, marks = [], resources, layer, targets, speech, chipScale = 1, onPick }: LabelsProps) {
   const speaker = speech && layout.badges.find((b) => b.seat === speech.seat);
   const hinted = marks.find((m) => m.hint);
+  const deltas = useDeltas(layout);
   return (
     <div className="labels" ref={layer} style={{ "--chip-scale": chipScale } as CSSProperties}>
       {marks
@@ -142,11 +198,13 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
                   <button key={c.id} type="button" className={hinted?.id === c.id ? "badge-chip target hinted" : "badge-chip target"} onClick={(e) => onPick(c.id, e.clientX, e.clientY)}>
                     <small>{c.label}</small>
                     {c.value}
+                    <Floats deltas={deltas.get(c.id)} />
                   </button>
                 ) : (
                   <span key={c.id} className="badge-chip">
                     <small>{c.label}</small>
                     {c.value}
+                    <Floats deltas={deltas.get(c.id)} />
                   </span>
                 ),
               )}
@@ -154,6 +212,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
                 <span className="badge-chip score" title={score.label}>
                   <Star size={13} strokeWidth={0} fill="currentColor" />
                   {score.value}
+                  <Floats deltas={deltas.get(score.id)} />
                 </span>
               )}
             </div>
@@ -175,6 +234,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
             >
               <Icon size={11} strokeWidth={2.6} />
               {pile.counter.value}
+              <Floats deltas={deltas.get(pile.id)} />
             </button>
           </div>
         );

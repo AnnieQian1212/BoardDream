@@ -81,6 +81,9 @@ implementable spec for a turn-based board game that runs in a browser.
 - The game must be original: never a recreation of a published game, even renamed. Medium scale: 3-5
   resources, 20-40 distinct cards at most, a map of at most 19-37 tiles.
 - Depth comes from tension between a few proven mechanics, not from piles of exceptions.
+- When the game has cards, give them distinct abilities that work together: a card that rewards playing
+  another kind of card, one that makes a kind cheaper, tags that end-game bonuses count. The order cards
+  are played in should build combos, and no card should be a plain copy of another with a new name.
 - tunables are integer knobs the rules read from params (board size, target score, hand size, round limit).
   Include 2-4, with ranges where every value still gives a playable game.
 - rules: plain sentences a new player can follow, with each tunable written as its default number
@@ -140,8 +143,13 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
 - moveTarget(state, move) returns the id of the board cell, card or counter the move acts on, or
   undefined for moves shown as buttons (end turn, pass). Several moves may share a target.
 - Card games: write cards as data with the effects module (CardDef: cost, points, tags, onPlay, income,
-  endgame), build the deck with buildDeck so every copy has a stable id like "fern#2", show text from
-  rulesText, and keep a card's id the same in every zone so the UI can animate it.
+  endgame, whenever, discount), build the deck with buildDeck so every copy has a stable id like "fern#2",
+  show text from rulesText, and keep a card's id the same in every zone so the UI can animate it. Give
+  cards abilities that set each other off: whenever (a played card's standing order, fired when its owner
+  plays another card with a tag) and discount (cards with a tag cost less), besides tags that end-game
+  bonuses count. Pay costOf, then play the card with playToTableau (its onPlay and the standing orders it
+  sets off); pay income with applyIncome; keep each seat's fired and firedAt in state and set every card
+  view's pulse with pulseOf, so the table flashes the cards whose abilities fire.
 - Drafting: keep a drafting.Draft in state. Picks are simultaneous: activePlayers returns drafting.waiting,
   view hides rival hands and picks with drafting.hideDraft, and the applyMove that records the last pick also
   calls drafting.resolve to reveal the picks and pass the hands. Open drafts from a shared row use snakeOrder.

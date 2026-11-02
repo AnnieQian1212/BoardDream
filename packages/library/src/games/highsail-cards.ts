@@ -26,8 +26,10 @@ export const ISLANDS: Island[] = [
 ];
 
 /**
- * 24 charters. Each names the island where launching it puts an outpost (its first tag) and a kind:
- * cargo scores now, survey pays income every round, envoy scores at game end.
+ * 31 charters. Each names the island where launching it puts an outpost (its first tag) and a kind:
+ * cargo scores now, survey pays income every round, envoy scores at game end, and a guild gives a
+ * standing order (whenever you launch a charter of some kind or island, a bonus) or makes a kind
+ * of charter cheaper, so the order charters are launched in sets off chains.
  */
 export const HIGHSAIL_CHARTERS: CardDef[] = [
   // Cargo: points now
@@ -91,5 +93,20 @@ export const HIGHSAIL_CHARTERS: CardDef[] = [
     points: 4,
     tags: ["emberfall", "envoy"],
     endgame: [{ pointsPerTag: { tag: "emberfall", points: 2 } }],
+  },
+  // Guilds: standing orders and discounts that the charters launched after them set off
+  { id: "harbor-guild", name: "Harbor Guild", cost: { timber: 1, coins: 2 }, points: 1, tags: ["lowhaven", "guild"], whenever: [{ tag: "cargo", effects: [{ gain: { coins: 1 } }] }] },
+  { id: "shipwrights-lodge", name: "Shipwrights' Lodge", cost: { timber: 2, crystal: 1 }, points: 1, tags: ["mistwood", "guild"], discount: { tag: "cargo", amounts: { timber: 1 } } },
+  { id: "crystal-exchange", name: "Crystal Exchange", cost: { crystal: 1, coins: 2 }, points: 1, tags: ["ironcrag", "guild"], whenever: [{ tag: "ironcrag", effects: [{ gain: { crystal: 1 } }] }] },
+  { id: "beacon-network", name: "Beacon Network", cost: { fuel: 1, crystal: 1 }, points: 1, tags: ["saltspire", "guild"], whenever: [{ tag: "survey", effects: [{ points: 1 }] }] },
+  { id: "ember-foundry", name: "Ember Foundry", cost: { fuel: 2, coins: 1 }, points: 1, tags: ["emberfall", "guild"], discount: { tag: "envoy", amounts: { fuel: 1, coins: 1 } } },
+  { id: "consuls-seal", name: "Consul's Seal", cost: { crystal: 1, coins: 2 }, points: 2, tags: ["emberfall", "guild"], whenever: [{ tag: "envoy", effects: [{ points: 1 }] }] },
+  {
+    id: "guildmasters-hall",
+    name: "Guildmasters' Hall",
+    cost: { timber: 1, fuel: 1, coins: 1 },
+    points: 2,
+    tags: ["saltspire", "guild"],
+    whenever: [{ tag: "guild", effects: [{ gain: { timber: 1, fuel: 1 } }] }],
   },
 ];

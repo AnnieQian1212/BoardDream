@@ -1,6 +1,6 @@
 import type { CardView, GameModule, Geometry, GeometryCell, GeometryPiece, Panel, PlayerId, Rng } from "@boarddream/engine";
 import { deal } from "../mechanics/deck";
-import { applyEffects, buildDeck, defId, endgameScore, rulesText, type CardDef, type EffectSeat } from "../mechanics/effects";
+import { applyIncome, buildDeck, costOf, defId, endgameScore, playToTableau, pulseOf, rulesText, type CardDef, type EffectSeat } from "../mechanics/effects";
 import { majorityAwards, scoreRegions, type Presence } from "../mechanics/majority";
 import { refill, take, type Market } from "../mechanics/market";
 import { add, amountOf, canAfford, pay, total, type Amounts } from "../mechanics/resources";
@@ -13,7 +13,11 @@ const CHARTERS = new Map(HIGHSAIL_CHARTERS.map((card) => [card.id, card]));
 export const charterOf = (instance: string): CardDef => CHARTERS.get(defId(instance))!;
 /** The island a charter's outpost goes to: its first tag. */
 export const islandOf = (instance: string): Island => ISLANDS.find((island) => island.id === charterOf(instance).tags[0])!;
-const NAMES = Object.fromEntries(HIGHSAIL_RESOURCES.map((r) => [r.id, r.name.toLowerCase()]));
+/** Resources and islands as the rules text names them: "2 timber", "an Ironcrag charter". */
+const NAMES: Record<string, string> = {
+  ...Object.fromEntries(HIGHSAIL_RESOURCES.map((r) => [r.id, r.name.toLowerCase()])),
+  ...Object.fromEntries(ISLANDS.map((island) => [island.id, island.name])),
+};
 
 const MAX_WORKERS = 5;
 const OUTPOSTS = 12;
@@ -71,6 +75,9 @@ export interface HighsailState {
   points: number[];
   held: string[][];
   launched: string[][];
+  /** Each seat's charters whose abilities fired last (launched, set off, or paying income), for the table to flash. */
+  fired: string[][];
+  firedAt: number[];
   /** Island id to each seat's outposts there. */
   outposts: Presence;
   charters: Market<string>;
@@ -94,7 +101,12 @@ const effectSeat = (s: HighsailState, seat: PlayerId): EffectSeat => ({
   points: s.points[seat],
   hand: s.held[seat],
   tableau: s.launched[seat],
+  fired: s.fired[seat],
+  firedAt: s.firedAt[seat],
 });
+
+/** What launching a charter costs this seat: its printed cost less its guilds' discounts. */
+export const launchCost = (s: HighsailState, seat: PlayerId, instance: string) => costOf(charterOf(instance), s.launched[seat], charterOf);
 // Charters never draw cards, so effects need no deck.
 const EFFECTS = { cardOf: charterOf, draw: () => [] };
 
@@ -114,13 +126,16 @@ function endRound(s: HighsailState, rng: Rng): HighsailState {
   let next = s;
   const resources = s.resources.slice();
   const points = s.points.slice();
+  const fired = s.fired.slice();
+  const firedAt = s.firedAt.slice();
   for (let seat = 0; seat < s.numPlayers; seat++) {
-    let seatState = effectSeat(s, seat);
-    for (const card of s.launched[seat]) seatState = applyEffects(seatState, charterOf(card).income, EFFECTS);
-    resources[seat] = seatState.resources;
-    points[seat] = seatState.points;
+    const paid = applyIncome(effectSeat(s, seat), EFFECTS);
+    resources[seat] = paid.resources;
+    points[seat] = paid.points;
+    fired[seat] = paid.fired ?? [];
+    firedAt[seat] = paid.firedAt ?? firedAt[seat];
   }
-  next = { ...next, resources, points };
+  next = { ...next, resources, points, fired, firedAt };
   if (s.scoringRounds.includes(s.round)) next = scoreIslands(next);
   if (s.round >= s.rounds) return { ...next, over: true, placed: {} };
 
@@ -172,16 +187,19 @@ const rect = (x: number, y: number, w: number, h: number): [number, number][] =>
 ];
 const SPACE_ORDER: SpaceId[] = ["forest", "mine", "refinery", "exchange", "salvage", "tavern", "charter", "shipyard", "survey", "admiralty", "academy"];
 
-function charterView(instance: string): CardView {
+/** A charter's face; `seat` is whose it is, for its cost after their discounts and whether it just fired. */
+function charterView(instance: string, s?: HighsailState, seat?: PlayerId): CardView {
   const card = charterOf(instance);
-  const effects = rulesText(card, NAMES, { onPlay: "Launch", income: "Each round", endgame: "Game end" });
+  const effects = rulesText(card, NAMES, { onPlay: "Launch", income: "Each round", endgame: "Game end", play: "launch", cards: "charters" });
+  const owned = s !== undefined && seat !== undefined;
   return {
     id: instance,
     title: card.name,
     text: `Outpost on ${islandOf(instance).name}.${effects ? ` ${effects}` : ""}`,
-    cost: card.cost,
+    cost: owned ? launchCost(s, seat, instance) : card.cost,
     points: card.points,
     tags: [card.tags[1], card.tags[0]],
+    pulse: owned ? pulseOf(effectSeat(s, seat), instance) : undefined,
   };
 }
 
@@ -220,7 +238,9 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
   setup: ({ numPlayers, params, rng }) => {
     const deck = rng.shuffle(buildDeck(HIGHSAIL_CHARTERS));
     // Everyone starts with one charter. The first seat gets a fourth coin: in bot-vs-bot play it
-    // otherwise wins least often (late seats pick last in round 1 but lead the catch-up order).
+    // otherwise wins least often (late seats pick last in round 1 but lead the catch-up order). At a
+    // table of four the last seat gets one too: it sees the guilds, which cost coins, picked over
+    // before its first turn, and won 19% of bot games without it.
     const { hands, rest } = deal(deck, numPlayers, 1);
     const charters = refill(rng, { row: [], drawPile: rest, discard: [] }, params.rowSize);
     return {
@@ -235,10 +255,12 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
       workers: new Array(numPlayers).fill(params.startWorkers),
       recruits: new Array(numPlayers).fill(0),
       placed: {},
-      resources: Array.from({ length: numPlayers }, (_, seat) => ({ timber: 1, crystal: 1, fuel: 1, coins: seat === 0 ? 4 : 3 })),
+      resources: Array.from({ length: numPlayers }, (_, seat) => ({ timber: 1, crystal: 1, fuel: 1, coins: seat === 0 || (numPlayers >= 4 && seat === numPlayers - 1) ? 4 : 3 })),
       points: new Array(numPlayers).fill(0),
       held: hands,
       launched: Array.from({ length: numPlayers }, () => []),
+      fired: Array.from({ length: numPlayers }, () => []),
+      firedAt: Array.from({ length: numPlayers }, () => 0),
       outposts: Object.fromEntries(ISLANDS.map((island) => [island.id, new Array(numPlayers).fill(0)])),
       charters,
       over: false,
@@ -257,7 +279,7 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
           if (s.held[player].length < s.handLimit) for (const card of s.charters.row) moves.push({ type: "place", space: space.id, card });
           break;
         case "shipyard":
-          for (const card of s.held[player]) if (canAfford(pool, charterOf(card).cost)) moves.push({ type: "place", space: space.id, card });
+          for (const card of s.held[player]) if (canAfford(pool, launchCost(s, player, card))) moves.push({ type: "place", space: space.id, card });
           break;
         case "survey":
           if (canAfford(pool, OUTPOST_COST) && outpostsLeft(s, player) > 0) for (const island of ISLANDS) moves.push({ type: "place", space: space.id, island: island.id });
@@ -300,16 +322,17 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
         break;
       }
       case "shipyard": {
+        // Paid after the guilds' discounts; then its own effects and the standing orders it sets off.
         const card = charterOf(move.card!);
-        resources[player] = pay(resources[player], card.cost);
+        resources[player] = pay(resources[player], launchCost(s, player, move.card!));
         setSeat("held", s.held[player].filter((c) => c !== move.card));
-        setSeat("launched", [...s.launched[player], move.card!]);
-        setSeat("points", s.points[player] + card.points);
         const island = islandOf(move.card!).id;
         if (outpostsLeft(next, player) > 0) next = { ...next, outposts: { ...next.outposts, [island]: next.outposts[island].map((n, seat) => (seat === player ? n + 1 : n)) } };
-        const played = applyEffects({ ...effectSeat(next, player), resources: resources[player] }, card.onPlay, EFFECTS);
+        const played = playToTableau({ ...effectSeat(next, player), resources: resources[player], points: s.points[player] + card.points }, move.card!, EFFECTS);
         resources[player] = played.resources;
         setSeat("points", played.points);
+        setSeat("launched", played.tableau);
+        next = { ...next, fired: next.fired.map((f, seat) => (seat === player ? played.fired! : f)), firedAt: next.firedAt.map((n, seat) => (seat === player ? played.firedAt! : n)) };
         break;
       }
       case "survey":
@@ -371,7 +394,7 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
         id: "office",
         title: "Charter office",
         zone: "shared",
-        cards: s.charters.row.map(charterView),
+        cards: s.charters.row.map((card) => (viewer === undefined ? charterView(card) : charterView(card, s, viewer))),
         counters: [{ id: "charter-deck", label: "Deck", value: s.charters.drawPile.length }],
         note: s.lastScoring ? `Round ${s.lastScoring.round} scoring: ${s.lastScoring.points.map((p, seat) => `P${seat + 1} +${p}`).join(", ")}` : scoringText,
       },
@@ -388,11 +411,11 @@ export const highsail: GameModule<HighsailState, HighsailMove, HighsailParams> =
           { id: `seat${seat}-held`, label: "Charters", value: s.held[seat].length },
           { id: `seat${seat}-score`, label: "Score", value: highsailScore(s, seat) },
         ],
-        cards: s.launched[seat].map(charterView),
+        cards: s.launched[seat].map((card) => charterView(card, s, seat)),
         note: s.first === seat && !s.over ? "First player" : undefined,
       });
     }
-    if (viewer !== undefined) panels.push({ id: `hand${viewer}`, title: "Your charters", zone: "hand", owner: viewer, cards: s.held[viewer].map(charterView) });
+    if (viewer !== undefined) panels.push({ id: `hand${viewer}`, title: "Your charters", zone: "hand", owner: viewer, cards: s.held[viewer].map((card) => charterView(card, s, viewer)) });
     return panels;
   },
 

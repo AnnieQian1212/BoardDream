@@ -144,6 +144,11 @@ export interface CardView {
   faceDown?: boolean;
   /** Card illustration; filled in by the art pipeline. */
   art?: string;
+  /**
+   * Changes each time the card's ability fires (it was played, it paid income, or another card set
+   * it off); the table flashes the card when it does. The effects module's pulseOf gives it.
+   */
+  pulse?: number;
 }
 
 export interface Counter {

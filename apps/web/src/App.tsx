@@ -71,10 +71,14 @@ interface MatchEntry extends LogEntry {
 }
 
 interface Match {
+  /** Each new game gets its own table, so nothing carries over from the last (floating changes). */
+  id: number;
   state: unknown;
   rng: Rng;
   log: MatchEntry[];
 }
+
+let matches = 0;
 
 function applyMove(game: GameModule, match: Match, seat: number, move: unknown, say?: string): Match {
   // Described from the human's seat, so rivals' hidden cards stay hidden in the log.
@@ -86,7 +90,7 @@ function applyMove(game: GameModule, match: Match, seat: number, move: unknown, 
 
 function startMatch(game: GameModule, numPlayers: number, params: Params): Match {
   const rng = createRng(Date.now() >>> 0);
-  return { state: game.setup({ numPlayers, params, rng }), rng, log: [] };
+  return { id: ++matches, state: game.setup({ numPlayers, params, rng }), rng, log: [] };
 }
 
 /** Genre games read best with three at the table; abstracts with their minimum. */
@@ -329,7 +333,7 @@ export function App() {
         onMove: (move: unknown) => setMatch(applyMove(game, match, HUMAN, move)),
         onRestart: () => setMatch(startMatch(game, numPlayers, params)),
       };
-  const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}`;
+  const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}-${match.id}`;
   // A draft with a fault (the playtest failed it, it threw while bots played it, or the table could
   // not draw it) leaves the table; the design sheet comes back until the next draft runs.
   const draftFailed = Boolean(

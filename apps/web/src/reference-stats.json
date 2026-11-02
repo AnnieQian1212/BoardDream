@@ -123,23 +123,24 @@
     "id": "highsail",
     "name": "Highsail",
     "family": "engine",
+    "mode": "competitive",
     "balance": [
       {
         "numPlayers": 2,
         "games": 600,
         "winRateBySeat": [
-          0.5033333333333333,
-          0.4666666666666667
+          0.47,
+          0.5083333333333333
         ],
-        "drawRate": 0.03,
+        "drawRate": 0.021666666666666667,
         "medianTurns": 36
       },
       {
         "numPlayers": 3,
         "games": 600,
         "winRateBySeat": [
-          0.3416666666666667,
-          0.38,
+          0.365,
+          0.37,
           0.33166666666666667
         ],
         "drawRate": 0,
@@ -149,33 +150,33 @@
         "numPlayers": 4,
         "games": 600,
         "winRateBySeat": [
-          0.265,
-          0.28,
-          0.265,
-          0.265
+          0.275,
+          0.2733333333333333,
+          0.24166666666666667,
+          0.29
         ],
         "drawRate": 0,
-        "medianTurns": 76
+        "medianTurns": 80
       }
     ],
     "profile": {
-      "complexity": 3.5,
-      "strategy": 4.6,
+      "complexity": 3.6,
+      "strategy": 4.8,
       "luck": 1.8,
       "interaction": 3.6,
       "measures": {
         "games": 20,
         "numPlayers": 3,
         "moveKinds": 3,
-        "choices": 9.162295081967214,
-        "choiceRate": 0.9918032786885246,
-        "components": 34,
+        "choices": 9.213528932355338,
+        "choiceRate": 0.9983700081499592,
+        "components": 41,
         "setupChance": true,
         "chanceRate": 0,
-        "directRate": 0.14344262295081966,
+        "directRate": 0.1426242868785656,
         "sharedRate": 1,
-        "plannerWinRate": 0.9333333333333333,
-        "skillEdge": 0.9
+        "plannerWinRate": 0.9666666666666667,
+        "skillEdge": 0.9499999999999998
       }
     }
   },

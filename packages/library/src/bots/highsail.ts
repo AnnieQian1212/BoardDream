@@ -1,5 +1,5 @@
 import type { Bot } from "@boarddream/engine";
-import { charterOf, highsail, highsailScore, projectedIslands, workersLeft, type HighsailMove, type HighsailState } from "../games/highsail";
+import { charterOf, highsail, highsailScore, launchCost, projectedIslands, workersLeft, type HighsailMove, type HighsailState } from "../games/highsail";
 import type { CardDef, Effect } from "../mechanics/effects";
 import { amountOf, shortfall, total } from "../mechanics/resources";
 
@@ -7,10 +7,20 @@ import { amountOf, shortfall, total } from "../mechanics/resources";
 const incomeValue = (effects: Effect[] | undefined) =>
   (effects ?? []).reduce((sum, e) => sum + ("gain" in e ? total(e.gain) * 0.45 : "convert" in e ? 0.5 : "gainPerTag" in e ? 0.8 : 0), 0);
 
-/** What launching a charter should bring: points, its outpost, income over the rounds left, end-game bonus. */
+/** Rough worth of one firing of a guild's standing order, in points. */
+const triggerValue = (effects: Effect[]) => effects.reduce((sum, e) => sum + ("gain" in e ? total(e.gain) * 0.45 : "points" in e ? e.points : 0), 0);
+/** About how many matching charters a seat launches in a round, which sets off a guild's orders or uses its discount. */
+const LAUNCHES_PER_ROUND = 0.4;
+
+/**
+ * What launching a charter should bring: points, its outpost, income over the rounds left, end-game
+ * bonus, and for a guild its orders and discounts over the launches still to come.
+ */
 function charterValue(card: CardDef, roundsLeft: number, scoringsLeft: number): number {
   const endgame = (card.endgame ?? []).reduce((sum, e) => sum + ("pointsPerTag" in e ? 2 * e.pointsPerTag.points : 0), 0);
-  return card.points + (scoringsLeft > 0 ? 1.5 : 0) + incomeValue(card.income) * roundsLeft + endgame;
+  const orders = (card.whenever ?? []).reduce((sum, t) => sum + triggerValue(t.effects), 0) * LAUNCHES_PER_ROUND * roundsLeft;
+  const discount = card.discount ? total(card.discount.amounts) * 0.45 * LAUNCHES_PER_ROUND * roundsLeft : 0;
+  return card.points + (scoringsLeft > 0 ? 1.5 : 0) + incomeValue(card.income) * roundsLeft + endgame + orders + discount;
 }
 
 /** How good a position looks for `seat`: its score plus what its crew, goods, charters and outposts should still bring. */
@@ -23,7 +33,8 @@ export function highsailValue(s: HighsailState, seat: number): number {
   const goods = ["timber", "crystal", "fuel"].reduce((sum, id) => sum + amountOf(pool, id), 0);
   const held = s.held[seat].reduce((sum, instance) => {
     const card = charterOf(instance);
-    const missing = total(shortfall(pool, card.cost)) / Math.max(1, total(card.cost));
+    const cost = launchCost(s, seat, instance);
+    const missing = total(shortfall(pool, cost)) / Math.max(1, total(cost));
     return sum + 0.45 * charterValue(card, roundsLeft, scoringsLeft) * (1 - 0.6 * missing);
   }, 0);
   const engine = s.launched[seat].reduce((sum, instance) => sum + incomeValue(charterOf(instance).income) * roundsLeft, 0);

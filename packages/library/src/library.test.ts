@@ -43,7 +43,7 @@ import { cornerYield, flipEvent, produce } from "./mechanics/production";
 import { bankTrade, settle as settleOffer, swapOptions } from "./mechanics/trade";
 import { tileYield, type LanternMove, type LanternState } from "./games/lantern-isles";
 import { atLeastProbability, countFace } from "./mechanics/dice";
-import { applyEffects, buildDeck, endgameScore, rulesText, validateCards, type CardDef } from "./mechanics/effects";
+import { applyEffects, applyIncome, buildDeck, costOf, endgameScore, playToTableau, pulseOf, rulesText, validateCards, type CardDef } from "./mechanics/effects";
 import { refill, take } from "./mechanics/market";
 import { add, canAfford, formatAmounts, pay, shortfall, type Amounts } from "./mechanics/resources";
 import { dealRoles, visibleRoles } from "./mechanics/roles";
@@ -886,6 +886,46 @@ describe("mechanics", () => {
     expect(applyEffects({ ...seat, resources: {} }, cards.b.income, ctx).resources).toEqual({});
     expect(endgameScore(seat, cardOf)).toBe(1 + 2 * 2);
     expect(rulesText(cards.a)).toBe("Game end: +2 points per tree.");
+  });
+
+  it("sets off the standing orders of played cards, discounts costs and records what fired", () => {
+    const cards: Record<string, CardDef> = {
+      hive: { id: "hive", name: "Hive", cost: {}, points: 0, tags: ["bee"], whenever: [{ tag: "flower", effects: [{ gain: { honey: 1 } }] }] },
+      press: { id: "press", name: "Press", cost: {}, points: 0, tags: ["tool"], whenever: [{ tag: "flower", effects: [{ points: 1 }] }, { tag: "bee", effects: [{ points: 2 }] }] },
+      nursery: { id: "nursery", name: "Nursery", cost: {}, points: 0, tags: ["tool"], discount: { tag: "flower", amounts: { water: 1 } } },
+      rose: { id: "rose", name: "Rose", cost: { water: 2, light: 1 }, points: 3, tags: ["flower"], onPlay: [{ gain: { light: 1 } }] },
+      pump: { id: "pump", name: "Pump", cost: {}, points: 0, tags: ["tool"], income: [{ gain: { water: 2 } }] },
+    };
+    const cardOf = (i: string) => cards[i.split("#")[0]];
+    const ctx = { cardOf, draw: () => [] };
+    const seat = { resources: {}, points: 0, hand: [], tableau: ["hive#1", "press#1", "nursery#1", "pump#1"] };
+
+    const played = playToTableau(seat, "rose#1", ctx);
+    expect(played.tableau).toEqual(["hive#1", "press#1", "nursery#1", "pump#1", "rose#1"]);
+    expect(played.resources).toEqual({ light: 1, honey: 1 });
+    expect(played.points).toBe(1);
+    expect(played.fired).toEqual(["rose#1", "hive#1", "press#1"]);
+    expect(pulseOf(played, "hive#1")).toBe(1);
+    expect(pulseOf(played, "nursery#1")).toBeUndefined();
+    // A second play flashes again, with a new pulse.
+    expect(pulseOf(playToTableau(played, "hive#2", ctx), "press#1")).toBe(2);
+
+    expect(costOf(cards.rose, seat.tableau, cardOf)).toEqual({ water: 1, light: 1 });
+    expect(costOf(cards.rose, ["nursery#1", "nursery#2", "nursery#3"], cardOf)).toEqual({ light: 1 });
+    expect(costOf(cards.rose, [], cardOf)).toEqual({ water: 2, light: 1 });
+
+    const paid = applyIncome(played, ctx);
+    expect(paid.resources).toEqual({ light: 1, honey: 1, water: 2 });
+    expect(paid.fired).toEqual(["pump#1"]);
+
+    expect(rulesText(cards.press)).toBe("Whenever you play a flower card: +1 point. Whenever you play a bee card: +2 points.");
+    expect(rulesText(cards.nursery, {}, { cards: "plants" })).toBe("Your flower plants cost 1 water less.");
+    expect(rulesText(cards.hive, { flower: "Orchid" }, { play: "launch", cards: "charters" })).toBe("Whenever you launch an Orchid charter: gain 1 honey.");
+    expect(validateCards(Object.values(cards), ["water", "light", "honey"])).toEqual([]);
+    expect(validateCards([{ ...cards.hive, whenever: [{ tag: "", effects: [{ gain: { gold: 1 } }] }] }], ["honey"])).toEqual([
+      "hive.whenever[0] needs the tag that sets it off",
+      'hive.whenever[0] uses unknown resource "gold"',
+    ]);
   });
 
   it("flags broken card data", () => {
