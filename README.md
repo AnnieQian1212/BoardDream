@@ -17,7 +17,7 @@ Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/m
 flowchart LR
   idea([Idea and dials]) --> spec[Muse Spark<br/>game plan]
   spec --> find[Find mechanics<br/>BM25 + Muse Spark<br/>expansion and rerank]
-  lib[(Library<br/>26 mechanics,<br/>5 reference games)] --> find
+  lib[(Library<br/>27 mechanics,<br/>5 reference games)] --> find
   find --> code[Muse Spark<br/>rules as code]
   code --> fuzz{1,000 strict games<br/>in a sandboxed worker}
   fuzz -- something breaks --> fix[Muse Spark<br/>repair]

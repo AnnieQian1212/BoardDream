@@ -114,6 +114,18 @@ export const catalog: CatalogEntry[] = [
     status: "ready",
   },
   {
+    id: "mech:combat",
+    kind: "mechanic",
+    title: "Dice battles",
+    description:
+      "Fight over a place with dice: attacker and defender roll one die per unit at once, up to three, and every die at the hit face or higher takes out an enemy unit; defenders can hit more easily behind a fort or on high ground. Conflict, war, raids, invasion, territory and area control. battleView shows the battle on the table: dice land beside the cell and lost pieces are knocked off.",
+    tags: ["combat", "battle", "fight", "war", "attack", "defend", "conflict", "raid", "invade", "army", "dice", "territory", "conquest"],
+    families: ["map", "grid"],
+    usage: mechanics("combat"),
+    source: "mechanics/combat.ts",
+    status: "ready",
+  },
+  {
     id: "mech:track",
     kind: "mechanic",
     title: "Track movement",

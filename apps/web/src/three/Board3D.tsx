@@ -1,4 +1,4 @@
-import type { GeometryCell, GeometryPiece } from "@boarddream/engine";
+import type { Geometry, GeometryBattle, GeometryCell, GeometryPiece } from "@boarddream/engine";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +31,7 @@ import type { BoardItem } from "./layout";
 import { reducedMotion, step } from "./motion";
 import { hash, INK, mix } from "./paint";
 import { Ink } from "./Ink";
+import { Battle3D, BATTLE_SECONDS, KNOCK_AT } from "./Battle3D";
 import { BOARD, blobTexture, boardPrint, groundTexture, pieceLabel } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
@@ -220,6 +221,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.terrain ?? ""}${c.segments?.join("") ?? ""}`).join("|");
   const zones = useMemo(() => zoneColors(geometry.cells), [greenKey]);
   const water = useWater(geometry, k, position, zones);
+  const exits = useExits(geometry, toWorld);
   const size = useMemo(() => cellSize(geometry.cells), [greenKey]);
   const unit = useMemo(() => printUnit(geometry.cells), [geometry.cells.length, geometry.width, geometry.height]);
   const spacing = useMemo(() => grassSpacing(geometry.cells, size, grass), [greenKey, size, grass]);
@@ -288,18 +290,87 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
         <planeGeometry args={[width, depth]} />
         <meshStandardMaterial map={labels} transparent roughness={0.8} depthWrite={false} />
       </mesh>
-      {geometry.pieces.map((piece) => (
+      {[...geometry.pieces.map((piece) => ({ piece, exit: undefined })), ...exits.list].map(({ piece, exit }) => (
         <Piece
           key={piece.id}
           piece={piece}
           k={k}
           at={toWorld(piece.x, piece.y)}
           base={spotCells.has(piece.cellId ?? "") ? SPOT_TOP : TILE_TOP + (poolCells.has(piece.cellId ?? "") ? DOME * k : 0)}
+          exit={exit}
         />
       ))}
+      {exits.fight && (
+        <Battle3D
+          key={exits.fight.battle.id}
+          battle={exits.fight.battle}
+          at={exits.fight.at}
+          cell={unit * k}
+          top={TILE_TOP}
+          started={exits.fight.started}
+        />
+      )}
     </group>
   );
 }
+
+/** A piece leaving the board: when, and for one lost in a battle, the cell it is knocked out of. */
+interface Exit {
+  since: number;
+  knock?: [number, number];
+}
+
+/**
+ * Pieces that left the board with the last move, kept a moment to animate their going, and the
+ * battle being played out, if the move fought one. The first geometry seen plays nothing: a battle
+ * already on the board when the table appears is old news.
+ */
+function useExits(geometry: Geometry, toWorld: (x: number, y: number) => [number, number]) {
+  const memory = useRef<{
+    geometry?: Geometry;
+    pieces: Map<string, GeometryPiece>;
+    battle?: string;
+    exits: Map<string, { piece: GeometryPiece; exit: Exit }>;
+    fight?: { battle: GeometryBattle; at: [number, number]; started: number };
+  }>({ pieces: new Map(), exits: new Map() });
+  const [, redraw] = useState(0);
+  const m = memory.current;
+  if (m.geometry !== geometry) {
+    const now = performance.now();
+    const first = m.geometry === undefined;
+    const battle = geometry.battle;
+    const cell = battle && geometry.cells.find((c) => c.id === battle.cellId);
+    const fresh = !first && battle && cell && battle.id !== m.battle && !reducedMotion ? battle : undefined;
+    m.battle = battle?.id;
+    const knockFrom = fresh && cell ? toWorld(...centroid(cell.polygon)) : undefined;
+    if (fresh && knockFrom) m.fight = { battle: fresh, at: knockFrom, started: now };
+    const current = new Map(geometry.pieces.map((p) => [p.id, p]));
+    if (!first) {
+      for (const [id, piece] of m.pieces) {
+        if (current.has(id) || m.exits.has(id)) continue;
+        const lost = fresh && cell && (piece.cellId === fresh.cellId || inside(cell.polygon, piece.x, piece.y));
+        m.exits.set(id, { piece, exit: { since: now, knock: lost ? knockFrom : undefined } });
+      }
+    }
+    for (const id of [...m.exits.keys()]) if (current.has(id)) m.exits.delete(id);
+    m.pieces = current;
+    m.geometry = geometry;
+  }
+  // Gone pieces and a finished battle are dropped once they have played out.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const now = performance.now();
+      for (const [id, { exit }] of m.exits) if (now - exit.since > (exit.knock ? KNOCK_AT + EXIT_SECONDS : EXIT_SECONDS) * 1000 + 50) m.exits.delete(id);
+      if (m.fight && now - m.fight.started > BATTLE_SECONDS * 1000) m.fight = undefined;
+      redraw((n) => n + 1);
+    }, (BATTLE_SECONDS + 0.1) * 1000);
+    return () => clearTimeout(timer);
+  }, [geometry]);
+  return { list: [...m.exits.values()], fight: m.fight };
+}
+
+/** How long a piece takes to leave the board, or to fly off once knocked. */
+const EXIT_SECONDS = 0.8;
 
 interface TileProps {
   cell: GeometryCell;
@@ -656,7 +727,7 @@ const PAWN = (() => {
   return new LatheGeometry([...body, ...head, [0, 1]].map(([x, y]) => new Vector2(x, y)), 32);
 })();
 
-function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [number, number]; base: number }) {
+function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; at: [number, number]; base: number; exit?: Exit }) {
   const ref = useRef<Group>(null!);
   const r = piece.r * k;
   const square = piece.shape === "square";
@@ -670,7 +741,25 @@ function Piece({ piece, k, at, base }: { piece: GeometryPiece; k: number; at: [n
   }, []);
   useEffect(() => invalidate(), [at[0], at[1], invalidate]);
   useFrame((state, dt) => {
-    if (easing.damp3(ref.current.position, [at[0], base, at[1]], 0.14, step(dt))) state.invalidate();
+    if (!exit) {
+      if (easing.damp3(ref.current.position, [at[0], base, at[1]], 0.14, step(dt))) state.invalidate();
+      return;
+    }
+    // Leaving: a piece lost in a battle waits for its cue, then is knocked over and flies out of the
+    // cell; any other shrinks away where it stood.
+    const t = (performance.now() - exit.since) / 1000 - (exit.knock ? KNOCK_AT : 0);
+    const s = Math.min(1, Math.max(0, t / (exit.knock ? EXIT_SECONDS : 0.3)));
+    const g = ref.current;
+    if (exit.knock && !reducedMotion) {
+      const [dx, dz] = [at[0] - exit.knock[0], at[1] - exit.knock[1]];
+      const len = Math.hypot(dx, dz) || 1;
+      const [ux, uz] = len > 1e-3 ? [dx / len, dz / len] : [0.7, 0.7];
+      const reach = r * 6;
+      g.position.set(at[0] + ux * reach * s, base + Math.sin(s * Math.PI) * r * 4, at[1] + uz * reach * s);
+      g.rotation.set(uz * s * 1.9, 0, -ux * s * 1.9);
+      g.scale.setScalar(1 - Math.max(0, (s - 0.65) / 0.35));
+    } else g.scale.setScalar(1 - s);
+    if (s < 1) state.invalidate();
   });
   return (
     <group ref={ref}>

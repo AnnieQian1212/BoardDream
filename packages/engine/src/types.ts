@@ -97,12 +97,37 @@ export interface GeometryPiece {
   cellId?: string;
 }
 
+/**
+ * The last battle fought on the board, which the table plays out once per id: both sides' dice
+ * landing beside the cell, the hits, and the lost pieces knocked off. Build it with the combat
+ * mechanic's battleView rather than by hand.
+ */
+export interface GeometryBattle {
+  /** Unique per battle (e.g. the turn it was fought on), so the table plays each one once. */
+  id: string;
+  /** The cell fought over. */
+  cellId: string;
+  attacker: PlayerId;
+  defender: PlayerId;
+  /** Each side's dice as rolled, 1 to 6. */
+  attackerDice: number[];
+  defenderDice: number[];
+  /** The lowest face that hits, for each side. */
+  attackerHitOn: number;
+  defenderHitOn: number;
+  /** Units each side lost. */
+  attackerLosses: number;
+  defenderLosses: number;
+}
+
 /** Board layout in abstract units. Drives the SVG renderer and is the ground truth for art alignment. */
 export interface Geometry {
   width: number;
   height: number;
   cells: GeometryCell[];
   pieces: GeometryPiece[];
+  /** The most recent battle, for games where pieces fight over places. */
+  battle?: GeometryBattle;
 }
 
 /** A card as the UI draws it. */

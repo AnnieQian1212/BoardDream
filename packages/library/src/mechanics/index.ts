@@ -1,5 +1,6 @@
 // Verified mechanic modules. Generated rules reach these through require("@boarddream/mechanics").
 export * as bidding from "./bidding";
+export * as combat from "./combat";
 export * as connection from "./connection";
 export * as deck from "./deck";
 export * as deckbuilding from "./deckbuilding";

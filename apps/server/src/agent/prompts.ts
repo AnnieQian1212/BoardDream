@@ -97,6 +97,9 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     A map cell's label is the place's name as players would say it ("Copper Steps", "Emberfall", "Lamp
     Quay"), each different, never an id or code like "E1" or "T12". A number players read off the cell
     (an elevation, a yield, a cost) goes in badge (1-3 characters), printed on a round token under the name.
+    When pieces fight over places, settle each fight with combat.battle and return the latest as
+    geometry's battle (combat.battleView, with an id that changes every battle); the table plays it
+    out with dice.
   - panels(state, viewer): one "players" panel per seat (resource counters with a resource id, a victory
     point counter labelled "Score", played cards), "shared" panels (a market row, a supply, a deck counter
     labelled "Deck") and a "hand" panel for the viewer's own cards only. Counter ids and card ids must be

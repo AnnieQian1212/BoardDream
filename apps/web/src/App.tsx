@@ -22,6 +22,7 @@ import { useGeneration } from "./generation";
 import { decide, type Decision } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
+import { BATTLE_SECONDS } from "./three/Battle3D";
 import { Tabletop } from "./three/Tabletop";
 
 const HUMAN = 0;
@@ -209,10 +210,23 @@ export function App() {
       const text = game.describeMove?.(e.before, e.move, seat) ?? e.text;
       return `${e.seat === seat ? "You" : `P${e.seat + 1}`} ${text}${e.say ? ` ("${e.say}")` : ""}`;
     });
-    const timer = setTimeout(async () => {
-      const decision: Decision = await decide(game, match.state, seat, numPlayers, recent, match.rng, muse);
-      if (!cancelled) setMatch((current) => (current === match ? applyMove(game, match, seat, decision.move, decision.say) : current));
-    }, BOT_DELAY);
+    // A move that fought a battle is played out on the table first.
+    const battleOf = (state: unknown) => {
+      try {
+        return game.geometry?.(state, HUMAN)?.battle?.id;
+      } catch {
+        return undefined;
+      }
+    };
+    const last = match.log.at(-1);
+    const fought = last !== undefined && battleOf(match.state) !== undefined && battleOf(match.state) !== battleOf(last.before);
+    const timer = setTimeout(
+      async () => {
+        const decision: Decision = await decide(game, match.state, seat, numPlayers, recent, match.rng, muse);
+        if (!cancelled) setMatch((current) => (current === match ? applyMove(game, match, seat, decision.move, decision.say) : current));
+      },
+      BOT_DELAY + (fought ? BATTLE_SECONDS * 1000 : 0),
+    );
     return () => {
       cancelled = true;
       clearTimeout(timer);

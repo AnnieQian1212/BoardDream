@@ -16,6 +16,7 @@ import { reducedMotion, step } from "./motion";
 import { Pile3D } from "./Pile3D";
 import type { Quality } from "./quality";
 import { InkViewport } from "./Ink";
+import { lean } from "./focus";
 import { tableTexture, textureUpdates } from "./textures";
 
 export type { Insets } from "./camera";
@@ -189,6 +190,7 @@ function CameraRig({ layout, insets }: { layout: TableLayout; insets: Insets }) 
   const { width, height } = useThree((s) => s.size);
   const goal = useMemo(() => fitCamera(layout, width, height, insets), [layout, width, height, insets]);
   const look = useRef<Vector3 | null>(null);
+  const [aim, spot] = useMemo(() => [new Vector3(), new Vector3()], []);
 
   useEffect(() => {
     camera.fov = FOV;
@@ -205,10 +207,14 @@ function CameraRig({ layout, insets }: { layout: TableLayout; insets: Insets }) 
       look.current = goal.target.clone();
       camera.position.copy(goal.position).add(new Vector3(0, 40, 30));
     }
-    let moving = easing.damp3(camera.position, goal.position, 0.6, dt, Infinity, undefined, 0.01);
-    moving = easing.damp3(look.current, goal.target, 0.6, dt, Infinity, undefined, 0.01) || moving;
+    // During a battle the camera leans a little toward it: a third of the way there, a step closer.
+    const leaning = !reducedMotion && performance.now() < lean.until;
+    const target = leaning ? aim.copy(goal.target).lerp(lean.point, 0.3) : goal.target;
+    const position = leaning ? spot.copy(goal.position).sub(goal.target).multiplyScalar(0.85).add(target) : goal.position;
+    let moving = easing.damp3(camera.position, position, 0.6, dt, Infinity, undefined, 0.01);
+    moving = easing.damp3(look.current, target, 0.6, dt, Infinity, undefined, 0.01) || moving;
     camera.lookAt(look.current);
-    if (moving) state.invalidate();
+    if (moving || leaning) state.invalidate();
   });
   return null;
 }

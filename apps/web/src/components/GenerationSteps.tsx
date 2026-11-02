@@ -1,4 +1,5 @@
 import type { GameModule } from "@boarddream/engine";
+import * as mechanics from "@boarddream/library/mechanics";
 import { AlertTriangle, Check, Circle, ClipboardList, Code2, Dices, Library, Sparkles, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { codeLines, progressOf, type Generation, type Round } from "../generation";
@@ -156,6 +157,9 @@ interface Props {
   onDiscard(game: GameModule): void;
 }
 
+/** Mechanic modules the designer can build on. */
+const LIBRARY_SIZE = Object.keys(mechanics).length;
+
 /**
  * The making of a game, step by step, in the left column: the plan, the mechanics, each round of
  * rules and its playtest, then a summary. GenerationStage shows what is being made beside it.
@@ -193,7 +197,7 @@ export function GenerationSteps({ generation: g, onCancel, onClose, onDiscard }:
           title="Pick tested mechanics"
           time={g.mechanicsAt ? seconds(g.mechanicsAt - g.started) : undefined}
         >
-          <p>{g.mechanics ? g.mechanics.map((m) => m.title).join(" · ") : g.asked?.length ? `Starting with yours: ${g.asked.join(" · ")}` : "From the library of 26 modules"}</p>
+          <p>{g.mechanics ? g.mechanics.map((m) => m.title).join(" · ") : g.asked?.length ? `Starting with yours: ${g.asked.join(" · ")}` : `From the library of ${LIBRARY_SIZE} modules`}</p>
         </Item>
         {g.rounds.map((round) => (
           <RoundItems key={round.attempt} round={round} g={g} now={now} />

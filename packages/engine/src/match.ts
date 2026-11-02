@@ -187,6 +187,16 @@ function checkGeometry(geometry: Geometry): string | null {
       if (text.length === 0 || text.length > 3) return `cell "${cell.id}" has a badge that is not a number or a string of 1 to 3 characters`;
     }
   }
+  const battle = geometry.battle;
+  if (battle !== undefined) {
+    if (!battle || typeof battle.id !== "string" || !ids.has(battle.cellId)) return "geometry().battle needs a string id and the id of a cell on the board";
+    const dice = (d: unknown) => Array.isArray(d) && d.length <= 8 && d.every((v) => Number.isInteger(v) && v >= 1 && v <= 6);
+    if (!dice(battle.attackerDice) || !dice(battle.defenderDice)) return "geometry().battle dice must be lists of at most 8 whole numbers from 1 to 6";
+    const count = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
+    if (![battle.attackerHitOn, battle.defenderHitOn, battle.attackerLosses, battle.defenderLosses, battle.attacker, battle.defender].every(count)) {
+      return "geometry().battle needs whole-number hit faces, losses and seats (use combat.battleView)";
+    }
+  }
   return null;
 }
 
