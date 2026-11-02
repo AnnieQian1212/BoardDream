@@ -15,15 +15,20 @@ Two setups, depending on what the public demo should do.
 
 The web app is static, and two small Pages Functions in `apps/web/functions` answer `/api/health` and `/api/opponent`. They share the opponent prompt and the request guards with the Node server.
 
+Run these from the repository's folder (`npm ci` needs its `package-lock.json`; skip it if the packages are already installed):
+
 ```sh
 npm ci
 npm run build -w @boarddream/web
 cd apps/web                        # Pages finds functions/ next to the deployed folder
 npx wrangler login
-npx wrangler pages deploy dist --project-name boarddream
+npx wrangler pages project create boarddream --production-branch main
 npx wrangler pages secret put OPEN_MODEL_API_KEY --project-name boarddream
 npx wrangler pages secret put OPEN_MODEL_BASE_URL --project-name boarddream   # https://inference.baseten.co/v1
+npx wrangler pages deploy dist --project-name boarddream
 ```
+
+- Secrets reach the deployments made after they are set, so they go in before the first deploy; after changing one, deploy again.
 
 - `OPEN_MODEL` picks another model (default `meta-models/muse-spark-open-1026`); `OPPONENTS_ENABLED=0` turns the AI opponents off without a redeploy, and the bots play instead.
 - Requests are size-checked and rate-limited (`apps/server/src/guard.ts`: 120 opponent moves per client per 10 minutes, 5,000 a day). The limits live in memory, per edge instance, so they stop casual abuse rather than a determined attacker; a rate-limiting rule on the Cloudflare dashboard adds a hard per-address cap.
