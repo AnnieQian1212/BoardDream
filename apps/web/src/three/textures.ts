@@ -4,6 +4,7 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "thr
 import { iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
 import { growthsOf, inside, type PrintBox } from "./growth";
+import { MAT_TITLE } from "./layout";
 import {
   alpha,
   canvas2d,
@@ -776,14 +777,14 @@ export function matTexture(width: number, depth: number, color: string, title: s
     ctx.lineWidth = Math.max(2, 0.06 * u);
     ctx.strokeStyle = alpha(INK, 0.75);
     ctx.stroke();
-    // Name, large enough to read across the table.
-    ctx.font = `650 ${1.6 * u}px ${FONT_DISPLAY}`;
+    // Name, large enough to read across the table; the layout leaves its header room by MAT_TITLE.
+    ctx.font = `650 ${MAT_TITLE.size * u}px ${FONT_DISPLAY}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     if (shared) {
       ctx.fillStyle = INK;
-      ctx.fillText(title, 1.4 * u, 1.58 * u);
-    } else inkedText(ctx, title, 1.4 * u, 1.58 * u, Math.max(3, 0.16 * u));
+      ctx.fillText(title, MAT_TITLE.x * u, MAT_TITLE.y * u);
+    } else inkedText(ctx, title, MAT_TITLE.x * u, MAT_TITLE.y * u, Math.max(3, 0.16 * u));
     return texture(canvas);
   });
 }

@@ -1,9 +1,10 @@
-import { createRng, resolveParams, type GameModule } from "@boarddream/engine";
+import { readFileSync } from "node:fs";
+import { createRng, fitBounds, resolveParams, type GameModule } from "@boarddream/engine";
 import { fixtureGames, referenceGames } from "@boarddream/library";
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
 import { fitCamera, FOV } from "./camera";
-import { layoutTable, type Arrangement, type TableLayout } from "./layout";
+import { CHIP, fitTable, layoutTable, type Arrangement, type TableLayout } from "./layout";
 
 const resourcesOf = (game: GameModule) => new Map((game.meta.resources ?? []).map((r) => [r.id, r]));
 
@@ -129,4 +130,48 @@ describe("a table laid out before the window has a size", () => {
     const layout = layoutTable({ panels, geometry: flat, human: 0, targets: new Set(), resources: resourcesOf(game), arrangement });
     for (const p of layout.outline) expect(p.every(Number.isFinite)).toBe(true);
   });
+});
+
+describe("a table fitted to a screen", () => {
+  const game = referenceGames.find((g) => g.meta.id === "lantern-isles")!;
+  const inputAt = (state: unknown, active: number) => {
+    const raw = game.geometry!(state, 0);
+    return { panels: game.panels!(state, 0), geometry: fitBounds(raw), human: 0, active, targets: new Set<string>(), resources: resourcesOf(game) };
+  };
+  const desktop = { width: 1680, height: 1050, insets: { left: 0, right: 0, top: 66, bottom: 92 } };
+  const phone = { width: 390, height: 844, insets: { left: 0, right: 0, top: 66, bottom: 92 } };
+  const state = game.setup({ numPlayers: 3, params: resolveParams(game.params), rng: createRng(1) });
+
+  test("a wide screen keeps chips full size; a phone stacks the rivals and shrinks the chips", () => {
+    const wide = fitTable(inputAt(state, 0), desktop);
+    expect(["sides", "right"]).toContain(wide.arrangement);
+    expect(wide.chipScale).toBe(1);
+    const tall = fitTable(inputAt(state, 0), phone);
+    expect(tall.arrangement).toBe("stack");
+    expect(tall.chipScale).toBeLessThan(1);
+    expect(tall.chipScale).toBeGreaterThanOrEqual(0.4);
+  });
+
+  test("the arrangement holds from move to move", () => {
+    const rng = createRng(9);
+    let s = game.setup({ numPlayers: 3, params: resolveParams(game.params), rng });
+    let arrangement = fitTable(inputAt(s, 0), desktop).arrangement;
+    let changes = 0;
+    for (let step = 0; step < 40 && !game.isTerminal(s); step++) {
+      const [seat] = game.activePlayers(s);
+      s = game.applyMove(s, seat, rng.pick(game.legalMoves(s, seat)), rng);
+      const next = fitTable(inputAt(s, game.activePlayers(s)[0] ?? 0), desktop, arrangement).arrangement;
+      if (next !== arrangement) changes++;
+      arrangement = next;
+    }
+    expect(changes).toBeLessThanOrEqual(1);
+  });
+});
+
+test("the chips' measures match the stylesheet", () => {
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const rule = (selector: string) => css.slice(css.indexOf(selector), css.indexOf("}", css.indexOf(selector)));
+  expect(rule(".badge-chip,\n.badge-note,\n.turn-pill {")).toContain(`height: ${CHIP.height}px`);
+  expect(rule(".badge-note > span {")).toContain(`-webkit-line-clamp: ${CHIP.noteLines}`);
+  expect(rule(".badge-note > span {")).toContain(`line-height: ${CHIP.noteLine}px`);
 });

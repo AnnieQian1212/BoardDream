@@ -2,6 +2,7 @@ import type { CardView, Counter, Geometry, Panel, ResourceSpec } from "@boarddre
 import { Quaternion, Vector3 } from "three";
 import { playerColor } from "../colors";
 import { isDeck } from "../turn";
+import { tableScale, type Insets } from "./camera";
 
 /**
  * Places a game's panels and board on the 3D table. Everything is in table units (one unit is a
@@ -25,6 +26,15 @@ const SIDE_GAP = 3;
 /** The board's longer side with panels around it, and alone. */
 const BOARD = 54;
 const BOARD_ALONE = 52;
+
+/**
+ * A mat's title as matTexture paints it: `size` units tall, starting `x` units in, its middle `y`
+ * units down; Fraunces at that size runs about `perLetter` units a letter. The layout leaves the
+ * header room this measure gives, so chips stop short of the title.
+ */
+export const MAT_TITLE = { size: 1.6, x: 1.4, y: 1.58, perLetter: 0.9 };
+/** Where a mat's header room for chips starts: past its title, with a unit to spare. */
+const titleEnd = (title: string) => MAT_TITLE.x + 1 + MAT_TITLE.perLetter * title.length;
 
 export type Vec3 = [number, number, number];
 export type Arrangement = "sides" | "right" | "stack";
@@ -191,8 +201,7 @@ function matBlock(
       out.badges.push({
         id: panel.id,
         position: [x + width / 2 - 1, MAT_TOP, top + 1.6],
-        // The title is painted 1.25 units tall from 1.4 in (matTexture), about 0.7 units per letter.
-        left: [x - width / 2 + 2.4 + 0.7 * opts.title.length, MAT_TOP, top + 1.6],
+        left: [x - width / 2 + titleEnd(opts.title), MAT_TOP, top + 1.6],
         counters: plain,
         note: panel.note,
         active,
@@ -255,8 +264,11 @@ const CHIPS_IN = 0.6;
 
 /** Screen pixels per table unit when none is given: about the scale with both side panels open. */
 const PX_PER_UNIT = 7;
-/** A note wraps onto at most this many lines (badge-note's line clamp in styles.css). */
-const NOTE_LINES = 4;
+/**
+ * The HTML chips' measures in screen pixels, as styles.css draws them (a test holds the two
+ * together): a chip's height, the gap between chips and rows, and a note's line clamp and height.
+ */
+export const CHIP = { height: 26, gap: 6, noteLines: 4, noteLine: 13 };
 
 /**
  * The HTML chips drawn over mats (counters, notes, the turn pill) in table units. They are a fixed
@@ -264,22 +276,22 @@ const NOTE_LINES = 4;
  * pixels per table unit.
  */
 function chipSizes(px: number) {
-  const gap = 6 / px;
+  const gap = CHIP.gap / px;
   return {
     gap,
-    /** A wrapped row of chips: 26 px tall with 6 px between rows. */
-    row: 32 / px,
+    /** A wrapped row of chips, with the gap below it. */
+    row: (CHIP.height + CHIP.gap) / px,
     counter: (c: Counter) => (24 + 7.2 * c.label.length + 8 * String(c.value).length) / px,
     note: (note: string) => (24 + 6.6 * Math.min(note.length, 44)) / px,
     /** A resource pile's count chip: piles stand at least this far apart, so their chips never touch. */
     pile: 52 / px,
     /** The "Thinking…" pill at the head of a rival's chips. */
     turnPill: (24 + 7 * 10) / px,
-    /** Extra depth for a note too long for one line across `room`: it wraps, up to NOTE_LINES lines. */
+    /** Extra depth for a note too long for one line across `room`: it wraps, up to CHIP.noteLines lines. */
     noteLines(note: string | undefined, room: number): number {
       if (!note || !(room > 0)) return 0;
-      const lines = Math.min(NOTE_LINES, Math.ceil((24 + 6.6 * note.length) / px / room));
-      return (Math.max(1, lines) - 1) * (13 / px);
+      const lines = Math.min(CHIP.noteLines, Math.ceil((24 + 6.6 * note.length) / px / room));
+      return (Math.max(1, lines) - 1) * (CHIP.noteLine / px);
     },
     /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
     rows(widths: number[], room: number): number {
@@ -316,7 +328,7 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const rows = Math.ceil(slots / cols);
   // The header holds the title and, when they fit beside it, the counters' chips and the note.
   // Too many for that, and they wrap in rows across the top of the mat's body instead.
-  const titleW = 2.4 + 0.7 * title.length;
+  const titleW = titleEnd(title);
   const chips = [...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
   const chipsW = chips.reduce((sum, w) => sum + w + sizes.gap, 0);
   // The mat hugs its cards (or its title and piles, with no cards); chips that do not fit beside the
@@ -556,6 +568,50 @@ function boardBlock(geometry: Geometry, size: number): Block {
       out.board = { geometry, position: [x, 0, z], scale, width, depth };
     },
   };
+}
+
+/** The fewest screen pixels per table unit chips' room is laid out for; a table drawn smaller shrinks its chips. */
+export const MIN_PX = 5;
+
+/** A table fitted to a screen: the arrangement chosen, the layout, and how much its HTML chips shrink. */
+export interface FittedTable {
+  arrangement: Arrangement;
+  layout: TableLayout;
+  /** Under 1 when the table is drawn smaller than chips were sized for (a phone). */
+  chipScale: number;
+}
+
+/**
+ * Lays the table out for a screen. The room mats leave for HTML chips depends on how large the
+ * table is drawn, which depends on the layout: lay it out once, fit the camera to it, then lay it
+ * out again at the scale that gives. The arrangements that suit the screen are tried (stacking the
+ * rivals under the board on a tall one) and the one that draws the table larger kept; another must
+ * win by 8% to replace `previous`, so the table does not jump between moves.
+ */
+export function fitTable(
+  input: Omit<LayoutInput, "arrangement" | "pxPerUnit">,
+  screen: { width: number; height: number; insets: Insets },
+  previous: Arrangement = "sides",
+): FittedTable {
+  const { width, height, insets } = screen;
+  const scaleOf = (arrangement: Arrangement) => tableScale(layoutTable({ ...input, arrangement }), width, height, insets);
+  const tall = height > width * 1.15;
+  const offered: Arrangement[] = [...(input.geometry ? (["sides", "right"] as const) : (["sides"] as const)), ...(tall ? (["stack"] as const) : [])];
+  let arrangement = offered.includes(previous) ? previous : offered[0];
+  let scale = scaleOf(arrangement);
+  for (const other of offered) {
+    if (other === arrangement) continue;
+    const otherScale = scaleOf(other);
+    if (otherScale > scale * 1.08) [arrangement, scale] = [other, otherScale];
+  }
+  // Laid out for its chips the table may grow and be drawn smaller: check once more and size the
+  // chips' room for whichever scale is smaller. A screen with no size yet gives no scale: about 7.
+  const clamp = (px: number) => (Number.isFinite(px) ? Math.min(24, Math.max(MIN_PX, px)) : 7);
+  const first = layoutTable({ ...input, arrangement, pxPerUnit: clamp(scale) });
+  const drawn = tableScale(first, width, height, insets);
+  const layout = drawn < scale * 0.97 ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn * 0.97) }) : first;
+  const final = layout === first ? drawn : tableScale(layout, width, height, insets);
+  return { arrangement, layout, chipScale: Number.isFinite(final) ? Math.min(1, Math.max(0.4, final / MIN_PX)) : 1 };
 }
 
 export function layoutTable(input: LayoutInput): TableLayout {

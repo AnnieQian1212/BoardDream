@@ -10,8 +10,7 @@ import { resourceById } from "../icons";
 import { tidyPanels } from "../panels";
 import { setCursor, setHover, useHover } from "./hover";
 import { labelAnchors, Labels, markAnchors, type TargetMark } from "./Labels";
-import { tableScale } from "./camera";
-import { layoutTable, type Arrangement } from "./layout";
+import { fitTable, type Arrangement } from "./layout";
 import { FONT_DISPLAY, FONT_UI } from "./paint";
 import { initialTier, settings, stepDown } from "./quality";
 import type { BoardPaint } from "./Board3D";
@@ -55,8 +54,6 @@ export interface Speech {
 }
 
 const SPEECH_MS = 6000;
-/** The fewest screen pixels per table unit the chips' room is laid out for; a smaller table shrinks its chips. */
-const MIN_PX = 5;
 
 /** The speech to show now: the latest one, until it has been up for a few seconds. */
 function useSpeech(speech: Speech | undefined): Speech | undefined {
@@ -137,35 +134,11 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const mover = useMover(state, active);
   const viewport = useViewport();
   const arranged = useRef<Arrangement>("sides");
+  // Laid out for this screen; the arrangement in use is kept unless another is clearly better.
   const { layout, chipScale } = useMemo(() => {
-    const input = { panels, geometry, human, active, targets, resources };
-    // The room mats leave for HTML chips depends on how large the table is drawn, which depends on
-    // the layout: lay it out once, fit the camera to it, then lay it out at the scale that gives.
-    // The arrangements that suit the screen are tried and the one that draws the table larger
-    // kept; another must be clearly better to replace the one in use, so the table does not jump
-    // between moves. A tall screen (a phone held upright) can stack the rivals under the board.
-    const scaleOf = (arrangement: Arrangement) => tableScale(layoutTable({ ...input, arrangement }), viewport.width, viewport.height, insets);
-    const tall = viewport.height > viewport.width * 1.15;
-    const offered: Arrangement[] = [...(input.geometry ? (["sides", "right"] as const) : (["sides"] as const)), ...(tall ? (["stack"] as const) : [])];
-    let arrangement = offered.includes(arranged.current) ? arranged.current : offered[0];
-    let scale = scaleOf(arrangement);
-    for (const other of offered) {
-      if (other === arrangement) continue;
-      const otherScale = scaleOf(other);
-      if (otherScale > scale * 1.08) [arrangement, scale] = [other, otherScale];
-    }
-    arranged.current = arrangement;
-    // Laid out for its chips the table may grow and be drawn smaller: check once more and size the
-    // chips' room for whichever scale is smaller.
-    // A window with no size yet (a hidden tab, a reload mid-resize) gives no scale: assume about 7.
-    const clamp = (px: number) => (Number.isFinite(px) ? Math.min(24, Math.max(MIN_PX, px)) : 7);
-    const first = layoutTable({ ...input, arrangement, pxPerUnit: clamp(scale) });
-    const drawn = tableScale(first, viewport.width, viewport.height, insets);
-    const layout = drawn < scale * 0.97 ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn * 0.97) }) : first;
-    // Drawn smaller than the chips' room assumed (a phone), the chips shrink with the table, so
-    // they keep to their mats instead of covering the board.
-    const final = layout === first ? drawn : tableScale(layout, viewport.width, viewport.height, insets);
-    return { layout, chipScale: Number.isFinite(final) ? Math.min(1, Math.max(0.4, final / MIN_PX)) : 1 };
+    const fitted = fitTable({ panels, geometry, human, active, targets, resources }, { ...viewport, insets }, arranged.current);
+    arranged.current = fitted.arrangement;
+    return fitted;
   }, [panels, geometry, human, active, targets, resources, viewport, insets]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const { hint, ask } = useHint(game, state, human);
