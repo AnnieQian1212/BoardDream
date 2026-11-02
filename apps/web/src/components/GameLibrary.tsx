@@ -60,7 +60,7 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
           </button>
         </header>
         <section>
-          <GroupHeading title="Demo games" tip="Original games designed by hand from BoardDream's mechanics library, to show what its table can play. BoardDream also learns from them when it makes a new game." />
+          <GroupHeading title="Demo games" tip="Original games we designed by hand." />
           <div className="library-grid">{demos.map(card)}</div>
         </section>
         <section>
@@ -69,8 +69,8 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
             count={made.length}
             tip={
               canMake
-                ? "Games dreamed up here from a one-line idea, each playtested a thousand times before it was saved."
-                : "Games BoardDream dreamed up from a one-line idea and playtested a thousand times before saving them."
+                ? "Games you dreamed up here."
+                : "Games BoardDream made from a one-line idea."
             }
           />
           {made.length > 0 ? (
