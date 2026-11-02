@@ -1,3 +1,4 @@
+import type { GameModule } from "@boarddream/engine";
 import { AlertTriangle, Check, Circle, ClipboardList, Code2, Dices, Library, Sparkles, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { codeLines, progressOf, type Generation, type Round } from "../generation";
@@ -151,13 +152,15 @@ interface Props {
   onCancel(): void;
   /** Closes the steps once the game is ready or has failed. */
   onClose(): void;
+  /** Throws away the game just made instead of keeping it in the picker. */
+  onDiscard(game: GameModule): void;
 }
 
 /**
  * The making of a game, step by step, in the left column: the plan, the mechanics, each round of
  * rules and its playtest, then a summary. GenerationStage shows what is being made beside it.
  */
-export function GenerationSteps({ generation: g, onCancel, onClose }: Props) {
+export function GenerationSteps({ generation: g, onCancel, onClose, onDiscard }: Props) {
   const running = !g.done && !g.error;
   const now = useNow(running);
   const finished = useRef<number>(undefined);
@@ -224,9 +227,19 @@ export function GenerationSteps({ generation: g, onCancel, onClose }: Props) {
           <X size={15} /> Cancel
         </button>
       ) : g.done?.ok ? (
-        <button type="button" className="action wide" onClick={onClose}>
-          Start playing
-        </button>
+        <>
+          <button type="button" className="action wide" onClick={onClose}>
+            Start playing
+          </button>
+          {g.done.game && (
+            <p className="gen-keep">
+              Saved with your games.{" "}
+              <button type="button" className="link" onClick={() => onDiscard(g.done!.game!)}>
+                Don't keep it
+              </button>
+            </p>
+          )}
+        </>
       ) : (
         <button type="button" className="action secondary wide" onClick={onClose}>
           <X size={15} /> Close

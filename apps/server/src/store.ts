@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { DesignResult, RevisionResult } from "./agent/designer";
 
 /**
@@ -95,4 +95,19 @@ export function gameSource(id: string): string | undefined {
   if (!/^[a-z0-9-]+$/.test(id)) return undefined;
   const file = new URL(`${id}.js`, DIR);
   return existsSync(file) ? readFileSync(file, "utf8") : undefined;
+}
+
+/**
+ * Takes a saved game out of the picker. Its files move to data/games/deleted/, where the list does
+ * not look, so a game deleted by mistake can be put back by hand. False when there is no such game.
+ */
+export function deleteGame(id: string): boolean {
+  if (!/^[a-z0-9-]+$/.test(id) || !existsSync(new URL(`${id}.json`, DIR))) return false;
+  const bin = new URL("deleted/", DIR);
+  mkdirSync(bin, { recursive: true });
+  for (const ext of ["js", "json"]) {
+    const file = new URL(`${id}.${ext}`, DIR);
+    if (existsSync(file)) renameSync(file, new URL(`${id}.${ext}`, bin));
+  }
+  return true;
 }

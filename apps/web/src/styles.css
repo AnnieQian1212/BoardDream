@@ -108,6 +108,27 @@ button {
   pointer-events: auto;
 }
 
+/* Buttons keep to one line; the tagline, then the game picker, give way when the bar is full. */
+.topbar .ghost,
+.topbar .delete-ask {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.topbar .picker {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.topbar .picker > span {
+  white-space: nowrap;
+}
+
+.topbar .picker select {
+  min-width: 150px;
+  max-width: 100%;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -205,6 +226,52 @@ button {
 .ghost.on {
   color: var(--accent-strong);
   background: #dff0ec;
+}
+
+.ghost.icon-only {
+  padding: 7px 9px;
+}
+
+.ghost.danger {
+  color: #fbf3e1;
+  background: #b4432f;
+}
+
+.ghost.danger:hover:not(:disabled) {
+  background: #9c3826;
+}
+
+/* Deleting a generated game asks once, in place of the button. */
+.delete-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.delete-ask .ghost {
+  padding: 5px 12px;
+}
+
+button.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.gen-keep {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
 }
 
 .sidebar {

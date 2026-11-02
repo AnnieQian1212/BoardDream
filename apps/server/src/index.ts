@@ -16,7 +16,7 @@ import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
 import { ModelClient } from "./meta/client";
-import { gameSource, listGames, saveGame, saveRevision } from "./store";
+import { deleteGame, gameSource, listGames, saveGame, saveRevision } from "./store";
 
 const designer = new ModelClient({
   ...config.meta,
@@ -119,6 +119,13 @@ app.post("/api/opponent", async (c) => {
 app.get("/api/games/:id", (c) => {
   const source = gameSource(c.req.param("id"));
   return source ? c.text(source, 200, { "Content-Type": "text/javascript" }) : c.json({ error: "no such game" }, 404);
+});
+
+// Deletes a saved game. On the public demo the saved games are everyone's, so the server keeps them
+// and each browser only hides the ones its player deleted.
+app.delete("/api/games/:id", (c) => {
+  if (config.publicDemo) return c.json({ error: "saved games are shared on the public demo" }, 403);
+  return deleteGame(c.req.param("id")) ? c.json({ ok: true }) : c.json({ error: "no such game" }, 404);
 });
 
 /**

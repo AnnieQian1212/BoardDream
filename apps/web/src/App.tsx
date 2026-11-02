@@ -1,6 +1,6 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
-import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, ChevronsLeft, ChevronsRight, Maximize2, Minimize2, Printer, RotateCcw, SlidersHorizontal, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -16,7 +16,7 @@ import { RevisePanel } from "./components/RevisePanel";
 import { RulesCard } from "./components/RulesCard";
 import { TableGuard } from "./components/TableGuard";
 import { TuningPanel } from "./components/TuningPanel";
-import { generatedSource, savedGames } from "./generated";
+import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
 import { useSidePanels } from "./sidePanels";
 import { useGeneration } from "./generation";
 import { decide, type Decision } from "./opponents";
@@ -52,8 +52,8 @@ function hasWebGL(): boolean {
 }
 /** A visitor first sees a game with a painted board, the table at its best. */
 const FIRST_GAME = "lantern-isles";
-const initialGame =
-  referenceGames.find((g) => g.meta.id === query.get("game")) ?? referenceGames.find((g) => g.meta.id === FIRST_GAME) ?? referenceGames[0];
+const firstGame = referenceGames.find((g) => g.meta.id === FIRST_GAME) ?? referenceGames[0];
+const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
 
 /** A logged move, with the state it was made from so each seat can have it described from its own view. */
 interface MatchEntry extends LogEntry {
@@ -254,6 +254,12 @@ export function App() {
     setMatch(startMatch(nextGame, nextPlayers, nextParams));
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
+  // A deleted generated game leaves the picker; if it was on the table, the first game takes its place.
+  const removeGame = (doomed: GameModule) => {
+    void deleteGeneratedGame(doomed.meta.id);
+    setGames((current) => current.filter((g) => g !== doomed));
+    if (game === doomed) selectGame(firstGame);
+  };
 
 
   // The latest table talk among the last few moves.
@@ -326,6 +332,7 @@ export function App() {
               ))}
           </select>
         </label>
+        {generatedSource(game) && !generating && <DeleteGame key={game.meta.id} onDelete={() => removeGame(game)} />}
         <span className="tagline">{game.meta.summary}</span>
         <button
           type="button"
@@ -378,7 +385,15 @@ export function App() {
 
       <aside className="sidebar left">
         {generation ? (
-          <GenerationSteps generation={generation} onCancel={closeGeneration} onClose={closeGeneration} />
+          <GenerationSteps
+            generation={generation}
+            onCancel={closeGeneration}
+            onClose={closeGeneration}
+            onDiscard={(made) => {
+              removeGame(made);
+              closeGeneration();
+            }}
+          />
         ) : (
           <CreatePanel available={canGenerate} busy={generating} onGenerate={generate} />
         )}
@@ -438,6 +453,26 @@ function markRulesSeen(id: string) {
   } catch {
     // Not remembered; nothing else depends on it.
   }
+}
+
+/** Deletes the generated game on the table, after asking once. */
+function DeleteGame({ onDelete }: { onDelete(): void }) {
+  const [asking, setAsking] = useState(false);
+  return asking ? (
+    <span className="delete-ask" role="group" aria-label="Delete this game?">
+      Delete this game?
+      <button type="button" className="ghost danger" onClick={onDelete}>
+        Delete
+      </button>
+      <button type="button" className="ghost" onClick={() => setAsking(false)}>
+        Keep
+      </button>
+    </span>
+  ) : (
+    <button type="button" className="ghost icon-only" onClick={() => setAsking(true)} title="Delete this generated game" aria-label="Delete this generated game">
+      <Trash2 size={15} />
+    </button>
+  );
 }
 
 function BrandMark() {

@@ -37,9 +37,10 @@ export async function savedGames(): Promise<GameModule[]> {
     ...(await fetchList(`${bundled}index.json`)).map((game) => ({ ...game, url: `${bundled}${game.id}.js` })),
     ...(await fetchList("/api/games")).map((game) => ({ ...game, url: `/api/games/${game.id}` })),
   ];
+  const hidden = hiddenGames();
   const games: GameModule[] = [];
   for (const { id, title, rules, url } of sources) {
-    if (games.some((g) => g.meta.id === id)) continue;
+    if (hidden.has(id) || games.some((g) => g.meta.id === id)) continue;
     try {
       const res = await fetch(url);
       if (res.ok) games.push(loadGeneratedGame(await res.text(), id, rules, title));
@@ -48,6 +49,36 @@ export async function savedGames(): Promise<GameModule[]> {
     }
   }
   return games;
+}
+
+const HIDDEN = "boarddream:deleted-games";
+
+/** Generated games this browser's player deleted. Storage can be unavailable: then none are. */
+function hiddenGames(): Set<string> {
+  try {
+    const ids = JSON.parse(localStorage.getItem(HIDDEN) ?? "[]") as unknown;
+    return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Deletes a generated game: the server moves its files aside, and this browser stops listing it,
+ * which is all that happens where the server keeps it (the public demo) or there is no server (a
+ * game bundled with a static deploy).
+ */
+export async function deleteGeneratedGame(id: string): Promise<void> {
+  try {
+    localStorage.setItem(HIDDEN, JSON.stringify([...hiddenGames(), id]));
+  } catch {
+    // Not remembered here; the server's deletion still holds where it is allowed.
+  }
+  try {
+    await fetch(`/api/games/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch {
+    // No server: hidden in this browser only.
+  }
 }
 
 /**
