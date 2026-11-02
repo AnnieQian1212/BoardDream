@@ -666,14 +666,15 @@ input[type="range"] {
   box-shadow: 0 0 0 1px var(--seat), 0 0 22px -4px var(--seat);
 }
 
+/* The middle never shrinks below the board and supplies: on a short screen the flat table scrolls
+   instead of drawing the player's mat over them. */
 .center {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 22px;
   flex-wrap: wrap;
-  min-height: 0;
 }
 
 .board {
@@ -1038,6 +1039,16 @@ button.card {
   border-radius: 16px;
   background: rgba(255, 252, 247, 0.7);
   border: 1px solid var(--line);
+}
+
+/* On the flat table the bar stays in view while the table scrolls, flush with its bottom edge (the
+   table's padding would otherwise show what scrolls under it). */
+.table > .action-bar {
+  position: sticky;
+  bottom: -20px;
+  z-index: 2;
+  background: rgb(255, 252, 247);
+  box-shadow: 0 -6px 18px rgba(70, 48, 25, 0.12);
 }
 
 .action-dock {
