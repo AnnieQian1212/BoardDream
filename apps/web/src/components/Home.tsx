@@ -47,10 +47,10 @@ export function Home({ games, covers, available, making, onGenerate, onPlay, onW
           BoardDream
         </div>
         <nav>
-          <button type="button" className="quiet" onClick={onLibrary}>
+          <button type="button" className="quiet" onClick={onLibrary} aria-label="Games">
             <LayoutGrid size={16} /> <span className="btn-label">Games</span>
           </button>
-          <button type="button" className="quiet" onClick={onResults} title="How every game is tested, and the benchmarks behind it">
+          <button type="button" className="quiet" onClick={onResults} title="How every game is tested, and the benchmarks behind it" aria-label="Behind the scenes">
             <BarChart3 size={16} /> <span className="btn-label">Behind the scenes</span>
           </button>
         </nav>

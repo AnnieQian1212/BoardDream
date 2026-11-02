@@ -1711,7 +1711,7 @@ button.pile-count.target {
   z-index: 60;
   overflow-y: auto;
   padding: 32px 20px 48px;
-  background: rgba(236, 227, 214, 0.985);
+  background: #ece3d6;
 }
 
 .library-sheet {
@@ -1865,7 +1865,7 @@ button.pile-count.target {
   z-index: 60;
   overflow-y: auto;
   padding: 32px 16px;
-  background: rgba(236, 227, 214, 0.985);
+  background: #ece3d6;
 }
 
 .results-sheet {

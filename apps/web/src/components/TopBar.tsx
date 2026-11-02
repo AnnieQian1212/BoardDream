@@ -46,10 +46,10 @@ export function TopBar(props: Props) {
       <span className="topbar-gap" />
       {!making && (
         <>
-          <button type="button" className="quiet" onClick={props.onLibrary} title="Every game: the demo games and the ones made here">
+          <button type="button" className="quiet" onClick={props.onLibrary} title="Every game: the demo games and the ones made here" aria-label="Games">
             <LayoutGrid size={16} /> <span className="btn-label">Games</span>
           </button>
-          <button type="button" className="quiet" onClick={props.onRules} title="How to play this game">
+          <button type="button" className="quiet" onClick={props.onRules} title="How to play this game" aria-label="Rules">
             <BookOpen size={16} /> <span className="btn-label">Rules</span>
           </button>
           <button
@@ -57,6 +57,7 @@ export function TopBar(props: Props) {
             className={["quiet", designerOpen && "on"].filter(Boolean).join(" ")}
             onClick={props.onDesigner}
             aria-pressed={designerOpen}
+            aria-label="Designer"
             title="Tune the rules, see the balance and the art (F)"
           >
             <SlidersHorizontal size={16} /> <span className="btn-label">Designer</span>
@@ -64,7 +65,7 @@ export function TopBar(props: Props) {
           <MoreMenu {...props} />
         </>
       )}
-      <button type="button" className="action topbar-new" onClick={props.onHome} disabled={making} title="Dream up a new game">
+      <button type="button" className="action topbar-new" onClick={props.onHome} disabled={making} title="Dream up a new game" aria-label="New game">
         <Wand2 size={16} /> <span className="btn-label">New game</span>
       </button>
     </header>
