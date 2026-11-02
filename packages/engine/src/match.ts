@@ -89,9 +89,10 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
   };
 
   // The UI renders geometry, panels and labels every turn, so broken presentation code is a rules bug too.
+  // Whether cells overlap costs more to check and changes rarely, so it is checked every few turns.
   const checkPresentation = (player: PlayerId, move: unknown) => {
     const geometry = game.geometry ? call("geometry", () => game.geometry!(state, player)) : undefined;
-    const geometryProblem = geometry && checkGeometry(geometry);
+    const geometryProblem = geometry && (checkGeometry(geometry) ?? (turn % OVERLAP_EVERY === 0 ? overlappingCells(geometry.cells) : null));
     if (geometryProblem) throw violation("bad-geometry", geometryProblem);
     const panels = game.panels ? call("panels", () => game.panels!(state, player)) : undefined;
     const panelProblem = panels && checkPanels(panels);
@@ -195,6 +196,48 @@ function checkGeometry(geometry: Geometry): string | null {
     const count = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
     if (![battle.attackerHitOn, battle.defenderHitOn, battle.attackerLosses, battle.defenderLosses, battle.attacker, battle.defender].every(count)) {
       return "geometry().battle needs whole-number hit faces, losses and seats (use combat.battleView)";
+    }
+  }
+  return null;
+}
+
+/** Turns between checks that board cells do not cover each other. */
+const OVERLAP_EVERY = 10;
+/** Cells drawn as small markers between tiles (building spots, roads) or as text: they may overlap tiles. */
+const MARKERS = new Set(["vertex", "edge", "label"]);
+
+/** Ray casting: whether a point lies inside a polygon. */
+function insidePolygon(x: number, y: number, polygon: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Board cells (all but building spots, roads and labels) must not cover one another: the table
+ * draws each as a raised tile, so overlapping ones flicker through each other and their names print
+ * on top of each other. A cell whose middle lies inside another cell covers it.
+ */
+export function overlappingCells(cells: Geometry["cells"]): string | null {
+  const tiles = cells
+    .filter((cell) => !MARKERS.has(cell.kind ?? "") && Array.isArray(cell.polygon) && cell.polygon.length >= 3)
+    .map((cell) => {
+      const xs = cell.polygon.map(([x]) => x);
+      const ys = cell.polygon.map(([, y]) => y);
+      const mid: [number, number] = [xs.reduce((a, b) => a + b, 0) / xs.length, ys.reduce((a, b) => a + b, 0) / ys.length];
+      return { cell, mid, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
+    });
+  for (let i = 0; i < tiles.length; i++) {
+    for (let j = i + 1; j < tiles.length; j++) {
+      const [a, b] = [tiles[i], tiles[j]];
+      if (a.box[2] <= b.box[0] || b.box[2] <= a.box[0] || a.box[3] <= b.box[1] || b.box[3] <= a.box[1]) continue;
+      if (insidePolygon(...a.mid, b.cell.polygon) || insidePolygon(...b.mid, a.cell.polygon)) {
+        return `cells "${a.cell.id}" and "${b.cell.id}" overlap; board cells must not cover each other (draw a bridge or route as an "edge" cell between the places it joins, and give every space its own area)`;
+      }
     }
   }
   return null;

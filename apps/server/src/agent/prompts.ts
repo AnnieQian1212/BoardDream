@@ -116,7 +116,8 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     island "Emberfall") can say what its ground is with terrain: water, grass, forest, grain or stone.
     Draw the board the spec's board field describes; it need not be hexes. A track or river is a line or
     bend of square spaces, action spaces a grid of labelled rectangles, regions irregular polygons, a
-    network round places with "edge" cells as the routes between them.
+    network round places with "edge" cells as the routes between them. Cells never cover one another
+    (only "vertex" and "edge" spots may sit on tiles): a bridge is an "edge" cell between two places.
     Make a map look like a landscape: give its places varied ground (set terrain where the kind does not
     say it), with water somewhere (a lake, a river bend, a harbor) when the theme allows. Water or scenery
     no rule uses can be extra cells in geometry only, never in the rules' map, as long as no move targets them.

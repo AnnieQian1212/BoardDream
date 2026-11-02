@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { fitBounds, fuzz, playMatch, randomBot, rectPolygon, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
+import { describe, expect, it, test } from "vitest";
+import { fitBounds, fuzz, overlappingCells, playMatch, randomBot, rectPolygon, simulate, squareGridGeometry, type Bot, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -147,5 +147,22 @@ describe("fitBounds", () => {
     expect([fitted.width, fitted.height]).toEqual([8, 2]);
     expect(fitted.cells[1].polygon[1]).toEqual([8, 0]);
     expect(fitted.pieces[0].x).toBe(0.5);
+  });
+});
+
+describe("board cells that cover each other", () => {
+  const square = (id: string, x: number, y: number, size = 1, kind?: string) => ({
+    id,
+    kind,
+    polygon: [[x, y], [x + size, y], [x + size, y + size], [x, y + size]] as [number, number][],
+  });
+
+  test("side by side is fine, one on top of another is not", () => {
+    expect(overlappingCells([square("a", 0, 0), square("b", 1, 0), square("c", 0, 1)])).toBeNull();
+    expect(overlappingCells([square("river", 0, 0, 4), square("bridge", 1, 1, 1)])).toMatch(/cells "river" and "bridge" overlap/);
+  });
+
+  test("building spots, roads and labels may sit on tiles", () => {
+    expect(overlappingCells([square("tile", 0, 0, 2), square("v1", 0.9, 0.9, 0.2, "vertex"), square("e1", 0.5, 0.5, 0.2, "edge"), square("name", 0, 0, 2, "label")])).toBeNull();
   });
 });

@@ -20,16 +20,16 @@ const teams = reference.filter((r) => r.mode === "hidden-role");
 export function ResultsPage({ onClose }: { onClose(): void }) {
   useEscape(onClose);
   return (
-    <div className="results" role="dialog" aria-label="Results">
+    <div className="results" role="dialog" aria-label="Behind the scenes">
       <div className="results-sheet">
         <header className="results-head">
           <div>
             <h1>
-              <BarChart3 size={22} /> Results
+              <BarChart3 size={22} /> Behind the scenes
             </h1>
-            <p className="hint">Measured by the benchmarks in the repository, updated {UPDATED}. Each section links to its write-up.</p>
+            <p className="hint">How BoardDream checks every game it makes, measured by the benchmarks in the repository, updated {UPDATED}. Each section links to its write-up.</p>
           </div>
-          <button type="button" className="ghost" onClick={onClose} aria-label="Close results">
+          <button type="button" className="ghost" onClick={onClose} aria-label="Close behind the scenes">
             <X size={16} /> Close
           </button>
         </header>
