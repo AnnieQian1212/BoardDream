@@ -3,9 +3,10 @@
 //
 //   npm run eval:opponents            # Muse Spark 1.3 on the Meta Model API
 //   npm run eval:opponents -- open    # Muse Spark Open on Baseten (OPEN_MODEL_* in .env), more games
-import { createRng, resolveParams, type GameModule } from "@boarddream/engine";
-import { lanternIsles, liarsDice, socialMoves, tableBot, tableText } from "@boarddream/library";
+import { resolveParams, type GameModule, type Rng } from "@boarddream/engine";
+import { botMove, decideSeat, lanternIsles, liarsDice, type Chooser } from "@boarddream/library";
 import { chooseMove } from "../../apps/server/src/agent/opponent";
+import { historyFor, isOver, nextSeat, playMove, startMatch } from "../../apps/web/src/match";
 import { config } from "../../apps/server/src/config";
 import { CachedModelClient } from "../../apps/server/src/meta/cache";
 
@@ -27,60 +28,36 @@ interface Tally {
   talk: string[];
 }
 
-type Decider = (state: unknown, seat: number, recent: string[], rng: ReturnType<typeof createRng>) => Promise<unknown>;
+type Decider = (state: unknown, seat: number, history: string[], rng: Rng) => Promise<{ move: unknown; say?: string }>;
 
 const botDecider =
   (game: GameModule): Decider =>
-  async (state, seat, _recent, rng) => {
-    const view = game.view ? game.view(state, seat) : state;
-    return tableBot(game)({ game, state: view, player: seat, moves: game.legalMoves(state, seat), rng });
-  };
+  async (state, seat, _history, rng) => ({ move: botMove(game, state, seat, rng) });
 
-/** The same split as the web app: the bot's move unless it is social, then Muse Spark picks a social move. */
+/** The model straight from the server's client: the benchmark's adapter at the app's seam. */
+const modelChooser: Chooser = (request) => chooseMove(llm, request);
+
+/** Exactly the web app's decision (decideSeat), with the model called directly instead of through the server. */
 const museDecider =
   (game: GameModule, numPlayers: number, tally: Tally): Decider =>
-  async (state, seat, recent, rng) => {
-    const moves = game.legalMoves(state, seat);
-    const view = game.view ? game.view(state, seat) : state;
-    const advice = tableBot(game)({ game, state: view, player: seat, moves, rng });
-    const social = socialMoves(game, state, seat, moves);
-    if (!social.includes(advice)) return advice;
-    const describe = (m: unknown) => game.describeMove?.(state, m, seat) ?? JSON.stringify(m);
-    tally.decisions++;
-    try {
-      const reply = await chooseMove(llm, {
-        game: game.meta.name,
-        rules: game.meta.rules ?? [game.meta.summary],
-        seat,
-        numPlayers,
-        table: tableText(game, state, seat),
-        recent: recent.slice(-8),
-        moves: social.map(describe),
-        advice: social.indexOf(advice),
-      });
-      const move = social[reply.move];
-      if (move !== advice) tally.overruled++;
-      if (reply.say) tally.talk.push(`${describe(move)} — "${reply.say}"`);
-      return move;
-    } catch {
-      tally.failures++;
-      return advice;
-    }
+  async (state, seat, history, rng) => {
+    const decision = await decideSeat(game, state, seat, numPlayers, history, rng, modelChooser);
+    if (decision.asked) tally.decisions++;
+    if (decision.overruled) tally.overruled++;
+    if (decision.failed) tally.failures++;
+    if (decision.say) tally.talk.push(`${game.describeMove?.(state, decision.move, seat) ?? JSON.stringify(decision.move)} — "${decision.say}"`);
+    return decision;
   };
 
+/** A whole game the way the table plays it: the app's match, each seat told the history as it saw it. */
 async function play(game: GameModule, numPlayers: number, seed: number, deciders: Decider[]) {
-  const rng = createRng(seed);
-  let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
-  const history: { seat: number; before: unknown; move: unknown }[] = [];
-  // Each seat hears the moves as it saw them: secret choices stay secret.
-  const recentFor = (viewer: number) => history.map((h) => `P${h.seat + 1} ${game.describeMove?.(h.before, h.move, viewer) ?? JSON.stringify(h.move)}`);
-  for (let turn = 0; turn < 2000 && !game.isTerminal(state); turn++) {
-    const [seat] = game.activePlayers(state);
-    const move = await deciders[seat](state, seat, recentFor(seat), rng);
-    history.push({ seat, before: state, move });
-    state = game.applyMove(state, seat, move, rng);
+  let match = startMatch(game, numPlayers, resolveParams(game.params), 0, seed);
+  for (let turn = 0; turn < 2000 && !isOver(match); turn++) {
+    const seat = nextSeat(match)!;
+    const { move, say } = await deciders[seat](match.state, seat, historyFor(match, seat), match.rng);
+    match = playMove(match, seat, move, say);
   }
-  return game.outcome(state).winners;
+  return game.outcome(match.state).winners;
 }
 
 async function matchup(game: GameModule, numPlayers: number, games: number) {

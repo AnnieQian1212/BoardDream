@@ -1,5 +1,5 @@
 import { createRng, type GameModule } from "@boarddream/engine";
-import { tableBot } from "@boarddream/library";
+import { botMove } from "@boarddream/library";
 import { Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -16,9 +16,7 @@ export function useHint(game: GameModule, state: unknown, human: number) {
     setHint("thinking");
     // Let the button repaint before the planner's playouts take the thread.
     setTimeout(() => {
-      const moves = game.legalMoves(state, human);
-      const view = game.view ? game.view(state, human) : state;
-      const move = tableBot(game)({ game, state: view, player: human, moves, rng: createRng(Date.now() >>> 0) });
+      const move = botMove(game, state, human, createRng(Date.now() >>> 0));
       setHint({ move, text: game.describeMove?.(state, move, human) ?? JSON.stringify(move) });
     }, 20);
   };

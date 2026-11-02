@@ -43,6 +43,8 @@ npx tsx eval/opponents/fenlight-table.ts 23 open   # seed 23, Muse Spark Open
 
 Since these runs the opponent prompt has gained a bullet for hidden-role games (argue from the evidence; on the hidden side, steer suspicion without contradicting what everyone saw), so a rerun calls the model again.
 
+Since Nov 1 the benchmark plays through the app's own code: the seat decision (`decideSeat` in packages/library/src/table-talk.ts) and the match (apps/web/src/match.ts), with the model called directly where the app goes through the server. Before, it kept a copy that had drifted: it told the model the last 8 moves where the app tells 14, and without "You" or the table talk. The numbers above were measured with that copy.
+
 When `OPEN_MODEL_*` is set in `.env`, the app seats Muse Spark Open as the AI opponents; it answers in a few seconds, so a table of three opponents stays responsive. Without it, Muse Spark 1.3 plays them.
 
 ## Run it

@@ -6,25 +6,9 @@ import type { ChatMessage, JsonSchema, ModelClient } from "../meta/client";
  * the legal moves, and says one line of table talk.
  */
 
-export interface OpponentRequest {
-  game: string;
-  rules: string[];
-  seat: number;
-  numPlayers: number;
-  /** What the seat can see: scores, resources, cards, the market. */
-  table: string;
-  /** Recent moves, oldest first, as the seat saw them. */
-  recent: string[];
-  /** Legal moves, described from the seat's point of view. */
-  moves: string[];
-  /** Index of the move a quick calculation (the table bot) recommends. */
-  advice?: number;
-}
-
-export interface OpponentReply {
-  move: number;
-  say: string;
-}
+// One decision's request and reply, shared with the web app and the opponents benchmark.
+import type { OpponentReply, OpponentRequest } from "@boarddream/library";
+export type { OpponentReply, OpponentRequest };
 
 const replySchema: JsonSchema = {
   name: "OpponentMove",
