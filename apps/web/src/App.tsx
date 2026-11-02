@@ -1,4 +1,4 @@
-import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
+import { resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params } from "@boarddream/engine";
 import { demoGames } from "@boarddream/library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
@@ -7,7 +7,7 @@ import { Designer, type DesignerTab } from "./components/Designer";
 import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
-import { LogPanel, type LogEntry } from "./components/LogPanel";
+import { LogPanel } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { PrintSheet } from "./components/PrintSheet";
@@ -23,11 +23,13 @@ import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
 import { useGeneration, type Dials } from "./generation";
 import { goalOf } from "./instructions";
+import { battleStarted, historyFor, isOver, latestSpeech, nextSeat, playMove, randomStep, restartMatch, startMatch, type Match } from "./match";
 import { rulesFor } from "./rules";
-import { decide, type Decision } from "./opponents";
+import { decide } from "./opponents";
 import type { ProfileRequest } from "./profile.worker";
 import type { SimRequest } from "./sim.worker";
 import { BATTLE_SECONDS } from "./three/Battle3D";
+import { reducedMotion } from "./three/motion";
 import { Tabletop } from "./three/Tabletop";
 
 const HUMAN = 0;
@@ -63,34 +65,18 @@ const firstGame = demoGames.find((g) => g.meta.id === FIRST_GAME) ?? demoGames[0
 const initialGame = demoGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
 /** A link to a game, or bots playing one, opens at the table; anything else at home. */
 const START_AT_TABLE = query.has("game") || WATCH;
+/** How long bots wait after a battle for the table to play it out; the flat table, and reduced motion, show none. */
+const BATTLE_HOLD = FLAT || reducedMotion ? 0 : BATTLE_SECONDS * 1000;
 
-/** A logged move, with the state it was made from so each seat can have it described from its own view. */
-interface MatchEntry extends LogEntry {
-  before: unknown;
-  move: unknown;
-}
-
-interface Match {
-  /** Each new game gets its own table, so nothing carries over from the last (floating changes). */
-  id: number;
-  state: unknown;
-  rng: Rng;
-  log: MatchEntry[];
-}
-
-let matches = 0;
-
-function applyMove(game: GameModule, match: Match, seat: number, move: unknown, say?: string): Match {
-  // Described from the human's seat, so rivals' hidden cards stay hidden in the log.
-  const text = game.describeMove?.(match.state, move, HUMAN) ?? JSON.stringify(move);
-  const state = game.applyMove(match.state, seat, move, match.rng);
-  const id = (match.log.at(-1)?.id ?? 0) + 1;
-  return { ...match, state, log: [...match.log.slice(-60), { id, seat, text, say, before: match.state, move }] };
-}
-
-function startMatch(game: GameModule, numPlayers: number, params: Params): Match {
-  const rng = createRng(Date.now() >>> 0);
-  return { id: ++matches, state: game.setup({ numPlayers, params, rng }), rng, log: [] };
+/** The window's width, which decides whether the drawer covers the table and how tall the guide is. */
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return width;
 }
 
 /** Genre games read best with three at the table; abstracts with their minimum. */
@@ -104,7 +90,8 @@ export function App() {
   const [game, setGame] = useState<GameModule>(initialGame);
   const [numPlayers, setNumPlayers] = useState(() => defaultPlayers(initialGame));
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
-  const [match, setMatch] = useState(() => startMatch(game, numPlayers, params));
+  const [match, setMatch] = useState(() => startMatch(game, numPlayers, params, HUMAN));
+  const width = useWindowWidth();
   // Home asks what to play; the table plays it. The browser's Back button goes from one to the other.
   const [screen, setScreen] = useState<"home" | "table">(START_AT_TABLE ? "table" : "home");
   const atTable = screen === "table";
@@ -190,30 +177,31 @@ export function App() {
   // While its rules are checked, bots play the newest draft on the table: the board and cards appear
   // as soon as they exist. A draft that throws stops; the next one starts fresh.
   const draft = generating ? generation?.draft : undefined;
-  const [preview, setPreview] = useState<{ game: GameModule; match: Match; stuck?: boolean }>();
+  const [preview, setPreview] = useState<{ match: Match; stuck?: boolean }>();
   // The table that last failed to draw.
   const [unrenderable, setUnrenderable] = useState<string>();
   useEffect(() => {
     if (!draft) return setPreview(undefined);
     try {
-      setPreview({ game: draft, match: startMatch(draft, defaultPlayers(draft), resolveParams(draft.params)) });
+      setPreview({ match: startMatch(draft, defaultPlayers(draft), resolveParams(draft.params), HUMAN) });
     } catch {
       setPreview(undefined);
     }
   }, [draft]);
   useEffect(() => {
     if (!preview || preview.stuck || !atTable) return;
-    const { game: g, match: m } = preview;
-    const timer = setTimeout(() => {
-      try {
-        if (g.isTerminal(m.state)) return setPreview({ game: g, match: startMatch(g, defaultPlayers(g), resolveParams(g.params)) });
-        const [seat] = g.activePlayers(m.state);
-        const move = m.rng.pick(g.legalMoves(m.state, seat));
-        setPreview((current) => (current?.match === m ? { game: g, match: applyMove(g, m, seat, move) } : current));
-      } catch {
-        setPreview((current) => (current?.match === m ? { ...current, stuck: true } : current));
-      }
-    }, g.isTerminal(m.state) ? 1800 : PREVIEW_DELAY);
+    const m = preview.match;
+    const timer = setTimeout(
+      () => {
+        try {
+          const next = randomStep(m);
+          setPreview((current) => (current?.match === m ? { match: next } : current));
+        } catch {
+          setPreview((current) => (current?.match === m ? { ...current, stuck: true } : current));
+        }
+      },
+      isOver(m) ? 1800 : PREVIEW_DELAY,
+    );
     return () => clearTimeout(timer);
   }, [preview, atTable]);
 
@@ -223,40 +211,25 @@ export function App() {
   const drawerOpen = designer.open && !making;
   useEscape(() => setDesigner((d) => ({ ...d, open: false })), drawerOpen && atTable);
 
-  // Bots take their turns one at a time, at the table only. Muse Spark may take a few seconds on a
-  // social move; a decision for a state that has since changed (new game, undo) is dropped.
+  // Bots take their turns one at a time, at the table only, after any battle the last move fought
+  // has played out. Each hears the moves as its own seat saw them. Muse Spark may take a few seconds
+  // on a social move; a decision for a match that has since moved on (a new game) is dropped.
   useEffect(() => {
-    if (game.isTerminal(match.state) || generating || !atTable) return;
-    const [seat] = game.activePlayers(match.state);
-    if (seat === HUMAN && !WATCH) return;
+    const seat = nextSeat(match);
+    if (seat === undefined || generating || !atTable || (seat === HUMAN && !WATCH)) return;
     let cancelled = false;
-    // Each opponent hears the moves as its own seat saw them, never the human's secret choices.
-    const recent = match.log.map((e) => {
-      const text = game.describeMove?.(e.before, e.move, seat) ?? e.text;
-      return `${e.seat === seat ? "You" : `P${e.seat + 1}`} ${text}${e.say ? ` ("${e.say}")` : ""}`;
-    });
-    // A move that fought a battle is played out on the table first.
-    const battleOf = (state: unknown) => {
-      try {
-        return game.geometry?.(state, HUMAN)?.battle?.id;
-      } catch {
-        return undefined;
-      }
-    };
-    const last = match.log.at(-1);
-    const fought = last !== undefined && battleOf(match.state) !== undefined && battleOf(match.state) !== battleOf(last.before);
     const timer = setTimeout(
       async () => {
-        const decision: Decision = await decide(game, match.state, seat, numPlayers, recent, match.rng, muse);
-        if (!cancelled) setMatch((current) => (current === match ? applyMove(game, match, seat, decision.move, decision.say) : current));
+        const decision = await decide(match.game, match.state, seat, match.numPlayers, historyFor(match, seat), match.rng, muse);
+        if (!cancelled) setMatch((current) => (current === match ? playMove(match, seat, decision.move, decision.say) : current));
       },
-      BOT_DELAY + (fought ? BATTLE_SECONDS * 1000 : 0),
+      BOT_DELAY + (battleStarted(match) ? BATTLE_HOLD : 0),
     );
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [game, match, muse, numPlayers, generating, atTable]);
+  }, [match, muse, generating, atTable]);
 
   // Balance and the profile are measured only while the designer is open, so playing never pays
   // for them; a finished measurement is kept until the rules or sliders change.
@@ -304,7 +277,7 @@ export function App() {
     setGame(nextGame);
     setNumPlayers(nextPlayers);
     setParams(nextParams);
-    setMatch(startMatch(nextGame, nextPlayers, nextParams));
+    setMatch(startMatch(nextGame, nextPlayers, nextParams, HUMAN));
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
   const playGame = (g: GameModule) => {
@@ -319,21 +292,19 @@ export function App() {
     if (game === doomed) selectGame(firstGame);
   };
 
-  // The latest table talk among the last few moves.
-  const spoken = match.log.slice(-4).findLast((e) => e.say);
-  const speech = spoken ? { id: spoken.id, seat: spoken.seat, text: spoken.say! } : undefined;
+  const speech = latestSpeech(match);
 
   const tableProps = preview
-    ? { game: preview.game, state: preview.match.state, numPlayers: defaultPlayers(preview.game), human: HUMAN, onMove: () => {}, onRestart: () => {} }
+    ? { game: preview.match.game, state: preview.match.state, numPlayers: preview.match.numPlayers, human: HUMAN, onMove: () => {}, onRestart: () => {} }
     : {
         game,
         state: match.state,
         numPlayers,
         human: HUMAN,
-        onMove: (move: unknown) => setMatch(applyMove(game, match, HUMAN, move)),
-        onRestart: () => setMatch(startMatch(game, numPlayers, params)),
+        onMove: (move: unknown) => setMatch(playMove(match, HUMAN, move)),
+        onRestart: () => setMatch(restartMatch(match)),
       };
-  const tableKey = preview ? `draft-${preview.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}-${match.id}`;
+  const tableKey = preview ? `draft-${preview.match.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}-${match.id}`;
   // A draft with a fault (the playtest failed it, it threw while bots played it, or the table could
   // not draw it) leaves the table; the design sheet comes back until the next draft runs.
   const draftFailed = Boolean(
@@ -349,10 +320,10 @@ export function App() {
   const insets = useMemo(
     () => ({
       left: making ? PANEL_INSET : 0,
-      right: drawerOpen && window.innerWidth >= 760 ? DRAWER_INSET : 0,
+      right: drawerOpen && width >= 760 ? DRAWER_INSET : 0,
       top: TOP_INSET,
       // On a phone the guide wraps onto more lines.
-      bottom: BOTTOM_INSET + (guiding ? (window.innerWidth < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0),
+      bottom: BOTTOM_INSET + (guiding ? (width < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0),
     }),
     [making, drawerOpen, guiding],
   );
@@ -435,7 +406,7 @@ export function App() {
         onLibrary={() => setLibrary(true)}
         onRules={() => setRulesOpen(true)}
         onDesigner={() => openDesigner()}
-        onRestart={() => setMatch(startMatch(game, numPlayers, params))}
+        onRestart={() => setMatch(restartMatch(match))}
         onMuse={setMuse}
         onPrint={() => setPrinting(true)}
         onLog={() => openDesigner("log")}
