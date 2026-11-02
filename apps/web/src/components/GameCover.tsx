@@ -51,7 +51,7 @@ export function GameCover({ game, cover, title }: { game: GameModule; cover?: st
       {cover && <img src={cover} alt="" loading="lazy" decoding="async" onLoad={() => setLoaded(cover)} />}
       {board && (
         <div className="cover-board">
-          <Board geometry={board} targets={NO_TARGETS} onCell={() => {}} />
+          <Board geometry={bareBoard(board)} targets={NO_TARGETS} onCell={() => {}} />
         </div>
       )}
       {title && <span className="cover-title">{game.meta.name}</span>}
@@ -60,6 +60,26 @@ export function GameCover({ game, cover, title }: { game: GameModule; cover?: st
 }
 
 const NO_TARGETS = new Set<string>();
+
+/**
+ * The board as a shape: its places in their colors, without names, numbers or pieces. Some games
+ * name every place and some none, and a small preview cannot be read either way; bare, every
+ * game's board reads alike. It is cropped to its places, since room left for names and pieces
+ * would show as empty board.
+ */
+function bareBoard(geometry: Geometry): Geometry {
+  const cells = geometry.cells.filter((c) => c.kind !== "label").map(({ label: _label, badge: _badge, ...cell }) => cell);
+  const xs = cells.flatMap((c) => c.polygon.map(([x]) => x));
+  const ys = cells.flatMap((c) => c.polygon.map(([, y]) => y));
+  const [minX, minY] = [Math.min(...xs), Math.min(...ys)];
+  return {
+    ...geometry,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+    pieces: [],
+    cells: cells.map((cell) => ({ ...cell, polygon: cell.polygon.map(([x, y]) => [x - minX, y - minY] as [number, number]) })),
+  };
+}
 
 function Motif({ family, id }: { family: string; id: string }) {
   const pattern = `motif-${id}`;
