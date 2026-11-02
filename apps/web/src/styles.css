@@ -4655,23 +4655,22 @@ a.quiet {
 .mosaic-tab {
   position: fixed;
   z-index: 25;
-  bottom: 14px;
 }
 
+/* A strip the width of the window, along its foot. */
 .mosaic {
-  left: 326px;
-  right: 18px;
-  max-width: 1080px;
-  margin: 0 auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 164px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 14px 12px;
-  border: var(--edge);
-  border-radius: 18px;
+  padding: 10px 18px 12px;
+  border-top: var(--edge);
+  border-radius: 18px 18px 0 0;
   background: var(--panel);
-  box-shadow: var(--lift-panel);
+  box-shadow: 0 -10px 30px rgb(var(--shadow-rgb) / 0.14);
   animation: rise 0.35s ease;
 }
 
@@ -4787,6 +4786,7 @@ a.quiet {
 }
 
 .mosaic-tab {
+  bottom: 14px;
   left: 340px;
   display: inline-flex;
   align-items: center;
@@ -4801,9 +4801,9 @@ a.quiet {
   cursor: pointer;
 }
 
-/* The design sheet and a draft on the table stop above the open mosaic. */
-.app.has-mosaic .gen-stage {
-  bottom: 192px;
+/* The steps, the design sheet and a draft on the table stop above the open mosaic. */
+.app.has-mosaic :is(.gen-stage, .sidebar.left) {
+  bottom: 180px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4814,11 +4814,6 @@ a.quiet {
 }
 
 @media (max-width: 900px) {
-  .mosaic {
-    left: 12px;
-    right: 12px;
-  }
-
   .mosaic-tab {
     left: 12px;
   }

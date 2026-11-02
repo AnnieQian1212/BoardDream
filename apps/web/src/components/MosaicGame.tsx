@@ -54,7 +54,7 @@ export function useMosaicOpen(): boolean {
 }
 
 /** Screen height the open strip takes, so the page can leave room for it. */
-export const MOSAIC_HEIGHT = 178;
+export const MOSAIC_HEIGHT = 164;
 
 /**
  * Something to tap while a game is made: lay the tiles of a mosaic, a patch per click (or drag),

@@ -5,7 +5,8 @@
  * the tests drive them alike.
  */
 
-export const COLS = 48;
+/** Wide enough to run the width of a laptop screen in tiles about as tall as they are wide. */
+export const COLS = 72;
 export const ROWS = 6;
 export const CELLS = COLS * ROWS;
 
@@ -102,7 +103,7 @@ const PICTURES: { name: string; at(x: number, y: number): number }[] = [
     name: "Sunrise",
     // A sun on the horizon, in rings of sky.
     at: (x, y) => {
-      const d = Math.hypot((x - 23.5) / 2.2, y - 5.5);
+      const d = Math.hypot((x - (COLS - 1) / 2) / 2.2, y - 5.5);
       if (d < 1.8) return 2;
       if (d < 2.8) return 3;
       return [4, 1, 0][Math.floor((d - 2.8) / 1.5) % 3];
@@ -114,7 +115,7 @@ const PICTURES: { name: string; at(x: number, y: number): number }[] = [
     at: (x, y) => {
       const ground = 3 + 1.4 * Math.sin(x * 0.22);
       if (y > ground) return (x + y) % 3 === 0 ? 0 : 1;
-      return Math.abs(x - 36) + Math.abs(y - 1.2) < 2.4 ? 2 : (x * 7 + y * 3) % 11 === 0 ? 3 : 4;
+      return Math.abs(x - COLS * 0.75) + Math.abs(y - 1.2) < 2.4 ? 2 : (x * 7 + y * 3) % 11 === 0 ? 3 : 4;
     },
   },
   { name: "Diamonds", at: (x, y) => Math.floor(Math.abs((x % 8) - 3.5) + Math.abs(y - 2.5)) % 5 },
