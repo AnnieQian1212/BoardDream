@@ -130,13 +130,24 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     return raw.map((p) => (p.cards ? { ...p, cards: p.cards.map((c) => (c.art || c.faceDown ? c : { ...c, art: art.get(c.title) })) } : p));
   }, [game, state, human, art]);
   const viewport = useViewport();
+  const arranged = useRef<"sides" | "right">("sides");
   const layout = useMemo(() => {
     const geometry = game.geometry?.(state, human);
     const input = { panels, geometry: geometry && fitBounds(geometry), human, active, targets, resources };
     // The room mats leave for HTML chips depends on how large the table is drawn, which depends on
     // the layout: lay it out once, fit the camera to it, then lay it out at the scale that gives.
-    const scale = tableScale(layoutTable(input), viewport.width, viewport.height, insets);
-    return layoutTable({ ...input, pxPerUnit: Math.min(24, Math.max(5, scale)) });
+    // With a board, both arrangements are tried and the one that draws it larger kept; the other
+    // must be clearly better to replace the one in use, so the table does not jump between moves.
+    const scaleOf = (arrangement: "sides" | "right") => tableScale(layoutTable({ ...input, arrangement }), viewport.width, viewport.height, insets);
+    let arrangement = arranged.current;
+    let scale = scaleOf(arrangement);
+    if (input.geometry) {
+      const other = arrangement === "sides" ? "right" : "sides";
+      const otherScale = scaleOf(other);
+      if (otherScale > scale * 1.08) [arrangement, scale] = [other, otherScale];
+    }
+    arranged.current = arrangement;
+    return layoutTable({ ...input, arrangement, pxPerUnit: Math.min(24, Math.max(5, scale)) });
   }, [game, state, panels, human, active, targets, resources, viewport, insets]);
   const hasSeats = panels.some((p) => p.zone === "players");
   const labelLayer = useRef<HTMLDivElement>(null);

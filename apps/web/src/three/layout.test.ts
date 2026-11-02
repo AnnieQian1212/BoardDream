@@ -8,7 +8,7 @@ import { layoutTable, type TableLayout } from "./layout";
 const resourcesOf = (game: GameModule) => new Map((game.meta.resources ?? []).map((r) => [r.id, r]));
 
 /** Layouts of a random playout from seat 0's point of view, with seat 0's legal moves as targets. */
-function* playout(game: GameModule, seed: number, steps: number): Generator<{ layout: TableLayout; targets: Set<string> }> {
+function* playout(game: GameModule, seed: number, steps: number, arrangement: "sides" | "right" = "sides"): Generator<{ layout: TableLayout; targets: Set<string> }> {
   const rng = createRng(seed);
   const numPlayers = Math.min(game.meta.maxPlayers, Math.max(game.meta.minPlayers, 3));
   let state = game.setup({ numPlayers, params: resolveParams(game.params), rng });
@@ -24,6 +24,7 @@ function* playout(game: GameModule, seed: number, steps: number): Generator<{ la
       active,
       targets,
       resources: resourcesOf(game),
+      arrangement,
     });
     yield { layout, targets };
     const moves = game.legalMoves(state, active);
@@ -67,6 +68,21 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
       const [lo, hi] = [Math.min(...xs), Math.max(...xs)];
       for (const m of layout.mats.filter((m) => !m.shared && m.title !== "You")) {
         expect(m.position[0] + m.width / 2 <= lo + 0.01 || m.position[0] - m.width / 2 >= hi - 0.01, `${m.title} sits beside the middle`).toBe(true);
+      }
+    }
+  });
+
+  test("with everything standing to the right of the board, lets no mat overlap another or the board", () => {
+    for (const { layout } of playout(game, 5, 20, "right")) {
+      const rects = [
+        ...layout.mats.map((m) => ({ id: m.id, x: m.position[0], z: m.position[2], w: m.width, d: m.depth })),
+        ...(layout.board ? [{ id: "board", x: layout.board.position[0], z: layout.board.position[2], w: layout.board.width, d: layout.board.depth }] : []),
+      ];
+      for (const [i, a] of rects.entries()) {
+        for (const b of rects.slice(i + 1)) {
+          const apart = Math.abs(a.x - b.x) >= (a.w + b.w) / 2 - 0.01 || Math.abs(a.z - b.z) >= (a.d + b.d) / 2 - 0.01;
+          expect(apart, `${a.id} overlaps ${b.id}`).toBe(true);
+        }
       }
     }
   });

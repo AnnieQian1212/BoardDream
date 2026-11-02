@@ -19,7 +19,7 @@ const PILE = 4.6;
 const HAND_TILT = 0.62;
 const HAND_SCALE = 1.2;
 /** Rival mats stand upright in the columns either side of the middle, this wide. */
-const SEAT_W = 18;
+const SEAT_W = 24;
 const SIDE_GAP = 3;
 /** The board's longer side with panels around it, and alone. */
 const BOARD = 54;
@@ -121,6 +121,13 @@ export interface LayoutInput {
    * chips. A first layout's camera fit gives it (tableScale); about 7 if left out.
    */
   pxPerUnit?: number;
+  /**
+   * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
+   * the middle and stands the supply beside the board; "right" stands the supply, then the rivals,
+   * in columns to the right of the board, which suits a screen the board would otherwise leave
+   * short. Tabletop lays out both and keeps whichever draws the board larger.
+   */
+  arrangement?: "sides" | "right";
 }
 
 const IDENTITY: Quat = [0, 0, 0, 1];
@@ -234,6 +241,9 @@ function matBlock(panel: Panel, input: LayoutInput, opts: { cardScale: number; p
   };
 }
 
+/** How far into a mat's body chips that wrap below its header start, so they never sit on it. */
+const CHIPS_IN = 0.6;
+
 /** Screen pixels per table unit when none is given: about the scale with both side panels open. */
 const PX_PER_UNIT = 7;
 
@@ -254,6 +264,8 @@ function chipSizes(px: number) {
     pile: 52 / px,
     /** The "Thinking…" pill at the head of a rival's chips. */
     turnPill: (24 + 7 * 10) / px,
+    /** Extra depth for a note too long for one line across `room`: it wraps onto a second. */
+    noteLines: (note: string | undefined, room: number) => (note && (24 + 6.6 * Math.min(note.length, 44)) / px > room ? 14 / px : 0),
     /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
     rows(widths: number[], room: number): number {
       let rows = 1;
@@ -292,10 +304,11 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const titleW = 2.4 + 0.7 * title.length;
   const chips = [...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
   const chipsW = chips.reduce((sum, w) => sum + w + sizes.gap, 0);
-  const width = Math.max(slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0, Math.min(36, titleW + 1 + chipsW), 16);
+  const width = Math.max(slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0, Math.min(26, titleW + 1 + chipsW), 16);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
-  const chipsDepth = chipRows * sizes.row;
+  // Wrapped chips start a little way into the body, clear of the header.
+  const chipsDepth = wrap ? chipRows * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4 : 0;
   const pile = Math.max(PILE, sizes.pile);
   const perRow = Math.max(1, Math.floor((width - 2 * PAD) / pile));
   const pileRows = Math.ceil(piles.length / perRow);
@@ -313,8 +326,8 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
         wrap
           ? {
               id: panel.id,
-              position: [x + width / 2 - 1, MAT_TOP, top + HEADER - 0.4],
-              left: [x - width / 2 + 1, MAT_TOP, top + HEADER - 0.4],
+              position: [x + width / 2 - 1, MAT_TOP, top + HEADER + CHIPS_IN],
+              left: [x - width / 2 + 1, MAT_TOP, top + HEADER + CHIPS_IN],
               counters: plain,
               note: panel.note,
               active: false,
@@ -388,7 +401,7 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
   const inner = width - 2 * PAD;
   // Room for the turn pill whether or not it shows, so a mat keeps its size between turns.
   const chips = [sizes.turnPill, ...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
-  const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + 0.4;
+  const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4;
   const perRow = Math.max(1, Math.floor(inner / pile));
   const pileRows = Math.ceil(piles.length / perRow);
   const pilesDepth = pileRows * pile + (pileRows > 0 ? 0.4 : 0);
@@ -408,8 +421,8 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
       out.seatAnchors.set(seat, anchor);
       out.badges.push({
         id: panel.id,
-        position: [x + width / 2 - 1, MAT_TOP, top + HEADER - 0.4],
-        left: [x - width / 2 + 1, MAT_TOP, top + HEADER - 0.4],
+        position: [x + width / 2 - 1, MAT_TOP, top + HEADER + CHIPS_IN],
+        left: [x - width / 2 + 1, MAT_TOP, top + HEADER + CHIPS_IN],
         counters: plain,
         note: panel.note,
         active,
@@ -485,8 +498,8 @@ function down(blocks: Block[], gap: number): Block {
   };
 }
 
-/** Upright supplies in as few columns as keep each no taller than `height`, unless one alone is. */
-function supplyColumns(blocks: Block[], height: number): Block | undefined {
+/** Upright mats in as few columns as keep each no taller than `height`, unless one alone is. */
+function columns(blocks: Block[], height: number): Block | undefined {
   if (blocks.length === 0) return undefined;
   const columns: Block[][] = [];
   let used = Infinity;
@@ -549,30 +562,43 @@ export function layoutTable(input: LayoutInput): TableLayout {
   // The middle: the board with the shared supply upright beside it or, with no board, the shared
   // mats in a row.
   let middle: Block | undefined;
-  if (geometry) {
+  let center: Block;
+  let table: Block;
+  if (geometry && input.arrangement === "right") {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
-    const supply = supplyColumns(
-      shared.map((p) => supplyBlock(p, input, sizes)),
-      Math.max(board.depth, 40),
+    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, board.width), title: "You", you: true }) : undefined;
+    center = down(
+      [board, you].filter((b): b is Block => b !== undefined),
+      ROW_GAP,
     );
-    middle = supply ? across([board, supply], 3) : board;
-  } else if (shared.length > 0) {
-    middle = across(
-      shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false })),
-      3,
+    const beside = columns([...shared.map((p) => supplyBlock(p, input, sizes)), ...rivals.map(rivalMat)], Math.max(center.depth, 40));
+    table = beside ? across([center, beside], SIDE_GAP) : center;
+  } else {
+    if (geometry) {
+      const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
+      const supply = columns(
+        shared.map((p) => supplyBlock(p, input, sizes)),
+        Math.max(board.depth, 40),
+      );
+      middle = supply ? across([board, supply], 3) : board;
+    } else if (shared.length > 0) {
+      middle = across(
+        shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false })),
+        3,
+      );
+    }
+    const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true }) : undefined;
+    center = down(
+      [middle, you].filter((b): b is Block => b !== undefined),
+      ROW_GAP,
+    );
+    table = across(
+      [leftSide.length > 0 ? down(leftSide, 2) : undefined, center, rightSide.length > 0 ? down(rightSide, 2) : undefined].filter(
+        (b): b is Block => b !== undefined,
+      ),
+      SIDE_GAP,
     );
   }
-  const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true }) : undefined;
-  const center = down(
-    [middle, you].filter((b): b is Block => b !== undefined),
-    ROW_GAP,
-  );
-  const table = across(
-    [leftSide.length > 0 ? down(leftSide, 2) : undefined, center, rightSide.length > 0 ? down(rightSide, 2) : undefined].filter(
-      (b): b is Block => b !== undefined,
-    ),
-    SIDE_GAP,
-  );
   table.place(0, table.depth / 2, out);
   // The viewer's hand is held up in front of the middle.
   let z = table.depth / 2 + center.depth / 2 + ROW_GAP;

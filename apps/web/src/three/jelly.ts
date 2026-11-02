@@ -8,8 +8,11 @@ import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from "thr
 
 type Polygon = [number, number][];
 
-/** How high the dome rises, and how far in from the shore it takes to get there, per board unit. */
-export const DOME = 0.12;
+/**
+ * How high the dome rises, and how far in from the shore it takes to get there, per board unit:
+ * barely, so water lies about level with its tile rather than bulging above it.
+ */
+export const DOME = 0.025;
 const ROUND = 0.3;
 /** Each triangle of the outline's triangulation is cut into SPLITS² smaller ones: enough to round the rim smoothly. */
 const SPLITS = 16;

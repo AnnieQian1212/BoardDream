@@ -1527,6 +1527,11 @@ button.badge-chip {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 300px;
+  /* A note that wraps to two lines grows to hold them, rounding less, so its text stays inside. */
+  height: auto;
+  min-height: 26px;
+  padding: 3px 11px;
+  border-radius: 13px;
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
