@@ -42,6 +42,18 @@ export type WorkerMessage =
   | { type: "run"; seed: number; numPlayers: number; params: Params }
   | { type: "done"; result: RulesCheck };
 
+/**
+ * One of check-worker.ts's own messages, or undefined for anything else on the port. Node's watch
+ * mode (`npm run dev`) also posts every module a worker loads there ({ "watch:import": [...] });
+ * read as a report, the first of those ended a worker's share empty, and the check then waited out
+ * its deadline whatever the rules did.
+ */
+export function workerMessage(message: unknown): WorkerMessage | undefined {
+  if (typeof message !== "object" || message === null) return undefined;
+  const type = (message as { type?: unknown }).type;
+  return type === "run" || type === "done" ? (message as WorkerMessage) : undefined;
+}
+
 /** Games the playtest plays (playtest.ts): random games, then the planner's, for the progress count. */
 const PLAYTEST_GAMES = 130;
 
@@ -115,7 +127,9 @@ function runWorkers(
         execArgv: ["--import", "tsx"],
         resourceLimits: { maxOldGenerationSizeMb: memoryMb },
       });
-      worker.on("message", (message: WorkerMessage) => {
+      worker.on("message", (raw: unknown) => {
+        const message = workerMessage(raw);
+        if (!message) return;
         if (message.type === "run") {
           state.current = message;
           state.lastBeat = Date.now();
