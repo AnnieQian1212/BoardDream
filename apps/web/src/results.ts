@@ -17,11 +17,11 @@ export const plan = `${REPO}/docs/PLAN.md`;
 export const retrieval = {
   source: `${REPO}/eval/retrieval/README.md`,
   queries: 63,
-  entries: 50,
+  entries: 51,
   systems: [
-    { name: "BM25", ndcg: 0.809, recall: 0.794, mrr: 0.936, map: 0.645 },
-    { name: "+ Muse Spark query expansion", ndcg: 0.895, recall: 0.909, mrr: 0.992, map: 0.767 },
-    { name: "+ Muse Spark rerank", ndcg: 0.969, recall: 0.966, mrr: 1.0, map: 0.929 },
+    { name: "BM25", ndcg: 0.807, recall: 0.789, mrr: 0.936, map: 0.642 },
+    { name: "+ Muse Spark query expansion", ndcg: 0.892, recall: 0.9, mrr: 0.992, map: 0.764 },
+    { name: "+ Muse Spark rerank", ndcg: 0.969, recall: 0.966, mrr: 1.0, map: 0.931 },
   ],
 };
 

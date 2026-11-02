@@ -4,7 +4,7 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
 
 ## Setup
 
-- **Collection:** the 50 entries in `packages/library/src/catalog.ts`: 43 with code (31 mechanics, 12 reference games) and 7 planned mechanics without code. Entries that gain code keep their text, so a planned mechanic becoming ready leaves the results unchanged. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, push your luck next to dice races); the designer itself only retrieves entries with code.
+- **Collection:** the 51 entries in `packages/library/src/catalog.ts`: 44 with code (32 mechanics, 12 reference games) and 7 planned mechanics without code. Entries that gain code keep their text, so a planned mechanic becoming ready leaves the results unchanged. Planned entries stay in the collection as realistic near-misses (an open auction next to bluff bidding, push your luck next to dice races); the designer itself only retrieves entries with code.
 - **Queries:** 63 game ideas in `queries.jsonl`, written the way players describe games rather than in catalog vocabulary. q51–q62 cover the engine-building and map genres: card markets, card effects and end-game bonuses, settlements on hex corners, tile production, bank and player trades. q63 is a deck builder. Several are deliberate traps: "connect four" (q38) is a k-in-a-row game, not a connection game; "bidding coins for paintings" (q13) is an auction, not a bluff; "tiles" on a hexagon board (q07) is a connection game, not tile placement.
 - **Judgments:** `qrels.txt`, TREC format, graded 0–2:
   - **2:** the game cannot be built without this mechanic, or this reference game is a close template.
@@ -23,20 +23,21 @@ Given a player's game idea, BoardDream retrieves mechanic modules and reference 
 
 Model: `muse-spark-1.3` with structured output; prompts in `apps/server/src/agent/retrieve.ts`. The designer pipeline uses the third system.
 
-## Results (Oct 28, 2026, evening)
+## Results (Nov 2, 2026)
 
 | System | P@10 | Recall@10 | nDCG@10 | MRR | MAP |
 | --- | --- | --- | --- | --- | --- |
-| `bm25` | 0.260 | 0.794 | 0.809 | 0.936 | 0.645 |
-| `bm25+expand` | 0.305 | 0.909 | 0.895 | 0.992 | 0.767 |
-| `bm25+expand+rerank` | 0.324 | 0.966 | **0.969** | 1.000 | **0.929** |
+| `bm25` | 0.259 | 0.789 | 0.807 | 0.936 | 0.642 |
+| `bm25+expand` | 0.302 | 0.900 | 0.892 | 0.992 | 0.764 |
+| `bm25+expand+rerank` | 0.324 | 0.966 | **0.969** | 1.000 | **0.931** |
 
-- Per query on nDCG@10, expansion beats BM25 on 42 queries, ties on 13 and loses on 8; expansion plus rerank beats it on 55, ties on 7 and loses on 1.
+- Per query on nDCG@10, expansion beats BM25 on 41 queries, ties on 13 and loses on 9; expansion plus rerank beats it on 55, ties on 7 and loses on 1.
 - The one rerank loss is a small reordering among relevant entries: q05 0.98 → 0.97.
-- The genre queries (q51–q62) behave like the rest: BM25 0.807, expansion plus rerank 0.956 nDCG@10.
-- The social deduction queries gained most from Fenlight joining the collection: q43 (spies bluffing about identity) goes from 0.25 with BM25 to 1.00 with rerank, q10 (a hidden saboteur) from 0.78 to 0.96.
-- The deck-building entry shares "hand", "draw" and "discards" with q41, which needs the plain deck module most, so BM25 ranks it above judged entries there; rerank puts them back (q41: 0.67 → 0.92). The first draft of its description said "you" and "your" five times, more than any other entry; neither is a stopword, so under BM25 it came first for unrelated queries such as q45 (three in a row on a small grid). It was rewritten in the impersonal voice the other entries use before the run above.
-- Earlier versions of the collection, in nDCG@10 for the three systems: 0.807, 0.897 and 0.966 before Fenlight (49 entries); 0.811, 0.901 and 0.967 with Wildmere but before the card drafting, set collection and deck-building modules (48 entries, 62 queries); 0.814, 0.895 and 0.966 with Highsail but before the tile-placement module and Wildmere (47 entries); 0.818, 0.894 and 0.968 with the reviewed judgments before Highsail and the worker-placement and area-control modules (46 entries); 0.825, 0.893 and 0.964 with the drafted judgments; 0.845, 0.905 and 0.969 before the genre additions (50 queries, 39 entries).
+- The genre queries (q51–q62) behave like the rest: BM25 0.808, expansion plus rerank 0.956 nDCG@10.
+- The social deduction queries gained most from Fenlight joining the collection: q43 (spies bluffing about identity) goes from 0.25 with BM25 to 1.00 with rerank, q10 (a hidden saboteur) from 0.78 to 0.94.
+- The deck-building entry shares "hand", "draw" and "discards" with q41, which needs the plain deck module most, so BM25 ranks it above judged entries there; rerank puts them back (q41: 0.67 → 0.91). The first draft of its description said "you" and "your" five times, more than any other entry; neither is a stopword, so under BM25 it came first for unrelated queries such as q45 (three in a row on a small grid). It was rewritten in the impersonal voice the other entries use before the run above.
+- The run above adds the combat module (Nov 1). Every reply is in `cache/`, so `npm run eval:retrieval` reproduces it without a key.
+- Earlier versions of the collection, in nDCG@10 for the three systems: 0.809, 0.895 and 0.969 before the combat module (50 entries); 0.807, 0.897 and 0.966 before Fenlight (49 entries); 0.811, 0.901 and 0.967 with Wildmere but before the card drafting, set collection and deck-building modules (48 entries, 62 queries); 0.814, 0.895 and 0.966 with Highsail but before the tile-placement module and Wildmere (47 entries); 0.818, 0.894 and 0.968 with the reviewed judgments before Highsail and the worker-placement and area-control modules (46 entries); 0.825, 0.893 and 0.964 with the drafted judgments; 0.845, 0.905 and 0.969 before the genre additions (50 queries, 39 entries).
 - P@10 is low for every system by construction: most queries have only 2–4 relevant entries.
 - All numbers match `ir_measures` to four decimals. BM25 breaks score ties the way trec_eval does, so the run files evaluate identically in both.
 - The full run makes 124 Muse Spark calls (one expansion and one rerank per query) and costs about $1, almost all of it reasoning tokens. Adding the genre queries and catalog entries took 73 new calls ($0.82); adding Highsail took 48 ($0.61); adding Wildmere and the tile-placement module took 51 ($0.66); adding the deck-building entry and q63 took 106 over two runs ($1.37), one before and one after that rewrite; adding Fenlight took 46 ($0.60).
