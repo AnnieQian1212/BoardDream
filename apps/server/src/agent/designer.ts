@@ -1,7 +1,7 @@
 import type { GameMeta } from "@boarddream/engine";
 import type { Bm25Index } from "@boarddream/retrieval";
 import type { ChatMessage, ModelClient } from "../meta/client";
-import { checkRulesIsolated, type RulesCheck } from "./check";
+import { checkRulesIsolated, type RulesCheck, type RulesChecker } from "./check";
 import { mechanicTitles } from "./dials";
 import { loadGameFromSource } from "../sandbox";
 import { composeMessages, designRepairMessages, extractCode, formatFailures, repairMessages, revisionMessages, specMessages, type DesignBrief } from "./prompts";
@@ -30,6 +30,9 @@ const MAX_DESIGN_FIXES = 1;
 export interface DesignDeps {
   llm: ModelClient;
   index: Bm25Index;
+  /** Checks each version of the rules; checkRulesIsolated (worker threads) unless a test passes its own. */
+  check?: RulesChecker;
+  /** Repair rounds after the first check, design fixes included. */
   maxRepairs?: number;
   fuzzRuns?: number;
   /** One line per step, for logs. */
@@ -95,7 +98,7 @@ const write = (messages: ChatMessage[], { llm, onEvent, signal }: DesignDeps) =>
  * that pass get one round to fix the design problems the playtest found.
  */
 async function settle(brief: DesignBrief, draft: string, deps: DesignDeps): Promise<{ ok: boolean; source: string; attempts: RulesCheck[] }> {
-  const { maxRepairs = 4, fuzzRuns = 1000, onProgress = () => {}, onEvent = () => {}, signal } = deps;
+  const { check: checker = checkRulesIsolated, maxRepairs = 4, fuzzRuns = 1000, onProgress = () => {}, onEvent = () => {}, signal } = deps;
   let source = draft;
   const attempts: RulesCheck[] = [];
   // The newest rules that pass fuzzing, in case a design fix breaks them and repairs run out.
@@ -104,7 +107,7 @@ async function settle(brief: DesignBrief, draft: string, deps: DesignDeps): Prom
   for (let attempt = 0; ; attempt++) {
     onProgress(`fuzzing attempt ${attempt}`);
     onEvent({ type: "draft", attempt, source });
-    const check = await checkRulesIsolated(source, { runs: fuzzRuns, signal, onProgress: (done, total) => onEvent({ type: "checking", attempt, done, total }) });
+    const check = await checker(source, { runs: fuzzRuns, signal, onProgress: (done, total) => onEvent({ type: "checking", attempt, done, total }) });
     signal?.throwIfAborted();
     attempts.push(check);
     onEvent({ type: "checked", attempt, ok: check.ok, problem: check.ok ? undefined : problem(check), issues: check.issues, play: check.play });
@@ -132,13 +135,13 @@ async function settle(brief: DesignBrief, draft: string, deps: DesignDeps): Prom
  * playtested meanwhile, so the designer sees what the change did.
  */
 export async function reviseGame(source: string, request: string, deps: DesignDeps): Promise<RevisionResult> {
-  const { onProgress = () => {}, onEvent = () => {} } = deps;
+  const { check: checker = checkRulesIsolated, onProgress = () => {}, onEvent = () => {} } = deps;
   const game = loadGameFromSource(source);
   const brief = { title: game.meta.name, pitch: game.meta.summary, designerRequest: request };
   onProgress("rewriting the rules");
   onEvent({ type: "writing", attempt: 0 });
   const [before, draft] = await Promise.all([
-    checkRulesIsolated(source, { runs: 50, signal: deps.signal }),
+    checker(source, { runs: 50, signal: deps.signal }),
     write(revisionMessages(source, request), deps).then(extractCode),
   ]);
   const settled = await settle(brief, draft, deps);

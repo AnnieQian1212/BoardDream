@@ -46,6 +46,13 @@ export type WorkerMessage =
 const PLAYTEST_GAMES = 130;
 
 /**
+ * Checks rules: fuzzing, then a playtest of rules that pass. checkRulesIsolated is the one the
+ * server uses; the designer takes any (DesignDeps.check), so its repair loop can be tested with
+ * canned verdicts.
+ */
+export type RulesChecker = (source: string, opts: Pick<IsolatedOptions, "runs" | "signal" | "onProgress">) => Promise<RulesCheck>;
+
+/**
  * Loads and fuzzes generated rules in worker threads, which are killed when a game hangs, the
  * check runs too long, or one runs out of memory. The runs are shared among several workers so
  * a check takes seconds, and the playtest runs beside them, counting only if they all pass. The
