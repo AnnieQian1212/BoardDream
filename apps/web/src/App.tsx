@@ -1,5 +1,5 @@
 import { createRng, resolveParams, type BalanceStats, type GameModule, type GameProfile, type Params, type Rng } from "@boarddream/engine";
-import { referenceGames } from "@boarddream/library";
+import { demoGames } from "@boarddream/library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -59,8 +59,8 @@ function hasWebGL(): boolean {
 }
 /** The game on the table until another is picked: one with a painted board, the table at its best. */
 const FIRST_GAME = "lantern-isles";
-const firstGame = referenceGames.find((g) => g.meta.id === FIRST_GAME) ?? referenceGames[0];
-const initialGame = referenceGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
+const firstGame = demoGames.find((g) => g.meta.id === FIRST_GAME) ?? demoGames[0];
+const initialGame = demoGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
 /** A link to a game, or bots playing one, opens at the table; anything else at home. */
 const START_AT_TABLE = query.has("game") || WATCH;
 
@@ -96,7 +96,7 @@ const defaultPlayers = (game: GameModule) =>
     : game.meta.minPlayers;
 
 export function App() {
-  const [games, setGames] = useState<GameModule[]>(referenceGames);
+  const [games, setGames] = useState<GameModule[]>(demoGames);
   const [game, setGame] = useState<GameModule>(initialGame);
   const [numPlayers, setNumPlayers] = useState(() => defaultPlayers(initialGame));
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));

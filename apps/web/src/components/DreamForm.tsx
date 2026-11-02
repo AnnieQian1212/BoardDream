@@ -48,7 +48,7 @@ interface Props {
 /**
  * The one thing the home page asks: what game to dream up. A sentence is enough; examples fill the
  * box, Surprise me has Muse Spark write one, and the dials (players, length, complexity, luck, mode,
- * type, theme, interaction, mechanics) wait under Options for whoever wants them.
+ * type, theme, interaction, mechanics) wait under Advanced settings for whoever wants them.
  */
 export function DreamForm({ available, busy, onGenerate }: Props) {
   const [prompt, setPrompt] = useState("");
@@ -140,7 +140,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
             aria-controls="dream-options"
             onClick={() => setOptions(!options)}
           >
-            Options{changed > 0 && <span className="dream-count">{changed}</span>}
+            Advanced settings{changed > 0 && <span className="dream-count">{changed}</span>}
             <ChevronDown size={15} className="dream-chevron" />
           </button>
           <button type="submit" className="action dream-go" disabled={locked}>
@@ -284,7 +284,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
           </div>
           {changed > 0 && (
             <button type="button" className="link dream-reset" onClick={() => setDials(DEFAULT_DIALS)}>
-              Reset options
+              Reset settings
             </button>
           )}
         </div>

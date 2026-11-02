@@ -73,4 +73,5 @@ export interface ReferenceStats {
   profile: GameProfile;
 }
 
-export const reference = referenceStats as ReferenceStats[];
+/** The demo games' figures; Glasshouse is measured too but no longer offered. */
+export const reference = (referenceStats as ReferenceStats[]).filter((r) => r.id !== "glasshouse");

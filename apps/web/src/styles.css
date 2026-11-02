@@ -3377,10 +3377,29 @@ button.pile-count.target {
   font-weight: 650;
 }
 
+/* One row: five across on a wide screen, a strip that scrolls sideways on a narrow one. */
 .home-games {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
   gap: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  /* Room for the cards' shadows and their lift on hover, inside the scroller. */
+  padding: 4px 4px 14px;
+  margin: -4px -4px -14px;
+}
+
+.home-game {
+  scroll-snap-align: start;
+}
+
+/* Wide enough for the whole row: no scroller, so a rounding pixel never shows a scrollbar. */
+@media (min-width: 1100px) {
+  .home-games {
+    overflow: visible;
+  }
 }
 
 .home-game {
@@ -3493,7 +3512,7 @@ button.pile-count.target {
   }
 
   .home-games {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-columns: 62%;
     gap: 12px;
   }
 }

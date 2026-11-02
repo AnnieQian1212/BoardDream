@@ -62,7 +62,7 @@ npm run eval:generation
 | Folder | Contents |
 | --- | --- |
 | `packages/engine` | Game interface, fuzzer, balance simulator |
-| `packages/library` | Mechanics, the original reference games Glasshouse, Lantern Isles, Highsail, Wildmere and Fenlight, catalog, small classic games used only as engine test fixtures |
+| `packages/library` | Mechanics, the four original demo games (Lantern Isles, Highsail, Wildmere, Fenlight), catalog, and games used only as engine tests and retrieval references (Glasshouse and small classics) |
 | `packages/retrieval` | BM25 search and IR metrics |
 | `apps/server` | Muse Spark pipeline and rules sandbox |
 | `apps/web` | React + three.js app, and the edge functions for the static demo |

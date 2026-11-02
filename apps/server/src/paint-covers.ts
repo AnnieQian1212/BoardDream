@@ -8,7 +8,7 @@
 //   npm run covers                  paint what is missing, then bundle
 //   npm run covers -- lantern-isles paint only these games (repainting them), then bundle
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { referenceGames } from "@boarddream/library";
+import { demoGames, referenceGames } from "@boarddream/library";
 import { coverFile, paintCover, type CoverRequest } from "./art/cover";
 import { config } from "./config";
 import { ModelClient } from "./meta/client";
@@ -50,11 +50,12 @@ await Promise.all(
   }),
 );
 
-// The reference games' covers ship with the web app.
+// The demo games' covers ship with the web app.
 mkdirSync(BUNDLE, { recursive: true });
 const INDEX = new URL("index.json", BUNDLE);
 const index = (existsSync(INDEX) ? JSON.parse(readFileSync(INDEX, "utf8")) : {}) as Record<string, string>;
-for (const game of referenceGames) {
+for (const old of Object.keys(index).filter((id) => !demoGames.some((g) => g.meta.id === id))) delete index[old];
+for (const game of demoGames) {
   const file = coverFile(game.meta.id);
   if (!file) continue;
   const name = `${game.meta.id}.${file.split(".").pop()}`;
@@ -62,4 +63,4 @@ for (const game of referenceGames) {
   index[game.meta.id] = name;
 }
 writeFileSync(INDEX, JSON.stringify(index, null, 2) + "\n");
-console.log(`bundled ${Object.keys(index).length} reference covers`);
+console.log(`bundled ${Object.keys(index).length} demo game covers`);

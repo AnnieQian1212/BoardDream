@@ -8,10 +8,13 @@ import { DreamForm } from "./DreamForm";
 import { GameCover } from "./GameCover";
 
 const MODES: Record<string, string> = { competitive: "Versus", cooperative: "Co-op", "hidden-role": "Hidden role" };
-/** Generated games shown beside the hand-made ones; the rest are a click away in Games. */
-const RECENT = 3;
+/**
+ * The shelf is one row: the four hand-made games and the newest generated one. The rest are a
+ * click away in Games.
+ */
+const RECENT = 1;
 /** The hand-made games, best first: a visitor's first look should be the table at its richest. */
-const SHELF_ORDER = ["lantern-isles", "highsail", "wildmere", "fenlight", "glasshouse"];
+const SHELF_ORDER = ["lantern-isles", "highsail", "wildmere", "fenlight"];
 const shelfRank = (game: GameModule) => {
   const rank = SHELF_ORDER.indexOf(game.meta.id);
   return rank < 0 ? SHELF_ORDER.length : rank;
