@@ -4,7 +4,7 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "thr
 import { iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
 import { RIM_INK, TILE_SHARE, zoneColors } from "./ground";
-import { sizeGroups } from "../sizeGroups";
+import { sizeGroups, uniformSizes } from "../sizeGroups";
 import { growthsOf, inside, type PrintBox } from "./growth";
 import { MAT_TITLE } from "./layout";
 import {
@@ -926,7 +926,7 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     // The text stays inside the cell's own shape (a wedge, a hex), not merely its bounding box, and
     // inside its color: the tile, or within a group's rim the field inside the rim's inked line,
     // with a little margin. Text-only cells are the board itself.
-    const share = isLabel ? 0.95 : TILE_SHARE * (rimmed.has(cell.id) ? RIM_INK : 1) * 0.92;
+    const share = isLabel ? 0.95 : TILE_SHARE * (rimmed.has(cell.id) ? RIM_INK : 1) * 0.96;
     const area = cell.polygon.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
     const [px, py] = [(cx + margin) * scale, (cy + margin) * scale];
     const within = (x: number, y: number, hw: number, hh: number) => BOX.every(([sx, sy]) => inside(area, x + sx * hw, y + sy * hh));
@@ -972,8 +972,8 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
       while (size > 4 && !fits(lines, size, drop, avoid)) size *= 0.94;
       return size;
     };
-    // A tile's name leaves its sides for what grows there.
-    const width = widthOf(cell) * (isLabel ? share : 0.68) * scale;
+    // A first guess at the size: the name across the whole of its color (grass and trees keep clear of it).
+    const width = widthOf(cell) * share * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
     const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.22 * unit) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
@@ -1013,10 +1013,11 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     }
     plans.push({ cell, isLabel, px, py, lines: best.lines, size: best.size, drop: best.drop, group: isLabel ? undefined : sizeGroup(cell) });
   }
-  // Places of one kind and size print their names at one size, that of the name with least room:
-  // a row of stalls with names as large as each could hold read as untidy, short names shouting.
-  const groupSize = new Map<string, number>();
-  for (const plan of plans) if (plan.group) groupSize.set(plan.group, Math.min(groupSize.get(plan.group) ?? Infinity, plan.size));
+  // Places of one kind and size print their names at one size: a row of stalls with names as large
+  // as each could hold read as untidy, short names shouting. The size is that of the name with least
+  // room, unless one name has far less than the rest (under three quarters of the middle one): that
+  // name alone is printed smaller, rather than all of them.
+  const groupSize = uniformSizes(plans.flatMap((p) => (p.group ? [{ group: p.group, size: p.size }] : [])));
   for (const { cell, isLabel, px, py, lines, drop, group, size: own } of plans) {
     const size = group ? Math.min(own, groupSize.get(group)!) : own;
     const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;

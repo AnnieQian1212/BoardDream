@@ -23,7 +23,7 @@ import {
   type PointLight,
   type Texture,
 } from "three";
-import { playerColor, TILE_COLORS } from "../colors";
+import { NEUTRAL_PIECE, playerColor, TILE_COLORS } from "../colors";
 import { groundOf, kindColor, ownColor, RIM, RIM_INK, SHORE, TILE_SHARE, tileColor, zoneColors } from "./ground";
 import { HIGHLIGHT } from "./Card3D";
 import { setCursor, setHover } from "./hover";
@@ -218,6 +218,12 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
       t.dispose();
     };
   }, [paint, invalidate]);
+  // Each cell's pieces by name, for its hover tip.
+  const holding = new Map<string, string>();
+  for (const p of geometry.pieces) {
+    if (!p.cellId || !p.label) continue;
+    holding.set(p.cellId, holding.has(p.cellId) ? `${holding.get(p.cellId)}, ${p.label}` : p.label);
+  }
   // Rebuild the printed names only when their text changes, or a piece moves on a named cell they
   // keep clear of; not on every move.
   const named = new Set(geometry.cells.filter((c) => c.label && c.kind !== "label").map((c) => c.id));
@@ -303,6 +309,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             grass={growing ? { field, spacing, size, unit } : undefined}
             chip={rocky && growthsOf(cell).includes("rock") ? chips.burst : undefined}
             print={{ texture: labels, width, depth }}
+            holding={holding.get(cell.id)}
             onPick={onPick}
           />
         ))}
@@ -396,6 +403,8 @@ const EXIT_SECONDS = 0.8;
 
 interface TileProps {
   cell: GeometryCell;
+  /** The names of the pieces on it, for its hover tip: printed on a piece, they are too small to read. */
+  holding?: string;
   k: number;
   at: [number, number];
   target: boolean;
@@ -420,7 +429,7 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, onPick }: TileProps) {
+function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
   const rest = low ? SLAB - TILE + 0.03 : SLAB;
   const segmentsKey = cell.segments?.join(",");
@@ -436,7 +445,8 @@ function Tile({ cell, k, at, target, low, painted, water: boardWater, zone, box,
   useEffect(() => invalidate(), [target, hovered, invalidate]);
   // The cell's value (a yield, a cost), shown beside its name while the pointer is on it: printed,
   // its token was too small to read at the table's size.
-  const tip = cell.badge !== undefined && cell.badge !== "" ? `${cell.label ? `${cell.label}: ` : ""}${cell.badge}` : cell.label;
+  const named = cell.badge !== undefined && cell.badge !== "" ? `${cell.label ? `${cell.label}: ` : ""}${cell.badge}` : cell.label;
+  const tip = [named, holding].filter(Boolean).join(" · ") || undefined;
   const geometry = useMemo(() => {
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel. Spots are already small.
@@ -768,7 +778,7 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
   const square = piece.shape === "square";
   const pawn = piece.shape === "pawn";
   const height = square ? 2 * r : pawn ? PAWN_HEIGHT * r : 0.55 * r;
-  const color = playerColor(piece.owner);
+  const color = piece.owner === undefined ? NEUTRAL_PIECE : playerColor(piece.owner);
   const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
     ref.current.position.set(at[0], base + 6, at[1]);

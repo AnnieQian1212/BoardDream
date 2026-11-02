@@ -1,9 +1,9 @@
 import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { PLAYER_COLORS, TILE_COLORS } from "../colors";
+import { NEUTRAL_PIECE, PLAYER_COLORS, TILE_COLORS } from "../colors";
 import { useFontsReady } from "../fonts";
 import { tileColor, zoneColors } from "../three/ground";
-import { sizeGroups } from "../sizeGroups";
+import { sizeGroups, uniformSizes } from "../sizeGroups";
 
 interface Props {
   geometry: Geometry;
@@ -39,8 +39,8 @@ export function Board({ geometry, targets, onCell }: Props) {
       style={{ aspectRatio: `${width + 2 * pad} / ${height + 2 * pad}` }}
     >
       <defs>
-        {PLAYER_COLORS.map((color, i) => (
-          <radialGradient key={i} id={`piece-${i}`} cx="35%" cy="30%" r="80%">
+        {[...PLAYER_COLORS, NEUTRAL_PIECE].map((color, i) => (
+          <radialGradient key={i} id={i < PLAYER_COLORS.length ? `piece-${i}` : "piece-neutral"} cx="35%" cy="30%" r="80%">
             <stop offset="0%" stopColor={shade(color, 0.45)} />
             <stop offset="55%" stopColor={color} />
             <stop offset="100%" stopColor={shade(color, -0.35)} />
@@ -137,14 +137,15 @@ function useFittedPrint(geometry: Geometry) {
     // a row of stalls with names as large as each could hold reads as untidy.
     const sizeGroup = sizeGroups(geometry.cells);
     const groupOf = (cell: GeometryCell) => (cell.kind === "label" ? undefined : sizeGroup(cell));
-    const groups = new Map<string, number>();
+    const named: { group: string; size: number }[] = [];
     for (const cell of geometry.cells) {
       if (!cell.label && badgeOf(cell) === undefined) continue;
       const own = fit(cell, badgeOf(cell));
       next.set(cell.id, own);
       const group = groupOf(cell);
-      if (group && cell.label) groups.set(group, Math.min(groups.get(group) ?? Infinity, own.size));
+      if (group && cell.label) named.push({ group, size: own.size });
     }
+    const groups = uniformSizes(named);
     for (const cell of geometry.cells) {
       const group = groupOf(cell);
       const own = next.get(cell.id);
@@ -282,7 +283,7 @@ function Wedges({ cell, center: [cx, cy] }: { cell: GeometryCell; center: number
 
 function Piece({ piece }: { piece: GeometryPiece }) {
   const { x, y, r } = piece;
-  const fill = `url(#piece-${(piece.owner ?? 0) % PLAYER_COLORS.length})`;
+  const fill = piece.owner === undefined ? "url(#piece-neutral)" : `url(#piece-${piece.owner % PLAYER_COLORS.length})`;
   return (
     <g className="piece">
       {piece.shape === "square" ? (
@@ -291,7 +292,7 @@ function Piece({ piece }: { piece: GeometryPiece }) {
         <circle cx={x} cy={y} r={r} fill={fill} filter="url(#piece-shadow)" />
       )}
       {piece.label && (
-        <text x={x} y={y} className="piece-label" fontSize={r * 1.15}>
+        <text x={x} y={y} className={piece.owner === undefined ? "piece-label neutral" : "piece-label"} fontSize={r * 1.15}>
           {piece.label}
         </text>
       )}

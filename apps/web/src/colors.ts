@@ -2,6 +2,8 @@
 export const PLAYER_COLORS = ["#dd6448", "#3f7fc2", "#d0961f", "#4f9a6c", "#9467c2", "#d06688"];
 
 export const playerColor = (seat: number | undefined) => PLAYER_COLORS[(seat ?? 0) % PLAYER_COLORS.length];
+/** A piece that belongs to no one (a customer waiting, a neutral marker): ivory, not the first seat's color. */
+export const NEUTRAL_PIECE = "#eadfc6";
 
 /** Board tile kinds with a color of their own, shared by the 3D table and the flat board. */
 export const TILE_COLORS: Record<string, string> = {

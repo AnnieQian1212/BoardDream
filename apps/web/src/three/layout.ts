@@ -488,11 +488,13 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
   const showCards = cards.length > 0 || panel.cards !== undefined;
   const [cw, ch, gap] = [CARD_W * 0.66, CARD_H * 0.66, 0.4];
   const pile = Math.max(PILE * 0.8, sizes.pile);
-  // Resources stand in one column, so the mat is only as wide as its title and a pile need.
-  const width = Math.max(titleEnd(title) + 1, pile + 2 * PAD, 10);
-  const inner = width - 2 * PAD;
   // Room for the turn pill whether or not it shows, so a mat keeps its size between turns.
   const chips = [sizes.turnPill, ...plain.map(sizes.counter), ...(panel.note ? [sizes.note(panel.note)] : [])];
+  // Resources stand in one column, so the mat is only as wide as its title, a pile and its widest
+  // counter need (a note wraps instead).
+  const counterW = Math.max(sizes.turnPill, ...plain.map(sizes.counter));
+  const width = Math.max(titleEnd(title) + 1, pile + 2 * PAD, counterW * 1.08 + 3.5, 10);
+  const inner = width - 2 * PAD;
   const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4;
   const perRow = 1;
   const pileRows = Math.ceil(piles.length / perRow);

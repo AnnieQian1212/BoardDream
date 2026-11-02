@@ -1333,6 +1333,12 @@ button.card {
   font-weight: 800;
 }
 
+/* An ownerless piece is ivory: its label is in ink. */
+.piece-label.neutral {
+  fill: var(--ink);
+  stroke: none;
+}
+
 /* ---------- 3D table overlays ---------- */
 
 .seat-strip {
