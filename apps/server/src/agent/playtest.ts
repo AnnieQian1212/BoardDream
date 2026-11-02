@@ -1,4 +1,4 @@
-import { heuristicBot, plannerWinRate, randomBot, randomPlayout, sampleSeats, simulate, type GameModule } from "@boarddream/engine";
+import { heuristicBot, plannerResult, randomBot, randomPlayout, sampleSeats, simulate, type GameModule } from "@boarddream/engine";
 import type { PlayStats } from "./protocol";
 
 /**
@@ -50,17 +50,8 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
     });
   }
   const measurable = skillMeasurable(game) && plannerGames > 0;
-  let planned = 0;
   const planner = measurable
-    ? plannerWinRate(game, heuristicBot({ rollouts: 6, depth: 16 }), {
-        numPlayers,
-        games: plannerGames,
-        deadline: Date.now() + plannerMs,
-        onGame: (seed) => {
-          planned++;
-          onGame?.(seed);
-        },
-      })
+    ? plannerResult(game, heuristicBot({ rollouts: 6, depth: 16 }), { numPlayers, games: plannerGames, deadline: Date.now() + plannerMs, onGame })
     : undefined;
   return {
     numPlayers,
@@ -72,8 +63,8 @@ export function playtest(game: GameModule, opts: PlaytestOptions = {}): PlayStat
     moveKinds: [...kinds].sort(),
     choiceRate: turns ? choices / turns : 0,
     // The planner takes each seat in turn against random players.
-    plannerWinRate: planner,
-    plannerGames: measurable ? planned : undefined,
+    plannerWinRate: planner?.winRate,
+    plannerGames: planner?.games,
   };
 }
 

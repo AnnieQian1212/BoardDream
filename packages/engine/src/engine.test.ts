@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { fitBounds, fuzz, isDeck, isScore, overlappingCells, playMatch, randomBot, randomPlayout, rectPolygon, sampleSeats, scoreOf, simulate, squareGridGeometry, type BalanceStats, type Bot, type Counter, type GameModule } from "./index";
+import { fitBounds, fuzz, isDeck, isScore, overlappingCells, plannerResult, playMatch, randomBot, randomPlayout, rectPolygon, sampleSeats, scoreOf, simulate, squareGridGeometry, type BalanceStats, type Bot, type Counter, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -130,6 +130,34 @@ describe("simulate", () => {
     expect(stats.games).toBe(200);
     expect(stats.drawRate).toBe(0);
     expect(stats.winRateBySeat[0] + stats.winRateBySeat[1]).toBeCloseTo(1);
+  });
+});
+
+describe("the planner's time limit", () => {
+  // Takes the most stones it may, slowly: about 5 ms a move.
+  const slow: Bot = ({ moves }) => {
+    const until = Date.now() + 5;
+    while (Date.now() < until);
+    return Math.max(...(moves as number[]));
+  };
+
+  it("plays every game when there is time", () => {
+    const result = plannerResult(nim, slow, { numPlayers: 2, games: 6 });
+    expect(result.games).toBe(6);
+  });
+
+  it("stops in the middle of a game at the deadline and counts only whole rounds", () => {
+    const start = Date.now();
+    // A pile of 30 is about 8 planner moves (40 ms) a game; 60 ms is not enough for a round of two.
+    const result = plannerResult(nim, slow, { numPlayers: 2, params: { pile: 30 }, games: 20, deadline: start + 60 });
+    expect(Date.now() - start).toBeLessThan(200);
+    expect(result.games % 2).toBe(0);
+    expect(result.games).toBeLessThan(20);
+  });
+
+  it("measures nothing when the first round cannot finish in time", () => {
+    const result = plannerResult(nim, slow, { numPlayers: 2, params: { pile: 30 }, games: 4, deadline: Date.now() + 10 });
+    expect(result).toEqual({ winRate: 0, games: 0 });
   });
 });
 

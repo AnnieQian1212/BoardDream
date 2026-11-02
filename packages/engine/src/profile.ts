@@ -212,33 +212,52 @@ export const withPlanner = (m: ProfileMeasures, rate: number): ProfileMeasures =
 });
 
 /** Share of games `planner` wins against random players, taking every seat in turn. */
-export function plannerWinRate(
-  game: GameModule,
-  planner: Bot,
-  opts: {
-    numPlayers: number;
-    params?: Params;
-    games: number;
-    onGame?(seed: number): void;
-    /**
-     * A time (Date.now()) after which no new round of games starts. A round gives the planner each
-     * seat once, so a slow game measures fewer games but never favors one seat.
-     */
-    deadline?: number;
-  },
-): number {
+export function plannerWinRate(game: GameModule, planner: Bot, opts: PlannerOptions): number {
+  return plannerResult(game, planner, opts).winRate;
+}
+
+export interface PlannerOptions {
+  numPlayers: number;
+  params?: Params;
+  games: number;
+  onGame?(seed: number): void;
+  /**
+   * A time (Date.now()) by which the planner stops, even in the middle of a game. A round gives the
+   * planner each seat once, and only whole rounds count, so a slow game measures fewer games (none
+   * when one round takes too long) but never favors one seat.
+   */
+  deadline?: number;
+}
+
+/** The planner's win rate, and how many games it rests on: fewer than asked when time ran out. */
+export function plannerResult(game: GameModule, planner: Bot, opts: PlannerOptions): { winRate: number; games: number } {
   const { numPlayers, games, deadline = Infinity } = opts;
-  const seats = Array.from({ length: numPlayers }, (_, seat) => Array.from({ length: numPlayers }, (_, i) => (i === seat ? planner : randomBot)));
+  let late = false;
+  // Out of time, the planner gives up at its next move; simulate counts that game as an error.
+  const timed: Bot = (args) => {
+    if (Date.now() > deadline) {
+      late = true;
+      throw new Error("the planner ran out of time");
+    }
+    return planner(args);
+  };
+  const seats = Array.from({ length: numPlayers }, (_, seat) => Array.from({ length: numPlayers }, (_, i) => (i === seat ? timed : randomBot)));
   let wins = 0;
   let played = 0;
-  for (let round = 0; round < Math.ceil(games / numPlayers) && (round === 0 || Date.now() < deadline); round++) {
-    seats.forEach((bots, seat) => {
+  for (let round = 0; round < Math.ceil(games / numPlayers) && Date.now() < deadline; round++) {
+    let roundWins = 0;
+    let roundPlayed = 0;
+    for (const [seat, bots] of seats.entries()) {
       const stats = simulate(game, { numPlayers, params: opts.params, games: 1, seed: 1000 + 100 * seat + round, bots, onGame: opts.onGame });
-      wins += stats.winRateBySeat[seat] * stats.games;
-      played += stats.games;
-    });
+      if (late) break;
+      roundWins += stats.winRateBySeat[seat] * stats.games;
+      roundPlayed += stats.games;
+    }
+    if (late) break;
+    wins += roundWins;
+    played += roundPlayed;
   }
-  return played ? wins / played : 0;
+  return { winRate: played ? wins / played : 0, games: played };
 }
 
 const clamp = (x: number) => Math.round(Math.min(5, Math.max(1, x)) * 10) / 10;
