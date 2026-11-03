@@ -11,7 +11,7 @@ import { cleanDials, cleanEffort } from "./agent/dials";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
-import { artFile, chooseStyle, paintDeck, readManifest, type ArtRequest } from "./art/cards";
+import { artFile, chooseStyle, deckRequest, paintDeck, paintDeckLater, readManifest, type ArtRequest } from "./art/cards";
 import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
 import type { Effort } from "./agent/protocol";
 import type { GameRequest } from "./agent/spec";
@@ -25,6 +25,7 @@ import { openDb } from "./db";
 import { gameById } from "./games";
 import { playRoutes } from "./play";
 import { Rooms } from "./rooms";
+import { loadGameFromSource } from "./sandbox";
 
 const designer = new ModelClient({
   ...config.meta,
@@ -247,7 +248,11 @@ app.post("/api/generate", async (c) => {
     try {
       const result = await designGame(request, { llm: designerAt(effort), index, onProgress, onEvent, signal });
       const saved = result.ok ? saveGame(result, { idea: request.prompt, invented: request.invented === true, effort: effort ?? config.designerEffort }) : undefined;
-      if (saved) paintCoverLater(painter, config.models.image, saved.id, { game: saved.title, summary: saved.pitch });
+      if (saved) {
+        paintCoverLater(painter, config.models.image, saved.id, { game: saved.title, summary: saved.pitch });
+        // The cards too, in the background: a game should open with its deck painted.
+        paintDeckLater(painter, config.models.image, saved.id, deckRequest(loadGameFromSource(result.source)), (req) => chooseStyle(designer, req));
+      }
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
     } catch (err) {

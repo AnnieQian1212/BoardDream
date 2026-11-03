@@ -1,4 +1,4 @@
-import { createRng, fitBounds, randomPlayout, resolveParams, sampleSeats, type CardView, type GameModule } from "@boarddream/engine";
+import { collectCards, createRng, fitBounds, resolveParams, sampleSeats, type GameModule } from "@boarddream/engine";
 import { useEffect, useState } from "react";
 import { readEvents } from "./sse";
 import type { BoardPaint } from "./three/Board3D";
@@ -40,22 +40,7 @@ export type ArtMap = Map<string, string>;
 
 const url = (gameId: string, file: string) => `/api/art/${gameId}/${file}`;
 
-/** Every distinct card a game shows, found by playing a few quick random games and reading the panels. */
-export function collectCards(game: GameModule, games = 4): CardView[] {
-  const cards = new Map<string, CardView>();
-  const players = sampleSeats(game);
-  for (let seed = 1; seed <= games; seed++) {
-    randomPlayout(game, { numPlayers: players, seed, maxTurns: 600 }, ({ turn, state }) => {
-      if (turn % 3 !== 0) return;
-      for (let seat = 0; seat < players; seat++) {
-        for (const panel of game.panels?.(state, seat) ?? []) {
-          for (const card of panel.cards ?? []) if (!card.faceDown && !cards.has(card.title)) cards.set(card.title, card);
-        }
-      }
-    });
-  }
-  return [...cards.values()];
-}
+export { collectCards };
 
 /** The game's art so far, plus a function that paints the missing cards and adds each one as it lands. */
 export function useArt(game: GameModule) {

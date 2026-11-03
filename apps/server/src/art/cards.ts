@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { collectCards, type GameModule } from "@boarddream/engine";
 import type { ModelClient } from "../meta/client";
 
 /**
@@ -235,4 +236,27 @@ export async function paintDeck(
     }),
   );
   return manifest;
+}
+
+/** What painting a game's deck asks for: its name, summary, mode and family, and every card it shows. */
+export function deckRequest(game: GameModule): ArtRequest {
+  return {
+    game: game.meta.name,
+    summary: game.meta.summary,
+    mode: game.meta.mode,
+    family: game.meta.family,
+    cards: collectCards(game).map(({ title, text, tags }) => ({ title, text, tags })),
+  };
+}
+
+/**
+ * Paints a new game's whole deck in the background, as its cover is, so a game opens with its cards
+ * painted rather than waiting for the art panel's button. Cards that fail are tried once more.
+ */
+export function paintDeckLater(client: ModelClient, model: string, gameId: string, req: ArtRequest, choose: (req: ArtRequest) => Promise<ArtStyle>): void {
+  if (req.cards.length === 0) return;
+  const run = () => paintDeck(client, model, gameId, req, () => {}, choose);
+  run()
+    .then((manifest) => (req.cards.some((c) => !manifest[c.title]) ? run() : manifest))
+    .catch((err: unknown) => console.warn(`[art] ${gameId}: ${err instanceof Error ? err.message : String(err)}`));
 }

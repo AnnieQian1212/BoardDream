@@ -1,6 +1,6 @@
 import { resolveParams } from "./params";
 import { createRng } from "./rng";
-import type { GameModule, Params, PlayerId } from "./types";
+import type { CardView, GameModule, Params, PlayerId } from "./types";
 
 /**
  * Random games for looking at what a game shows: the cards it deals, how far its board reaches,
@@ -45,4 +45,24 @@ export function randomPlayout(game: GameModule, opts: PlayoutOptions, visit?: (t
     state = game.applyMove(state, seat, move, rng);
   }
   return state;
+}
+
+/**
+ * Every distinct face-up card a game shows, by title, found by playing a few quick random games and
+ * reading every seat's panels: the deck its art is painted for.
+ */
+export function collectCards(game: GameModule, games = 4): CardView[] {
+  const cards = new Map<string, CardView>();
+  const players = sampleSeats(game);
+  for (let seed = 1; seed <= games; seed++) {
+    randomPlayout(game, { numPlayers: players, seed, maxTurns: 600 }, ({ turn, state }) => {
+      if (turn % 3 !== 0) return;
+      for (let seat = 0; seat < players; seat++) {
+        for (const panel of game.panels?.(state, seat) ?? []) {
+          for (const card of panel.cards ?? []) if (!card.faceDown && typeof card.title === "string" && !cards.has(card.title)) cards.set(card.title, card);
+        }
+      }
+    });
+  }
+  return [...cards.values()];
 }
