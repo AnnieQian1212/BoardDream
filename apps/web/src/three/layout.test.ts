@@ -209,6 +209,15 @@ describe("rows of chips under a supply's header", () => {
     expect(room).toBeGreaterThan(1.1 * depthBelow(project, near, 128));
   });
 
+  test("keep the mats their size on a wide screen, where the camera stands closer", () => {
+    // At 2276 x 1055 a search for the chips' room reached past the camera and stretched every mat
+    // with wrapped chips 400 units down the table.
+    for (const [width, height] of [[2276, 1055], [2560, 1080], [3440, 1440]]) {
+      const { layout } = fitTable(input, { width, height, insets: { left: 0, right: 0, top: 66, bottom: 92 } });
+      for (const mat of layout.mats) expect(mat.depth, `${mat.title} at ${width}x${height}`).toBeLessThan(80);
+    }
+  });
+
   test("stop short of the cards under them, on the camera that frames the table", () => {
     const { layout } = fitTable(input, desktop);
     const project = screenProjector(layout, desktop.width, desktop.height, desktop.insets);

@@ -87,14 +87,22 @@ export function screenProjector(layout: TableLayout, width: number, height: numb
 /**
  * How far down the table, from `start`, a column of `pixels` screen pixels reaches. The far side of
  * the table is drawn smaller and seen at a lower angle than its middle, so there a pixel of height
- * covers more of it.
+ * covers more of it. The search steps out from `start` in doublings: a point past the camera
+ * projects back up the screen, and a bisection over a fixed span (0 to 400) that reached past it on
+ * a wide screen took every block of chips for 400 units deep, stretching the mats down the table.
  */
 export function depthBelow(project: (point: [number, number, number]) => [number, number], start: [number, number, number], pixels: number): number {
   const [, y0] = project(start);
-  let [lo, hi] = [0, 400];
-  for (let i = 0; i < 40; i++) {
+  const down = (depth: number) => project([start[0], start[1], start[2] + depth])[1] - y0;
+  let [lo, hi, last] = [0, 0.25, 0];
+  for (let reach = down(hi); reach < pixels; reach = down(hi)) {
+    // Past the camera, or absurdly far: the room found so far is all there is.
+    if (!(reach >= last) || hi > 256) return lo;
+    [lo, last, hi] = [hi, reach, hi * 2];
+  }
+  for (let i = 0; i < 30; i++) {
     const mid = (lo + hi) / 2;
-    if (project([start[0], start[1], start[2] + mid])[1] - y0 < pixels) lo = mid;
+    if (down(mid) < pixels) lo = mid;
     else hi = mid;
   }
   return hi;
