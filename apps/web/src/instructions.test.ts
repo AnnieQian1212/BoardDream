@@ -22,6 +22,16 @@ describe("the action a move description starts with", () => {
     ["tend the lantern", "tend the lantern"],
     ["slip away to watch P2", "slip away"],
     ["vouch for P2", "vouch"],
+    // Moves described as a log describes them read as instructions.
+    ["does foul work at boilers", "do foul work"],
+    ["works Boilers", "work"],
+    ["sails 2 at Helm", "sail"],
+    ["carries ore to the forge", "carry ore"],
+    ["passes", "pass"],
+    ["watches the tide", "watch the tide"],
+    // A verb whose own form ends in s is kept.
+    ["cross the ford", "cross the ford"],
+    ["focus the lens", "focus the lens"],
   ])("%s → %s", (description, action) => {
     expect(actionOf(description)).toBe(action);
   });

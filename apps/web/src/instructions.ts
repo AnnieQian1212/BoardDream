@@ -14,6 +14,23 @@ export type TargetKind = "corner" | "edge" | "space" | "card" | "pile" | "counte
 const STOP = new Set(["by", "at", "to", "for", "from", "on", "onto", "of", "in", "into", "with", "and", "or", "as", "then"]);
 const ARTICLES = new Set(["a", "an", "the", "your", "their", "its"]);
 
+const IRREGULAR: Record<string, string> = { does: "do", goes: "go", has: "have", is: "be" };
+
+/**
+ * A verb as an instruction takes it: "does" is "do", "works" is "work", "carries" is "carry",
+ * "passes" is "pass". Some games describe moves as a log does ("does foul work at boilers", "sails 2
+ * at Helm"), which read "Click a space to does foul work". A word that already ends as a verb's own
+ * form does (cross, focus) is kept.
+ */
+export function baseForm(word: string): string {
+  const lower = word.toLowerCase();
+  if (IRREGULAR[lower]) return IRREGULAR[lower];
+  if (lower.length < 4 || !lower.endsWith("s") || /(ss|us|is)$/.test(lower)) return lower;
+  if (/[^aeiou]ies$/.test(lower) && lower.length > 4) return `${lower.slice(0, -3)}y`;
+  if (/(ss|sh|ch|x|zz|o)es$/.test(lower)) return lower.slice(0, -2);
+  return lower.slice(0, -1);
+}
+
 /**
  * The action a move description starts with: its words up to the first that names a particular
  * (a number, a name, a seat like P2) or a preposition. "settle by lagoon" is "settle", "build a
@@ -29,7 +46,7 @@ export function actionOf(description: string): string {
     if (/\d/.test(bare) || /^P\d/.test(bare)) break;
     if (i > 0 && /^\p{Lu}/u.test(bare)) break;
     if (i > 0 && STOP.has(bare.toLowerCase())) break;
-    kept.push(i === 0 ? bare.toLowerCase() : bare);
+    kept.push(i === 0 ? baseForm(bare) : bare);
     if (/[:;,(]$/.test(word)) break;
   }
   while (kept.length > 1 && ARTICLES.has(kept.at(-1)!.toLowerCase())) kept.pop();
