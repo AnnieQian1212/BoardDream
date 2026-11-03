@@ -1,5 +1,5 @@
 import { containsCell, type Geometry, type GeometryBattle, type GeometryCell, type GeometryPiece } from "@boarddream/engine";
-import { ART_CROP, sourceFor, type BoardPaint } from "../paintSource";
+import { ART_CROP, darkened, sourceFor, type BoardPaint } from "../paintSource";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -121,6 +121,8 @@ export function pathCells(cells: GeometryCell[]): Set<string> {
 const SPOTS = new Set(["vertex", "edge"]);
 /** A building spot or road that can be clicked. */
 const TARGET_SPOT = "#3cc6d6";
+/** What a dark state of a painted kind (paintSource darkened) multiplies its painting by: dusk slate. */
+const DARK_TINT = "#5f6880";
 const noRaycast = () => null;
 /** Water fills a little less of its cell than a tile, leaving a rim of the tile round it. */
 const WATER_SHARE = 0.86;
@@ -405,7 +407,11 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             path={paths.has(cell.id)}
             reach={reach}
             outline={outlines.get(cell.id)}
-            painted={texture && paint && sourceFor(paint, cell, geometry.cells) ? { texture, paint, source: sourceFor(paint, cell, geometry.cells)! } : undefined}
+            painted={
+              texture && paint && sourceFor(paint, cell, geometry.cells)
+                ? { texture, paint, source: sourceFor(paint, cell, geometry.cells)!, dark: darkened(paint, cell) }
+                : undefined
+            }
             water={water}
             zone={zones.get(cell.id)}
             box={print.boxes.get(cell.id)}
@@ -532,7 +538,7 @@ interface TileProps {
   /** A place inside water, raised this far so it stands out of the water as an island. */
   island?: number;
   /** The painted board and where this tile's art sits on it. */
-  painted?: { texture: Texture; paint: BoardPaint; source: [number, number] };
+  painted?: { texture: Texture; paint: BoardPaint; source: [number, number]; dark?: boolean };
   /** The board's water; the tile draws a surface where it holds some (waterPolygons). */
   water?: Water;
   /** The color of the group the cell belongs to (zoneColors), drawn as a rim around its ground. */
@@ -740,7 +746,12 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
   useEffect(() => () => rim?.dispose(), [rim]);
   const rimMaterial = useRef<MeshStandardMaterial>(null);
   // On a painted tile, or painted ground, the art shows through and ownership tints it.
-  const tint = useMemo(() => new Color(cell.owner !== undefined ? mix(playerColor(cell.owner), "#ffffff", 0.45) : "#ffffff"), [cell.owner]);
+  // A dark state of a painted kind (a lantern put out) wears its painting dimmed.
+  const dark = Boolean(painted?.dark);
+  const tint = useMemo(() => {
+    const color = new Color(cell.owner !== undefined ? mix(playerColor(cell.owner), "#ffffff", 0.45) : "#ffffff");
+    return dark ? color.multiply(new Color(DARK_TINT)) : color;
+  }, [cell.owner, dark]);
   // A spot that can be built on turns the highlight's color, not just a faint glow: pale spots on a
   // bright board read as all alike otherwise.
   const spotTarget = target && SPOTS.has(cell.kind ?? "");
@@ -757,8 +768,9 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
     const dt = step(delta);
     // Pale tiles under a bright light hide a faint glow, so legal tiles glow clearly; small spots
     // glow a bit more. Only the hovered one lifts: the printed labels lie at the tiles' height.
-    // A cell that gives off light (Geometry cell.glow) burns softly.
-    const burn = glowColor ? 0.35 : 0;
+    // A cell that gives off light (Geometry cell.glow) burns softly; a painted one less, or the
+    // glow washes its painting out (Fogfall Lanterns' lit lanterns showed a pale orange).
+    const burn = glowColor ? (painted ? 0.12 : 0.35) : 0;
     // With hints off (prefs) a legal tile shows its own colors until the pointer is on it.
     const glow = target ? (hovered ? 0.8 : !prefs().hints ? burn : spotTarget ? 0.3 : 0.42) : burn;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);

@@ -152,7 +152,7 @@ export function App() {
       })
       .catch(() => {});
   }, []);
-  const { art, painting, paint, board, boardStep, paintBoard, shown, show, onTable } = useArt(game);
+  const { art, painting, paint, board, boardStep, boardError, paintBoard, shown, show, onTable } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
   // Painted box covers, asked for again whenever the shelf is looked at.
@@ -544,7 +544,7 @@ export function App() {
                   onPaint={() => void paint()}
                   shown={shown}
                   onShow={show}
-                  board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
+                  board={hasBoard ? { report: board?.report, step: boardStep, error: boardError, onPaint: () => void paintBoard() } : undefined}
                 />
               ) : undefined,
           }}

@@ -81,7 +81,7 @@ export function landmarks(cells: GeometryCell[]): { tiles: Point[]; off: Point[]
 }
 
 /** The paper round a painted board: its commonest light, pale color. */
-function paperOf(picture: Picture): [number, number, number] | undefined {
+export function paperOf(picture: Picture): [number, number, number] | undefined {
   const bins = new Map<number, number>();
   for (let i = 0; i < picture.width * picture.height; i += 7) {
     const [r, g, b] = [picture.rgba[i * 4], picture.rgba[i * 4 + 1], picture.rgba[i * 4 + 2]];

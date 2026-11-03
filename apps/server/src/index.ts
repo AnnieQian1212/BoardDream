@@ -97,6 +97,21 @@ app.get("/api/games", (c) => c.json(listGames()));
 // streamed as server-sent events ("card" per finished illustration, then "done").
 app.get("/api/art/:game", (c) => c.json(readManifest(c.req.param("game"))));
 
+// Paintings under way, by game: the step a board has reached and how many cards are done. A
+// painting goes on when the page that asked for it closes or turns to another game; the page
+// opened again reads where it is here, and the same part is not painted twice at once.
+interface Underway {
+  board?: string;
+  cards?: { done: number; total: number };
+}
+const underway = new Map<string, Underway>();
+function progress(game: string, change: Underway) {
+  const next = { ...underway.get(game), ...change };
+  if (next.board === undefined && next.cards === undefined) underway.delete(game);
+  else underway.set(game, next);
+}
+app.get("/api/art/:game/progress", (c) => c.json(underway.get(c.req.param("game")) ?? {}));
+
 // Box covers: every game's that has one (as URLs), and painting one.
 app.get("/api/covers", (c) => c.json(listCovers()));
 
@@ -126,15 +141,20 @@ app.get("/api/art/:game/board", (c) => {
 app.post("/api/art/:game/board", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
   const game = c.req.param("game");
+  if (underway.get(game)?.board) return c.json({ error: "this board is already being painted" }, 409);
   const request = await c.req.json<BoardRequest>();
+  progress(game, { board: "starting" });
   return streamSSE(c, async (stream) => {
     try {
       const report = await paintBoard(painter, { image: config.models.image, sam: config.models.sam }, game, request, (step) => {
+        progress(game, { board: step });
         void stream.writeSSE({ event: "step", data: step });
       });
       await stream.writeSSE({ event: "done", data: JSON.stringify(report) });
     } catch (err) {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+    } finally {
+      progress(game, { board: undefined });
     }
   });
 });
@@ -151,7 +171,12 @@ app.post("/api/art/:game", async (c) => {
   const limited = overLimit(c, "art");
   if (limited) return limited;
   const game = c.req.param("game");
+  if (underway.get(game)?.cards) return c.json({ error: "these cards are already being painted" }, 409);
   const request = await c.req.json<ArtRequest>();
+  const painted = readManifest(game);
+  const total = new Set(request.cards.map((card) => card.title).filter((title) => !painted[title])).size;
+  let done = 0;
+  progress(game, { cards: { done, total } });
   return streamSSE(c, async (stream) => {
     try {
       await paintDeck(
@@ -159,12 +184,17 @@ app.post("/api/art/:game", async (c) => {
         config.models.image,
         game,
         request,
-        (title, file) => void stream.writeSSE({ event: "card", data: JSON.stringify({ title, file }) }),
+        (title, file) => {
+          progress(game, { cards: { done: ++done, total } });
+          void stream.writeSSE({ event: "card", data: JSON.stringify({ title, file }) });
+        },
         plannerFrom(designer),
       );
       await stream.writeSSE({ event: "done", data: "" });
     } catch (err) {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+    } finally {
+      progress(game, { cards: undefined });
     }
   });
 });

@@ -1,5 +1,5 @@
 import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
-import { ART_CROP, sourceFor, type BoardPaint } from "../paintSource";
+import { ART_CROP, darkened, sourceFor, type BoardPaint } from "../paintSource";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { NEUTRAL_PIECE, PLAYER_COLORS, TILE_COLORS } from "../colors";
 import { useFontsReady } from "../fonts";
@@ -77,7 +77,7 @@ export function Board({ geometry, paint, targets, onCell }: Props) {
           zone={zones.get(cell.id)}
           target={targets.has(cell.id)}
           fit={fits.get(cell.id)}
-          painted={paint && sourceFor(paint, cell, geometry.cells) ? { paint, source: sourceFor(paint, cell, geometry.cells)! } : undefined}
+          painted={paint && sourceFor(paint, cell, geometry.cells) ? { paint, source: sourceFor(paint, cell, geometry.cells)!, dark: darkened(paint, cell) } : undefined}
           onClick={(event) => onCell(cell.id, event)}
         />
       ))}
@@ -244,7 +244,7 @@ interface CellProps {
   /** Where its name and token go, once measured. */
   fit?: Fit;
   /** Its painting and the painted tile it comes from, on a painted board. */
-  painted?: { paint: BoardPaint; source: [number, number] };
+  painted?: { paint: BoardPaint; source: [number, number]; dark?: boolean };
   onClick(event: React.MouseEvent): void;
 }
 
@@ -272,6 +272,7 @@ function Cell({ cell, zone, target, fit, painted, onClick }: CellProps) {
               height={painted.paint.height}
               preserveAspectRatio="none"
               transform={`translate(${cx} ${cy}) scale(${1 / ART_CROP}) translate(${-painted.source[0]} ${-painted.source[1]})`}
+              style={painted.dark ? { filter: "brightness(0.5) saturate(0.7)" } : undefined}
             />
           </g>
         </>

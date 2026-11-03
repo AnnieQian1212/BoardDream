@@ -143,7 +143,7 @@ button {
 
 /* In the dark theme the table is lamp-lit: the light falls off toward the room's edges. */
 /* Colours that carry a meaning, lifted so they read on the dark page. */
-:root[data-theme="dark"] :is(.gen-reason, .dream-problem, .room-problem, .account-problem) {
+:root[data-theme="dark"] :is(.gen-reason, .dream-problem, .room-problem, .account-problem, .art-problem) {
   color: #f0a27e !important;
 }
 
@@ -4455,7 +4455,8 @@ a.quiet {
 }
 
 .account-problem,
-.room-problem {
+.room-problem,
+.art-problem {
   margin: 0;
   color: #a2381f;
   font-size: 13.5px;

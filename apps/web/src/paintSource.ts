@@ -25,6 +25,33 @@ function hash(text: string): number {
   return h;
 }
 
+const words = (kind: string) => kind.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+/**
+ * The painted kind a tile wears: its own, or, for a tile whose kind names a state of a painted kind,
+ * that kind. Fogfall Lanterns' lanterns, painted at night as "lantern", become "dark-lantern" and
+ * "lit-lantern" at dawn, and lost their painting for the rest of the game. Of several painted kinds
+ * a tile's kind names, the longest is taken.
+ */
+export function paintedKind(paint: BoardPaint | undefined, cell: GeometryCell): string | undefined {
+  const kind = cell.kind ?? "plain";
+  if (!paint) return undefined;
+  if (paint.sources[kind]?.length) return kind;
+  const own = words(kind);
+  return Object.keys(paint.sources)
+    .filter((painted) => paint.sources[painted].length > 0 && words(painted).length > 0 && words(painted).every((w) => own.includes(w)))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
+/** Words for a thing put out or shut: a tile so named wears its kind's painting darkened ("dark-lantern"). */
+const DARK = new Set(["dark", "unlit", "snuffed", "doused", "out", "dim", "off", "closed"]);
+
+/** Whether a tile wears another kind's painting as a dark state of it. */
+export function darkened(paint: BoardPaint | undefined, cell: GeometryCell): boolean {
+  const worn = paintedKind(paint, cell);
+  return worn !== undefined && worn !== (cell.kind ?? "plain") && words(cell.kind ?? "").some((w) => DARK.has(w));
+}
+
 /**
  * Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id, as
  * large as this tile or larger. A tile samples the painting around the source's middle, so a source
@@ -35,7 +62,8 @@ function hash(text: string): number {
 export function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell, cells: GeometryCell[]): [number, number] | undefined {
   // Edge-matched tiles show their terrain segments, never painted art.
   if (cell.segments) return undefined;
-  const sources = paint?.sources[cell.kind ?? "plain"];
+  const kind = paintedKind(paint, cell);
+  const sources = kind === undefined ? undefined : paint?.sources[kind];
   if (!sources?.length) return undefined;
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
   const extent = (polygon: [number, number][]) => [spread(polygon.map(([x]) => x)), spread(polygon.map(([, y]) => y))];

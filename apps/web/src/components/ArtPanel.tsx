@@ -15,7 +15,7 @@ interface Props {
   shown: ArtShown;
   onShow(part: keyof ArtShown, on: boolean): void;
   /** Board art: present when the game has a board. */
-  board?: { report?: BoardReport; step: string | null; onPaint(): void };
+  board?: { report?: BoardReport; step: string | null; error?: string; onPaint(): void };
 }
 
 /** A switch for whether the table shows one part of the art. */
@@ -77,6 +77,7 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, shown, 
 function BoardArt({
   report,
   step,
+  error,
   onPaint,
   available,
   shown,
@@ -84,6 +85,8 @@ function BoardArt({
 }: {
   report?: BoardReport;
   step: string | null;
+  /** Why the last painting was not kept. */
+  error?: string;
   onPaint(): void;
   available: boolean;
   shown: boolean;
@@ -96,6 +99,11 @@ function BoardArt({
         <BoardProgress key={stageOf(step).from} step={step} />
       ) : (
         <>
+          {error && (
+            <p className="art-problem" role="alert">
+              {error}
+            </p>
+          )}
           {report && (
             <p className="hint status-line align-report">
               <ScanSearch size={14} />
