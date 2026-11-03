@@ -2,6 +2,7 @@ import { LogIn, LogOut, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { sendCode, signIn, signOut, useAccount, type User } from "../account";
 import { useEscape } from "../escape";
+import { Tip } from "./Tip";
 
 /**
  * Signing in: an email and a password; a new account also picks the name the table shows. One form
@@ -69,7 +70,15 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
         <h2 id="account-title">{signingUp ? "Make an account" : "Sign in"}</h2>
         {reason && <p className="account-why">{reason}</p>}
         <label className="account-field">
-          <span>Email</span>
+          <span className="account-label">
+            Email
+            {signingUp && (
+              <Tip label="What your email is for">
+                Friends never see your email.{" "}
+                {codes ? "We mail one code to check it is yours; nothing else is sent." : "No mail is sent: it is only how you sign in."}
+              </Tip>
+            )}
+          </span>
           {/* Text, not an email field: an account made before emails signs in with its name here. */}
           <input
             ref={first}
@@ -84,12 +93,18 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
         </label>
         {signingUp && (
           <label className="account-field">
-            <span>Name at the table</span>
+            <span className="account-label">
+              Name at the table
+              <Tip label="Who sees your name">Friends see this name at your table.</Tip>
+            </span>
             <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="nickname" maxLength={24} required />
           </label>
         )}
         <label className="account-field">
-          <span>Password</span>
+          <span className="account-label">
+            Password
+            {signingUp && <Tip label="Password length">At least 8 characters.</Tip>}
+          </span>
           <input
             type="password"
             value={password}
@@ -124,14 +139,6 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
               </button>
             )}
           </p>
-        )}
-        {signingUp ? (
-          <p className="account-note">
-            Friends see your name, never your email.{" "}
-            {codes ? "We mail a code to check the email is yours; nothing else is sent." : "No mail is sent: the email is only how you sign in."} The password needs at least 8 characters.
-          </p>
-        ) : (
-          <p className="account-note">Made your account before emails? Sign in with its name.</p>
         )}
         {problem && (
           <p className="account-problem" role="alert">

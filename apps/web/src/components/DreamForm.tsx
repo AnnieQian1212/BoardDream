@@ -1,6 +1,7 @@
 import type { PlayMode } from "@boarddream/engine";
-import { ChevronDown, CircleAlert, Dices, Wand2, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { Tip } from "./Tip";
+import { ChevronDown, Dices, Wand2, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BOARDS, DEFAULT_EFFORT, EFFORTS, FAMILIES, GOALS, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, POWERS, THEMES, TONES } from "../dials";
 import type { Dials, Effort } from "../generation";
 
@@ -372,21 +373,17 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
  * about how long a game takes at the effort picked.
  */
 function EffortPicker({ effort, onChange }: { effort: Effort; onChange(effort: Effort): void }) {
-  const id = useId();
   const picked = EFFORTS.find((e) => e.value === effort) ?? EFFORTS[1];
   return (
     <div className="field">
       <span className="effort-head">
         Model effort
-        <span className="effort-tip" tabIndex={0} aria-describedby={id} aria-label={`About ${picked.wait}`}>
-          <CircleAlert size={14} aria-hidden />
-          <span className="library-tip" role="tooltip" id={id}>
-            <strong>
-              {picked.label}: a game takes about {picked.wait}.
-            </strong>{" "}
-            {picked.note}
-          </span>
-        </span>
+        <Tip label={`About ${picked.wait}`}>
+          <strong>
+            {picked.label}: a game takes about {picked.wait}.
+          </strong>{" "}
+          {picked.note}
+        </Tip>
       </span>
       <div className="segmented" role="radiogroup" aria-label="Model effort">
         {EFFORTS.map((e) => (

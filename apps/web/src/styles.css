@@ -6013,7 +6013,7 @@ a.quiet {
   gap: 6px;
 }
 
-.effort-tip {
+.tip-mark {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -6022,19 +6022,19 @@ a.quiet {
   border-radius: 999px;
 }
 
-.effort-tip:focus-visible {
+.tip-mark:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.effort-tip > .library-tip {
+.tip-mark > .library-tip {
   left: -8px;
   text-transform: none;
   letter-spacing: normal;
 }
 
-.effort-tip:hover > .library-tip,
-.effort-tip:focus > .library-tip {
+.tip-mark:hover > .library-tip,
+.tip-mark:focus > .library-tip {
   opacity: 1;
   visibility: visible;
   transform: none;
@@ -6186,4 +6186,15 @@ a.quiet {
 
 .move-log-pop .hint {
   margin: 0;
+}
+
+/* A sign-in field's label with its "!" note beside it (Tip). */
+.account-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-label .library-tip {
+  font-weight: 500;
 }
