@@ -1,0 +1,9 @@
+{
+  "name": "boarddream-video-record",
+  "private": true,
+  "type": "module",
+  "description": "Scripted screen recordings of BoardDream for the demo video (ui-demo: discover, rehearse, record).",
+  "dependencies": {
+    "playwright-core": "1.58.2"
+  }
+}
