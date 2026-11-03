@@ -1,7 +1,7 @@
 import type { CardView, ResourceSpec } from "@boarddream/engine";
 import { Star } from "lucide-react";
 import type { CSSProperties } from "react";
-import { tagStyle } from "../icons";
+import { cardType, tagStyle } from "../icons";
 import { CostPip } from "./ResourceChip";
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
 
 export function Card({ card, resources, size = "full", target, onClick, style }: Props) {
   const { color, icon: ArtIcon } = tagStyle(card.tags?.[0]);
+  const type = cardType(card.tags);
   const className = ["card", size, target && "target", card.faceDown && "face-down"].filter(Boolean).join(" ");
   if (card.faceDown) return <div className={className} style={style} />;
 
@@ -51,6 +52,12 @@ export function Card({ card, resources, size = "full", target, onClick, style }:
           </div>
           {card.text && <p className="card-text">{card.text}</p>}
         </>
+      )}
+      {/* The card's type at a glance (cardType), as on the table's cards: its icon on the corner. */}
+      {type && (
+        <span className="card-type" style={{ "--type": type.color } as CSSProperties} aria-hidden>
+          <type.icon size={size === "full" ? 13 : 10} strokeWidth={2.2} />
+        </span>
       )}
     </>
   );

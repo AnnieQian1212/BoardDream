@@ -1,7 +1,7 @@
 import type { CardView, Geometry, ResourceSpec } from "@boarddream/engine";
 import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
-import { iconFor, tagStyle } from "../icons";
+import { cardType, iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
 import { RIM_INK, TILE_SHARE, zoneColors } from "./ground";
 import { sizeGroups, uniformSizes } from "../sizeGroups";
@@ -195,9 +195,11 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
     ctx.stroke();
     let size = 31;
     let lines: string[] = [];
+    // Centred lines keep clear of the type stamp in the bottom left corner, and so of the right too.
+    const room = bw - 44 - (card.tags?.length ? 2 * STAMP.clear : 0);
     for (; size >= 19; size--) {
       ctx.font = `500 ${size}px ${FONT_UI}`;
-      lines = wrap(ctx, card.text, bw - 44);
+      lines = wrap(ctx, card.text, room);
       if (lines.length * size * 1.3 <= bh - 30) break;
     }
     ctx.fillStyle = mix(INK, "#6b5a45", 0.4);
@@ -207,7 +209,30 @@ function paintFace(ctx: CanvasRenderingContext2D, card: CardView, costs: [string
     const top = by + bh / 2 - ((lines.length - 1) * lh) / 2;
     lines.forEach((line, i) => ctx.fillText(line, CW / 2, top + i * lh));
   }
+
+  // The card's type at a glance (cardType: a guild, cargo, a survey), stamped in its color on the
+  // bottom left corner, on painted cards (whose painting hides the drawn emblem) as on drawn ones.
+  const type = cardType(card.tags);
+  if (type) {
+    const { x, y, r } = STAMP;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = type.color;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r - 7, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = alpha("#ffffff", 0.45);
+    ctx.stroke();
+    drawIcon(ctx, type.icon, x, y, r * 1.05, "#ffffff", 2.6);
+  }
 }
+
+/** The type stamp on a card's bottom left corner, over the frame, and how far text keeps from the box's sides for it. */
+const STAMP = { x: 64, y: CH - 64, r: 36, clear: 44 };
 
 /**
  * Placeholder illustration until card art is painted, in the table's storybook style: a little

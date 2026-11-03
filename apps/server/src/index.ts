@@ -11,7 +11,7 @@ import { cleanDials, cleanEffort } from "./agent/dials";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
-import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
+import { artFile, chooseStyle, paintDeck, readManifest, type ArtRequest } from "./art/cards";
 import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
 import type { Effort } from "./agent/protocol";
 import type { GameRequest } from "./agent/spec";
@@ -140,9 +140,14 @@ app.post("/api/art/:game", async (c) => {
   const request = await c.req.json<ArtRequest>();
   return streamSSE(c, async (stream) => {
     try {
-      await paintDeck(painter, config.models.image, game, request, (title, file) => {
-        void stream.writeSSE({ event: "card", data: JSON.stringify({ title, file }) });
-      });
+      await paintDeck(
+        painter,
+        config.models.image,
+        game,
+        request,
+        (title, file) => void stream.writeSSE({ event: "card", data: JSON.stringify({ title, file }) }),
+        (req) => chooseStyle(designer, req),
+      );
       await stream.writeSSE({ event: "done", data: "" });
     } catch (err) {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });

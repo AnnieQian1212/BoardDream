@@ -98,6 +98,8 @@ export function useArt(game: GameModule) {
         body: JSON.stringify({
           game: game.meta.name,
           summary: game.meta.summary,
+          mode: game.meta.mode,
+          family: game.meta.family,
           cards: cards.map(({ title, text, tags }) => ({ title, text, tags })),
         }),
       });

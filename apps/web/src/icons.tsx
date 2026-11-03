@@ -1,4 +1,5 @@
 import type { ResourceSpec } from "@boarddream/engine";
+import { motifFor } from "./motifs";
 import {
   Anchor,
   Bean,
@@ -105,6 +106,20 @@ export function tagStyle(tag: string | undefined): { color: string; icon: Lucide
   if (known) return known;
   const h = hash(tag);
   return { color: FALLBACK_COLORS[h % FALLBACK_COLORS.length], icon: FALLBACK_ICONS[h % FALLBACK_ICONS.length] };
+}
+
+/**
+ * A card's type, for the stamp on its corner: the first of its tags that names a kind of thing (a
+ * guild, cargo, a survey: a word the motifs know), with that tag's color; a place or a suit with no
+ * motif (Lowhaven, Mistwood) is passed over, and with no such tag the first tag stands.
+ */
+export function cardType(tags: string[] | undefined): { color: string; icon: LucideIcon } | undefined {
+  if (!tags?.length) return undefined;
+  for (const tag of tags) {
+    const icon = motifFor(tag);
+    if (icon) return { color: tagStyle(tag).color, icon };
+  }
+  return tagStyle(tags[0]);
 }
 
 export const resourceById = (resources: ResourceSpec[] | undefined) => new Map((resources ?? []).map((r) => [r.id, r]));
