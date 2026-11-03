@@ -89,10 +89,12 @@ function BoardArt({ report, step, onPaint, available }: { report?: BoardReport; 
  */
 const STAGES: { match: RegExp; from: number; to: number; seconds: number }[] = [
   { match: /^Starting/, from: 0, to: 4, seconds: 2 },
+  // A painting with most tiles off is painted afresh, in the repaint's place.
+  { match: /^Painting the board again/, from: 64, to: 86, seconds: 24 },
   { match: /^Painting the board/, from: 4, to: 52, seconds: 24 },
   { match: /^Checking every tile/, from: 52, to: 64, seconds: 6 },
   { match: /^Repainting/, from: 64, to: 86, seconds: 16 },
-  { match: /^Checking the repaint/, from: 86, to: 93, seconds: 6 },
+  { match: /^Checking the (repaint|new painting)/, from: 86, to: 93, seconds: 6 },
   { match: /^Checking what every tile shows/, from: 93, to: 99, seconds: 5 },
 ];
 

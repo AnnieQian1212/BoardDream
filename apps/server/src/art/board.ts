@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import type { Geometry, GeometryCell } from "@boarddream/engine";
+import { isWaterKind, type CellTerrain, type Geometry, type GeometryCell } from "@boarddream/engine";
 import { parseImageStream, recordsOfKind, decodeMaskToRaster, type ResponsesEvent } from "@meta-sam/parser";
 import type { ModelClient } from "../meta/client";
 import { boxPrompt, segment, type PixelBox } from "../meta/media";
 import { HOUSE_STYLE } from "./cards";
 import { relabelSources, type Relabel } from "./content";
 import { decodePng, encodePng, pngSize } from "./png";
+import { register, type Registration } from "./register";
 
 /**
  * Board art with an alignment check. The engine's geometry is rendered as a flat guide image,
@@ -26,7 +27,10 @@ const SAM_OBJECTS = 16;
  */
 const isTile = (cell: GeometryCell) => cell.kind !== "label" && cell.kind !== "vertex" && cell.kind !== "edge" && !cell.segments;
 
-const GUIDE_COLORS: Record<string, [number, number, number]> = {
+type Rgb = [number, number, number];
+
+/** Colors of the reference games' terrains, which carry no terrain hint. */
+const GUIDE_COLORS: Record<string, Rgb> = {
   forest: [70, 140, 70],
   quarry: [150, 150, 145],
   fields: [225, 195, 85],
@@ -35,28 +39,63 @@ const GUIDE_COLORS: Record<string, [number, number, number]> = {
   ladder: [150, 205, 130],
   snake: [235, 150, 130],
 };
-const PALETTE: [number, number, number][] = [
-  [200, 120, 90],
-  [110, 160, 200],
-  [170, 140, 210],
-  [220, 180, 90],
-  [120, 180, 110],
-  [205, 130, 160],
-  [100, 190, 175],
-  [185, 160, 120],
+
+/**
+ * Named shades for each ground a cell's terrain hint gives, the most common kind on that ground
+ * taking the first: every water kind is a blue, every grass kind a green, so the painter paints a
+ * cove as water. Picked by hash from one palette, Farlight Reefs' coves came out yellow like its
+ * headlands, and were painted as sand.
+ */
+const SHADES: Record<CellTerrain, [string, Rgb][]> = {
+  water: [
+    ["blue", [80, 150, 210]],
+    ["deep blue", [40, 85, 160]],
+    ["pale blue", [155, 205, 235]],
+    ["teal", [60, 165, 165]],
+    ["navy", [30, 55, 110]],
+  ],
+  grass: [
+    ["green", [115, 175, 85]],
+    ["pale green", [175, 215, 140]],
+    ["olive", [135, 145, 60]],
+    ["lime", [165, 205, 60]],
+  ],
+  forest: [
+    ["dark green", [45, 105, 55]],
+    ["pine green", [30, 80, 65]],
+    ["moss green", [90, 120, 45]],
+  ],
+  grain: [
+    ["yellow", [225, 195, 85]],
+    ["gold", [200, 150, 45]],
+    ["wheat", [235, 215, 155]],
+  ],
+  stone: [
+    ["gray", [150, 150, 145]],
+    ["dark gray", [95, 95, 100]],
+    ["light gray", [205, 202, 195]],
+    ["slate", [110, 125, 145]],
+  ],
+};
+
+/** What a ground is called in the painter's legend. */
+const GROUND_WORDS: Record<CellTerrain, string> = { water: "water", grass: "grassland", forest: "woodland", grain: "farmland", stone: "rocky ground" };
+
+/** Colors for kinds with no ground, none like a ground's. */
+const PALETTE: [string, Rgb][] = [
+  ["terracotta", [200, 115, 85]],
+  ["purple", [160, 125, 205]],
+  ["pink", [215, 130, 165]],
+  ["orange", [225, 150, 70]],
+  ["brown", [140, 100, 70]],
+  ["tan", [190, 165, 120]],
+  ["maroon", [135, 55, 70]],
+  ["lavender", [205, 185, 235]],
 ];
-const BORDER: [number, number, number] = [52, 42, 34];
+const PLAIN: [string, Rgb] = ["cream", [236, 224, 197]];
+const BORDER: Rgb = [52, 42, 34];
 
-function hash(text: string): number {
-  let h = 0;
-  for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h;
-}
-
-const colorOf = (kind: string | undefined): [number, number, number] =>
-  kind ? (GUIDE_COLORS[kind] ?? PALETTE[hash(kind) % PALETTE.length]) : [236, 224, 197];
-
-const NAMED: [string, [number, number, number]][] = [
+const NAMED: [string, Rgb][] = [
   ["green", [70, 140, 70]],
   ["gray", [150, 150, 145]],
   ["yellow", [225, 195, 85]],
@@ -70,8 +109,59 @@ const NAMED: [string, [number, number, number]][] = [
   ["cream", [236, 224, 197]],
 ];
 
-const colorName = (rgb: [number, number, number]) =>
+const colorName = (rgb: Rgb) =>
   NAMED.map(([name, c]) => [name, (c[0] - rgb[0]) ** 2 + (c[1] - rgb[1]) ** 2 + (c[2] - rgb[2]) ** 2] as const).sort((a, b) => a[1] - b[1])[0][0];
+
+export interface GuideColor {
+  name: string;
+  rgb: Rgb;
+  /** The kind's ground, from its cells' terrain hints. */
+  ground?: CellTerrain;
+}
+
+/**
+ * Each tile kind's color in the guide, by name for the painter's legend: a shade of its ground when
+ * its cells give one, a reference terrain's own color, else one from a palette. No two kinds share
+ * a name, so the legend never says two kinds are the same color.
+ */
+export function guideColors(geometry: Geometry): Map<string, GuideColor> {
+  const tiles = geometry.cells.filter(isTile);
+  const count = new Map<string, number>();
+  const grounds = new Map<string, Map<CellTerrain, number>>();
+  for (const cell of tiles) {
+    const kind = cell.kind ?? "plain";
+    count.set(kind, (count.get(kind) ?? 0) + 1);
+    if (cell.terrain) {
+      const of = grounds.get(kind) ?? new Map<CellTerrain, number>();
+      of.set(cell.terrain, (of.get(cell.terrain) ?? 0) + 1);
+      grounds.set(kind, of);
+    }
+  }
+  // The most common kinds first, so a board's main water is plain blue.
+  const kinds = [...count.keys()].sort((a, b) => count.get(b)! - count.get(a)! || a.localeCompare(b));
+  const colors = new Map<string, GuideColor>();
+  const used = new Set<string>();
+  const take = (kind: string, name: string, rgb: Rgb, ground?: CellTerrain) => {
+    colors.set(kind, { name, rgb, ground });
+    used.add(name);
+  };
+  const free = (options: [string, Rgb][]) => options.find(([name]) => !used.has(name));
+  for (const kind of kinds) {
+    const hints = grounds.get(kind);
+    // Its cells' terrain hint, else water when its name says so (a sea, a lake).
+    const hinted = hints ? [...hints].sort((a, b) => b[1] - a[1])[0][0] : undefined;
+    const ground = hinted ?? (isWaterKind(kind) ? "water" : undefined);
+    const shade = ground ? free(SHADES[ground]) : undefined;
+    if (!hinted && GUIDE_COLORS[kind] && !used.has(colorName(GUIDE_COLORS[kind]))) take(kind, colorName(GUIDE_COLORS[kind]), GUIDE_COLORS[kind], ground);
+    else if (shade) take(kind, shade[0], shade[1], ground);
+    else if (!ground && kind === "plain" && !used.has(PLAIN[0])) take(kind, ...PLAIN);
+    else {
+      const [name, rgb] = free(PALETTE) ?? PALETTE[colors.size % PALETTE.length];
+      take(kind, name, rgb, ground);
+    }
+  }
+  return colors;
+}
 
 interface Scaled {
   width: number;
@@ -102,11 +192,12 @@ export function renderGuide(geometry: Geometry): { png: Buffer; size: Scaled } {
   const height = Math.round(geometry.height * scale);
   const rgba = new Uint8Array(width * height * 4);
   for (let i = 0; i < width * height; i++) rgba.set([...BORDER, 255], i * 4);
+  const colors = guideColors(geometry);
   for (const cell of geometry.cells.filter(isTile)) {
     const [cx, cy] = centroid(cell.polygon);
     // Shrunk toward the center so a border shows between neighbors.
     const poly = cell.polygon.map(([x, y]) => [(cx + (x - cx) * 0.93) * scale, (cy + (y - cy) * 0.93) * scale] as [number, number]);
-    const color = colorOf(cell.kind);
+    const color = colors.get(cell.kind ?? "plain")!.rgb;
     const xs = poly.map(([x]) => x);
     const ys = poly.map(([, y]) => y);
     for (let y = Math.max(0, Math.floor(Math.min(...ys))); y < Math.min(height, Math.ceil(Math.max(...ys))); y++) {
@@ -118,10 +209,11 @@ export function renderGuide(geometry: Geometry): { png: Buffer; size: Scaled } {
   return { png: encodePng(width, height, rgba), size: { width, height, scale } };
 }
 
-/** "green tiles are forest, gray tiles are quarry, ...": how the guide's colors read. */
-function legend(geometry: Geometry): string {
-  const kinds = [...new Set(geometry.cells.filter(isTile).map((c) => c.kind ?? "plain"))];
-  return kinds.map((kind) => `${colorName(colorOf(kind === "plain" ? undefined : kind))} tiles are ${kind === "plain" ? "plain spaces" : kind}`).join(", ");
+/** "blue tiles are cove (water), green tiles are village (grassland), ...": how the guide's colors read. */
+export function legend(geometry: Geometry): string {
+  return [...guideColors(geometry)]
+    .map(([kind, { name, ground }]) => `${name} tiles are ${kind === "plain" ? "plain spaces" : kind}${ground ? ` (${GROUND_WORDS[ground]})` : ""}`)
+    .join(", ");
 }
 
 interface ImageReply {
@@ -140,6 +232,13 @@ async function edit(client: ModelClient, model: string, prompt: string, images: 
   const b64 = reply.data?.[0]?.b64_json;
   if (!b64) throw new Error("Muse Image returned no image");
   return Buffer.from(b64, "base64");
+}
+
+/** A painting lined up with the geometry's tiles (register.ts), as PNG. */
+export function lineUp(png: Buffer, geometry: Geometry): { png: Buffer; registration: Registration } {
+  const decoded = decodePng(png);
+  const { picture, registration } = register(decoded, geometry, geometry.cells.filter(isTile));
+  return { png: picture === decoded ? png : encodePng(picture.width, picture.height, picture.rgba), registration };
 }
 
 export interface TileScore {
@@ -163,6 +262,8 @@ export interface BoardReport {
   /** Mean IoU of the first painting, before any targeted repaint. */
   firstMeanIoU: number;
   repainted: boolean;
+  /** How the kept painting was stretched and shifted to line its tiles up with the geometry (register.ts). */
+  registration?: Registration;
   /** Tiles painted as another terrain than the guide asked for, moved to the kind they show. */
   relabeled?: Relabel[];
 }
@@ -245,6 +346,32 @@ function summarize(scores: TileScore[]): Omit<BoardReport, "firstMeanIoU" | "rep
 }
 
 /** Where a tile sits, in words an image model can follow. */
+/**
+ * "21 tiles in 5 rows of 3, 5, 6, 4 and 3 from the top": how the tiles are laid out, for the
+ * painter. Told only to keep its tiles, it laid Farlight Reefs' 3-5-6-4-3 coast out as an even
+ * 3-4-5-4-3 hexagon, so no tile sat where the board has it. Only a grid of like tiles is described:
+ * on a board of mixed spaces (Waxbloom Valley's fields, orders and seasons) rows say little.
+ */
+export function rowsOf(geometry: Geometry): string | undefined {
+  const tiles = geometry.cells.filter(isTile);
+  if (tiles.length < 4) return undefined;
+  const span = (values: number[]) => Math.max(...values) - Math.min(...values);
+  const areas = tiles.map((c) => span(c.polygon.map(([x]) => x)) * span(c.polygon.map(([, y]) => y)));
+  if (Math.max(...areas) > Math.min(...areas) * 1.3) return undefined;
+  const heights = tiles.map((c) => span(c.polygon.map(([, y]) => y)));
+  const tolerance = Math.min(...heights) * 0.25;
+  const rows: number[][] = [];
+  for (const y of tiles.map((c) => centroid(c.polygon)[1]).sort((a, b) => a - b)) {
+    const row = rows.at(-1);
+    if (row && y - row[0] <= tolerance) row.push(y);
+    else rows.push([y]);
+  }
+  if (rows.length < 2 || rows.length > 10) return undefined;
+  const counts = rows.map((r) => r.length);
+  const list = counts.length === 2 ? counts.join(" and ") : `${counts.slice(0, -1).join(", ")} and ${counts.at(-1)}`;
+  return `${tiles.length} tiles in ${rows.length} rows of ${list} from the top`;
+}
+
 function whereIs(geometry: Geometry, id: string): string {
   const cell = geometry.cells.find((c) => c.id === id)!;
   const [cx, cy] = centroid(cell.polygon);
@@ -264,7 +391,10 @@ export interface BoardRequest {
   geometry: Geometry;
 }
 
-/** Paints the board, checks it with SAM, repaints misaligned tiles once, and saves the best version. */
+/**
+ * Paints the board, checks it with SAM, and saves the best version: a painting with most tiles off
+ * is painted afresh once, one with a few off has those tiles repainted once.
+ */
 export async function paintBoard(
   client: ModelClient,
   models: { image: string; sam: string },
@@ -279,27 +409,40 @@ export async function paintBoard(
   writeFileSync(new URL("board-guide.png", dir), guide);
 
   onStep("painting the board");
-  const prompt = `Repaint this game board guide as an illustrated board for "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}. In the guide, ${legend(req.geometry)}; paint each tile as that terrain or space. Keep every tile exactly where it is with the same shape and outline, and keep the dark gaps between tiles as borders. ${HOUSE_STYLE}.`;
-  let painted = await edit(client, models.image, prompt, [guide], size);
-  writeFileSync(new URL("board-first.png", dir), painted);
+  const rows = rowsOf(req.geometry);
+  const prompt = `Repaint this game board guide as an illustrated board for "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}. In the guide, ${legend(req.geometry)}; paint each tile as that terrain or space. Keep every tile exactly where it is with the same shape and outline${rows ? ` (${rows})` : ""}, and keep the dark gaps between tiles as borders: do not move, add, remove or spread out any tile. ${HOUSE_STYLE}.`;
+  const raw = await edit(client, models.image, prompt, [guide], size);
+  writeFileSync(new URL("board-first.png", dir), raw);
+  // Lined up with the geometry before SAM checks it and before tiles are cut from it.
+  let { png: painted, registration } = lineUp(raw, req.geometry);
 
   onStep("checking every tile with SAM 3.1");
   let scores = await checkAlignment(client, models.sam, req.geometry, painted);
   const first = summarize(scores);
   let repainted = false;
 
-  if (first.misaligned.length > 0) {
+  // Most tiles off: the painter laid the board out its own way, which touching up tiles cannot
+  // mend (Farlight Reefs' rearranged coast, patched, lost its wrecks). It is painted afresh once.
+  if (first.alignedShare < 0.5) {
+    onStep("painting the board again");
+    const again = lineUp(await edit(client, models.image, prompt, [guide], size), req.geometry);
+    onStep("checking the new painting");
+    const againScores = await checkAlignment(client, models.sam, req.geometry, again.png);
+    if (summarize(againScores).meanIoU > first.meanIoU) {
+      [painted, registration, scores, repainted] = [again.png, again.registration, againScores, true];
+    }
+  } else if (first.misaligned.length > 0) {
     onStep(`repainting ${first.misaligned.length} misaligned tile${first.misaligned.length === 1 ? "" : "s"}`);
     const spots = first.misaligned
       .slice(0, 8)
       .map((s) => whereIs(req.geometry, s.id))
       .join("; ");
     const fixPrompt = `The first image is a painted game board; the second is its layout guide. Some painted tiles drifted from the guide's outlines, around: ${spots}. Repaint those tiles so their shapes and borders match the guide exactly, and keep everything else unchanged. ${HOUSE_STYLE}.`;
-    const fixed = await edit(client, models.image, fixPrompt, [painted, guide], size);
+    const fixed = lineUp(await edit(client, models.image, fixPrompt, [painted, guide], size), req.geometry);
     onStep("checking the repaint");
-    const fixedScores = await checkAlignment(client, models.sam, req.geometry, fixed);
+    const fixedScores = await checkAlignment(client, models.sam, req.geometry, fixed.png);
     if (summarize(fixedScores).meanIoU > first.meanIoU) {
-      [painted, scores, repainted] = [fixed, fixedScores, true];
+      [painted, registration, scores, repainted] = [fixed.png, fixed.registration, fixedScores, true];
     }
   }
 
@@ -323,6 +466,7 @@ export async function paintBoard(
     ...summarize(scores),
     firstMeanIoU: first.meanIoU,
     repainted,
+    registration,
   };
   writeFileSync(new URL("board.png", dir), painted);
   writeFileSync(new URL("board.json", dir), JSON.stringify(report, null, 2) + "\n");

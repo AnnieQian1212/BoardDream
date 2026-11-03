@@ -4,12 +4,9 @@
  * bounce off the shore instead of running under the land, and a still surface costs nothing.
  */
 
-import type { GeometryCell } from "@boarddream/engine";
+import { isWaterKind, type GeometryCell } from "@boarddream/engine";
 
-const WATER_WORDS =
-  /(^|[-_ ])(sea|seas|ocean|lagoon|reef|lake|river|water|waters|pond|bay|harbor|harbour|marsh|fen|shoal|shoals|strait|shallows|cove|tarn|loch|wetlands?|swamp|bog|mire|headwaters?|estuary|fjord|creek|brook|stream|canal|waterfall)($|[-_ ])/;
-
-export const isWaterKind = (kind: string | undefined): boolean => kind !== undefined && WATER_WORDS.test(kind.toLowerCase());
+export { isWaterKind };
 
 /** A whole cell is water by its terrain hint (GeometryCell.terrain), or else by its kind's name. */
 export const isWaterCell = (cell: GeometryCell): boolean => (cell.terrain ? cell.terrain === "water" : isWaterKind(cell.kind));

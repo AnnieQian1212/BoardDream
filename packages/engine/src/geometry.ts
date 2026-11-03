@@ -2,6 +2,15 @@ import type { Geometry } from "./types";
 
 export const gridCellId = (x: number, y: number) => `${x},${y}`;
 
+const WATER_WORDS =
+  /(^|[-_ ])(sea|seas|ocean|lagoon|reef|lake|river|water|waters|pond|bay|harbor|harbour|marsh|fen|shoal|shoals|strait|shallows|cove|tarn|loch|wetlands?|swamp|bog|mire|headwaters?|estuary|fjord|creek|brook|stream|canal|waterfall)($|[-_ ])/;
+
+/**
+ * Whether a cell kind's name says it is water (a sea, a lagoon, a reef): the table draws it as
+ * water and the board painter is told to paint it so, when its cells carry no terrain hint.
+ */
+export const isWaterKind = (kind: string | undefined): boolean => kind !== undefined && WATER_WORDS.test(kind.toLowerCase());
+
 /** Square grid with one unit per cell; cell ids are "x,y" with y = 0 at the top. */
 export function squareGridGeometry(cols: number, rows: number): Geometry {
   const cells: Geometry["cells"] = [];

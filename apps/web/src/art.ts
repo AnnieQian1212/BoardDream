@@ -20,6 +20,17 @@ export interface BoardArt {
   report: BoardReport;
 }
 
+/**
+ * A version for the painting's address, from the whole report: the image is served to be cached
+ * for good, and a painting lined up again in place (apps/server/src/art/realign.ts) keeps its
+ * scores, so a version from its IoU alone kept showing the old image.
+ */
+export function reportVersion(report: BoardReport): string {
+  let h = 0;
+  for (const ch of JSON.stringify(report)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h.toString(36);
+}
+
 const boardArt = (gameId: string, report: BoardReport, version: string): BoardArt => ({
   paint: { url: `/api/art/${gameId}/board.png?v=${version}`, width: report.width, height: report.height, sources: report.sources },
   report,
@@ -57,7 +68,7 @@ export function useArt(game: GameModule) {
     fetch(`/api/art/${id}/board`)
       .then((res) => (res.ok ? (res.json() as Promise<BoardReport>) : undefined))
       .then((report) => {
-        if (!cancelled && report) setBoard(boardArt(id, report, report.meanIoU.toFixed(6)));
+        if (!cancelled && report) setBoard(boardArt(id, report, reportVersion(report)));
       })
       .catch(() => {});
     fetch(`/api/art/${id}`)
