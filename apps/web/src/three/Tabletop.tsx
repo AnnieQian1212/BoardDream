@@ -3,7 +3,7 @@ import { MoveLog, type LogEntry } from "../components/LogPanel";
 import { unlit } from "../instructions";
 import { usePrefs } from "../prefs";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
 import { Hint, useHint } from "../components/Hint";
@@ -18,6 +18,7 @@ import { fitTable, type Arrangement } from "./layout";
 import { initialTier, settings, stepDown } from "./quality";
 import type { BoardPaint } from "./Board3D";
 import { Scene, type Insets } from "./Scene";
+import { FirstFrame, WarmUp } from "./WarmUp";
 import { cardFace } from "./textures";
 
 interface Props {
@@ -184,12 +185,17 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   };
 
   const free: CSSProperties = { left: insets.left, right: insets.right };
+  // The table draws its first frame once its shaders are compiled off the main thread (WarmUp).
+  const [warm, setWarm] = useState(false);
+  const ready = useCallback(() => setWarm(true), []);
+  const [shown, setShown] = useState(false);
+  const drawn = useCallback(() => setShown(true), []);
 
   return (
-    <div className="stage">
+    <div className={shown ? "stage" : "stage warming"}>
       {fonts && (
         <Canvas
-          frameloop="demand"
+          frameloop={warm ? "demand" : "never"}
           shadows={quality.shadows ? "percentage" : false}
           dpr={quality.dpr}
           resize={{ debounce: 0 }}
@@ -213,6 +219,8 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
               onSlow={START.locked ? undefined : () => setTier((t) => stepDown(t))}
               onPick={pick}
             />
+            {!warm && <WarmUp onReady={ready} />}
+            <FirstFrame warm={warm} onDrawn={drawn} />
           </Suspense>
         </Canvas>
       )}

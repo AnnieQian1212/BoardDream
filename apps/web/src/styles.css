@@ -130,6 +130,17 @@ button {
 
 .stage canvas {
   display: block;
+  transition: opacity 0.35s ease;
+}
+
+/* While its shaders compile (WarmUp.tsx) the table and its labels wait unseen, then fade in. */
+.stage.warming canvas,
+.stage.warming .labels {
+  opacity: 0;
+}
+
+.stage .labels {
+  transition: opacity 0.35s ease;
 }
 
 .stage::after {

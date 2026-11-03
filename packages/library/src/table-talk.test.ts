@@ -30,6 +30,19 @@ describe("the decision for a seat", () => {
     expect(decision).toEqual({ move: botMove(game, state, seat, createRng(1)), asked: false, overruled: false, failed: false });
   });
 
+  test("an advisor's move stands in for the bot's, and the bot decides when the advisor fails", async () => {
+    const { game, state, seat } = liarsTurn();
+    const moves = game.legalMoves(state, seat);
+    const advised = await decideSeat(game, state, seat, 3, [], createRng(1), undefined, async () => moves.length - 1);
+    expect(advised.move).toEqual(moves[moves.length - 1]);
+    const failed = await decideSeat(game, state, seat, 3, [], createRng(1), undefined, async () => {
+      throw new Error("no worker");
+    });
+    expect(failed.move).toEqual(botMove(game, state, seat, createRng(1)));
+    const outOfRange = await decideSeat(game, state, seat, 3, [], createRng(1), undefined, async () => -1);
+    expect(outOfRange.move).toEqual(botMove(game, state, seat, createRng(1)));
+  });
+
   test("a routine move never asks the model", async () => {
     const game = lanternIsles as GameModule;
     const state = game.setup({ numPlayers: 3, params: resolveParams(game.params), rng: createRng(2) });

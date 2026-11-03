@@ -1,5 +1,6 @@
 import type { GameModule, Rng } from "@boarddream/engine";
 import { decideSeat, type Chooser, type Decision } from "@boarddream/library";
+import { workerAdvisor } from "./botWorker";
 
 /**
  * Muse Spark opponents in the browser: the library's seat decision (decideSeat), with the model
@@ -36,6 +37,7 @@ export const serverChooser: Chooser = async (request) => {
   }
 };
 
+/** A seat's move: the bot's, worked out off the main thread (botWorker.ts), or the model's on a social move. */
 export function decide(game: GameModule, state: unknown, seat: number, numPlayers: number, history: string[], rng: Rng, muse: boolean): Promise<Decision> {
-  return decideSeat(game, state, seat, numPlayers, history, rng, muse ? serverChooser : undefined);
+  return decideSeat(game, state, seat, numPlayers, history, rng, muse ? serverChooser : undefined, workerAdvisor(game, state, seat, rng));
 }

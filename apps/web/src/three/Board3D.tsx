@@ -302,8 +302,15 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
     const radii = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")).map((c) => inradius(c.polygon)).sort((a, b) => a - b);
     return radii.length ? radii[Math.floor(radii.length / 2)] : Infinity;
   }, [geometry.cells.length, geometry.width, geometry.height]);
-  // Each tile's outline, large tiles drawn back from smaller ones lying across their edges.
-  const outlines = useMemo(() => tileOutlines(geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")), TILE_SHARE, reach), [geometry, reach]);
+  // Each tile's outline, large tiles drawn back from smaller ones lying across their edges. They
+  // depend only on the tiles' shapes, so they (and the printed names fitted to them) are worked out
+  // again only when a shape changes: keyed on the geometry, which is new every move, the names were
+  // laid out afresh after each move, up to half a second of the page at a time.
+  const shapesKey = geometry.cells.map((c) => (c.kind === "label" || SPOTS.has(c.kind ?? "") ? "" : `${c.id}:${c.polygon.flat().join(",")}`)).join("|");
+  const outlines = useMemo(
+    () => tileOutlines(geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")), TILE_SHARE, reach),
+    [shapesKey, reach],
+  );
   // Names are fitted to the tiles as drawn: a tile drawn back from a smaller neighbour is shorter
   // than its cell, and a name fitted to the cell ran off it (Moth Landing, in Hollow Manifest).
   const print = useMemo(() => boardPrint(geometry, margin, outlines), [labelKey, geometry.width, geometry.height, margin, outlines]);

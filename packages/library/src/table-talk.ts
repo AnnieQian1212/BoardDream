@@ -60,11 +60,18 @@ export function botMove(game: GameModule, state: unknown, seat: number, rng: Rng
 }
 
 /**
+ * Where the bot's move comes from, when not worked out here: given the seat's legal moves, the
+ * index of the one to play. The browser asks a worker, so the bot's playouts never hold up the table.
+ */
+export type Advisor = (moves: unknown[]) => Promise<number>;
+
+/**
  * The move for a seat. The game's own bot plays routine moves; when the move it would make is a
  * social one (an offer, an answer to one, a bid, a claim, a call, a vote) and a chooser is given,
  * the model picks among the social options instead, with the bot's move as advice, and may talk.
  * Any failure keeps the bot's move, so the game never stalls. `history` is the moves as the seat
- * saw them, oldest first; the model hears the last HISTORY of them.
+ * saw them, oldest first; the model hears the last HISTORY of them. With `advise`, the bot's move
+ * is worked out there (and here, should it fail).
  */
 export async function decideSeat(
   game: GameModule,
@@ -74,9 +81,15 @@ export async function decideSeat(
   history: string[],
   rng: Rng,
   choose?: Chooser,
+  advise?: Advisor,
 ): Promise<Decision> {
   const moves = game.legalMoves(state, seat);
-  const advice = botMove(game, state, seat, rng, moves);
+  let advice: unknown;
+  if (advise) {
+    const index = await advise(moves).catch(() => -1);
+    advice = moves[index];
+  }
+  if (advice === undefined) advice = botMove(game, state, seat, rng, moves);
   const plain: Decision = { move: advice, asked: false, overruled: false, failed: false };
   if (!choose) return plain;
   const social = socialMoves(game, state, seat, moves);

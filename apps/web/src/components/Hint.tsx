@@ -1,7 +1,8 @@
 import { createRng, type GameModule } from "@boarddream/engine";
 import { botMove } from "@boarddream/library";
+import { workerAdvisor } from "../botWorker";
 import { Lightbulb } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type HintState = { move: unknown; text: string } | "thinking" | undefined;
 
@@ -11,14 +12,25 @@ export type HintState = { move: unknown; text: string } | "thinking" | undefined
  */
 export function useHint(game: GameModule, state: unknown, human: number) {
   const [hint, setHint] = useState<HintState>();
-  useEffect(() => setHint(undefined), [state]);
+  // Each question and each new state counts up, so an answer to an older one is dropped.
+  const asked = useRef(0);
+  useEffect(() => {
+    asked.current++;
+    setHint(undefined);
+  }, [state]);
   const ask = () => {
+    const question = ++asked.current;
     setHint("thinking");
-    // Let the button repaint before the planner's playouts take the thread.
-    setTimeout(() => {
-      const move = botMove(game, state, human, createRng(Date.now() >>> 0));
-      setHint({ move, text: game.describeMove?.(state, move, human) ?? JSON.stringify(move) });
-    }, 20);
+    // The planner's playouts run in the bot worker; here only if it fails.
+    const rng = createRng(Date.now() >>> 0);
+    const moves = game.legalMoves(state, human);
+    void workerAdvisor(game, state, human, rng)(moves)
+      .then((index) => moves[index])
+      .catch(() => undefined)
+      .then((found) => {
+        const move = found ?? botMove(game, state, human, rng, moves);
+        if (question === asked.current) setHint({ move, text: game.describeMove?.(state, move, human) ?? JSON.stringify(move) });
+      });
   };
   return { hint, ask };
 }

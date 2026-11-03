@@ -1,3 +1,4 @@
+import { firstFitting } from "./fit";
 import type { CardView, Geometry, ResourceSpec } from "@boarddream/engine";
 import type { LucideIcon } from "lucide-react";
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
@@ -1005,11 +1006,7 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
       return within(px, py + at.name, hw, at.half) && (!avoid || clear(px, py + at.name, hw, at.half));
     };
     // Measured at the size it is drawn: the display font's letters widen as they get smaller.
-    const largest = (lines: string[], from: number, drop: number, avoid: boolean) => {
-      let size = from;
-      while (size > 4 && !fits(lines, size, drop, avoid)) size *= 0.94;
-      return size;
-    };
+    const largest = (lines: string[], from: number, drop: number, avoid: boolean) => firstFitting(from, (size) => fits(lines, size, drop, avoid));
     // A first guess at the size: the name across the whole of its color (grass and trees keep clear of it).
     const width = span(shape.map(([x]) => x)) * share * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
