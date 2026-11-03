@@ -2,7 +2,7 @@ import type { GameModule } from "@boarddream/engine";
 import { ArrowRight, BarChart3, LayoutGrid, Loader2, Play } from "lucide-react";
 import { gameOrigin, generatedSource } from "../generated";
 import { splitVersion } from "../names";
-import type { Dials } from "../generation";
+import type { Dials, Effort } from "../generation";
 import { AccountButton } from "./Account";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandMark } from "./BrandMark";
@@ -29,7 +29,7 @@ interface Props {
   available: boolean;
   /** A game is being made: its title once the designer has named it. */
   making?: { title?: string };
-  onGenerate(prompt: string, dials: Dials, invented: boolean): void;
+  onGenerate(prompt: string, dials: Dials, invented: boolean, effort: Effort): void;
   onPlay(game: GameModule): void;
   /** Back to the game being made. */
   onWatch(): void;

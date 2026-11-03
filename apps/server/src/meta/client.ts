@@ -34,6 +34,11 @@ export interface ClientOptions {
   model: string;
   /** Options sent with every call unless the call overrides them. */
   defaults?: ChatOptions;
+  /**
+   * An undici dispatcher for the calls, on Node only (the server's waits as long as a model thinks:
+   * see patientDispatcher). Left out, fetch's own applies, as on Cloudflare.
+   */
+  dispatcher?: object;
 }
 
 /** Running token totals; reasoning tokens are counted inside completion tokens. */
@@ -146,7 +151,8 @@ export class ModelClient {
           headers: { Authorization: `Bearer ${this.opts.apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify(body),
           signal,
-        });
+          ...(this.opts.dispatcher && { dispatcher: this.opts.dispatcher }),
+        } as RequestInit);
         if (res.ok) return res;
         const text = await res.text();
         if (res.status !== 429 && res.status < 500) throw new Error(`${path} failed: ${res.status} ${text}`);

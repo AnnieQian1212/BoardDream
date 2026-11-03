@@ -7,7 +7,7 @@ import { Designer, type DesignerTab } from "./components/Designer";
 import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
-import { MochiStrip, STRIP_HEIGHT, useStripOpen } from "./components/MochiStrip";
+import { MochiStrip, stripHeight, useStripOpen } from "./components/MochiStrip";
 import { LogPanel } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
@@ -329,7 +329,7 @@ export function App() {
       right: drawerOpen && width >= 760 ? DRAWER_INSET : 0,
       top: TOP_INSET,
       // On a phone the guide wraps onto more lines. A draft on the table stops above the mochi strip.
-      bottom: BOTTOM_INSET + (guiding ? (width < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0) + (stripShown ? STRIP_HEIGHT : 0),
+      bottom: BOTTOM_INSET + (guiding ? (width < 640 ? GUIDE_INSET * 1.4 : GUIDE_INSET) : 0) + (stripShown ? stripHeight(width) : 0),
     }),
     [making, drawerOpen, guiding, stripShown],
   );

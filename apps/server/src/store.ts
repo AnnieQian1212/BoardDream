@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { DesignResult, RevisionResult } from "./agent/designer";
+import type { Effort } from "./agent/protocol";
 import type { RecentGame } from "./agent/spec";
 
 /**
@@ -23,6 +24,8 @@ export interface SavedGame {
   /** The idea the game was made from, and whether Muse Spark invented it ("Surprise me"). */
   idea?: string;
   invented?: boolean;
+  /** The reasoning effort Muse Spark designed it at ("default" when the server left it to the model). */
+  effort?: Effort | "default";
 }
 
 const slug = (title: string) =>
@@ -32,7 +35,7 @@ const slug = (title: string) =>
     .replace(/^-|-$/g, "")
     .slice(0, 40) || "game";
 
-export function saveGame(result: DesignResult, origin?: { idea: string; invented: boolean }): SavedGame {
+export function saveGame(result: DesignResult, origin?: { idea: string; invented: boolean; effort?: Effort | "default" }): SavedGame {
   mkdirSync(DIR, { recursive: true });
   const id = `${slug(result.spec.title)}-${Date.now().toString(36)}`;
   const saved: SavedGame = {

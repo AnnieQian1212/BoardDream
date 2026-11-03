@@ -7,16 +7,18 @@ import { Bm25Index } from "@boarddream/retrieval";
 import { Hono, type Context } from "hono";
 import { streamSSE, type SSEStreamingApi } from "hono/streaming";
 import { designGame, reviseGame, type DesignEvent } from "./agent/designer";
-import { cleanDials } from "./agent/dials";
+import { cleanDials, cleanEffort } from "./agent/dials";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, paintDeck, readManifest, type ArtRequest } from "./art/cards";
 import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
+import type { Effort } from "./agent/protocol";
 import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
 import { ModelClient } from "./meta/client";
+import { patientDispatcher } from "./meta/patient";
 import { deleteGame, gameSource, listGames, recentDesigns, saveGame, saveRevision } from "./store";
 import { Accounts } from "./accounts";
 import { openDb } from "./db";
@@ -26,13 +28,22 @@ import { Rooms } from "./rooms";
 
 const designer = new ModelClient({
   ...config.meta,
+  dispatcher: patientDispatcher,
   model: config.models.designer,
   ...(config.designerEffort !== "default" && { defaults: { reasoningEffort: config.designerEffort } }),
 });
-const painter = new ModelClient({ ...config.meta, model: config.models.image });
+const painter = new ModelClient({ ...config.meta, dispatcher: patientDispatcher, model: config.models.image });
+/** Muse Spark at the reasoning effort a player picked for a game, one client per effort. */
+const designers = new Map<Effort, ModelClient>();
+const designerAt = (effort: Effort | undefined) => {
+  if (!effort) return designer;
+  let client = designers.get(effort);
+  if (!client) designers.set(effort, (client = new ModelClient({ ...config.meta, dispatcher: patientDispatcher, model: config.models.designer, defaults: { reasoningEffort: effort } })));
+  return client;
+};
 // Opponents play on Muse Spark Open when a host for it is configured: fast and cheap enough for a
 // whole table of them. Otherwise Muse Spark plays them.
-const opponent = hasOpenModel() ? new ModelClient(config.openModel) : config.meta.apiKey ? designer : undefined;
+const opponent = hasOpenModel() ? new ModelClient({ ...config.openModel, dispatcher: patientDispatcher }) : config.meta.apiKey ? designer : undefined;
 // Only entries with code are offered to the designer; planned ones exist for retrieval evaluation.
 const index = new Bm25Index(catalog.filter((e) => e.status === "ready").map((e) => ({ id: e.id, text: catalogText(e) })));
 
@@ -220,16 +231,17 @@ app.post("/api/idea", async (c) => {
 // "Surprise me" wrote it; the saved game records that.
 app.post("/api/generate", async (c) => {
   if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set; copy .env.example to .env" }, 503);
-  const body = await c.req.json<{ prompt?: string; dials?: unknown; invented?: boolean }>();
+  const body = await c.req.json<{ prompt?: string; dials?: unknown; invented?: boolean; effort?: unknown }>();
   if (typeof body.prompt !== "string" || !body.prompt.trim() || body.prompt.length > 2000) return c.json({ error: "describe the game in at most 2,000 characters" }, 400);
   const request: GameRequest & { invented?: boolean } = { prompt: body.prompt, dials: cleanDials(body.dials), recent: recentDesigns(), invented: body.invented === true };
+  const effort = cleanEffort(body.effort);
   const limited = overLimit(c, "generate");
   if (limited) return limited;
   return streamSSE(c, async (stream) => {
     const { onProgress, onEvent, signal, close } = designStream(stream, "generate");
     try {
-      const result = await designGame(request, { llm: designer, index, onProgress, onEvent, signal });
-      const saved = result.ok ? saveGame(result, { idea: request.prompt, invented: request.invented === true }) : undefined;
+      const result = await designGame(request, { llm: designerAt(effort), index, onProgress, onEvent, signal });
+      const saved = result.ok ? saveGame(result, { idea: request.prompt, invented: request.invented === true, effort: effort ?? config.designerEffort }) : undefined;
       if (saved) paintCoverLater(painter, config.models.image, saved.id, { game: saved.title, summary: saved.pitch });
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });

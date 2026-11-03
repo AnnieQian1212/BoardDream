@@ -1,12 +1,12 @@
 import type { GameModule } from "@boarddream/engine";
-import type { CheckSummary, DesignEvent, Dials, GameSpec, GenerateReply, MechanicSummary, PlayStats } from "../../server/src/agent/protocol";
+import type { CheckSummary, DesignEvent, Dials, Effort, GameSpec, GenerateReply, MechanicSummary, PlayStats } from "../../server/src/agent/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mechanicLabel } from "./dials";
 import { loadGeneratedGame, rememberOrigin } from "./generated";
 import { readEvents } from "./sse";
 
 // The design stream's types come from the server's protocol file (types only), so the two cannot drift.
-export type { Dials } from "../../server/src/agent/protocol";
+export type { Dials, Effort } from "../../server/src/agent/protocol";
 
 /** The designer's plan, as the live view shows it. */
 export type Plan = GameSpec;
@@ -187,7 +187,7 @@ export function useGeneration(onReady: (game: GameModule) => void) {
   useEffect(() => () => controller.current?.abort(), []);
 
   const start = useCallback(
-    async (prompt: string, dials: Dials, invented: boolean) => {
+    async (prompt: string, dials: Dials, invented: boolean, effort?: Effort) => {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
@@ -211,7 +211,7 @@ export function useGeneration(onReady: (game: GameModule) => void) {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: prompt.trim(), dials, invented }),
+          body: JSON.stringify({ prompt: prompt.trim(), dials, invented, effort }),
           signal: abort.signal,
         });
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);

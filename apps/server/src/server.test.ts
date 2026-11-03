@@ -3,7 +3,7 @@ import { checkRules, checkRulesIsolated } from "./agent/check";
 import { playIssues, playtest, skillEdge } from "./agent/playtest";
 import { clientAddress, opponentRequestProblem, RateLimiter } from "./guard";
 import { revisedTitle } from "./store";
-import { cleanDials } from "./agent/dials";
+import { cleanDials, cleanEffort } from "./agent/dials";
 import { ALL_SETTINGS, ideaMessages, inventIdea, SETTINGS, SPINES } from "./agent/idea";
 import type { Dials } from "./agent/spec";
 import { ModelClient } from "./meta/client";
@@ -265,6 +265,15 @@ describe("dials", () => {
     expect(cleanDials({ mode: "cooperative", goal: "race", powers: "unique" })).toMatchObject({ mode: "cooperative", powers: "unique" });
     expect(cleanDials({ mode: "cooperative", goal: "race" })).not.toHaveProperty("goal");
     expect(Object.keys(cleanDials(undefined))).toEqual(["minPlayers", "maxPlayers", "playMinutes", "complexity", "luck", "mode"]);
+  });
+
+  it("take the model effort a player picked apart from the dials, and only a known one", () => {
+    expect(cleanEffort("low")).toBe("low");
+    expect(cleanEffort("high")).toBe("high");
+    expect(cleanEffort("max")).toBeUndefined();
+    expect(cleanEffort(undefined)).toBeUndefined();
+    // Not a dial: the designer's brief never carries it.
+    expect(cleanDials({ effort: "high" })).not.toHaveProperty("effort");
   });
 
   it("add to the designer's brief only what the player set", () => {

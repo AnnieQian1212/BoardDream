@@ -1,5 +1,6 @@
 import type { PlayMode } from "@boarddream/engine";
 import { catalog } from "@boarddream/library";
+import type { Effort } from "./protocol";
 import type { BoardShape, Dials, Goal, Interaction, Powers, Theme, Tone } from "./spec";
 
 /** How many mechanics a player can ask a game to be built around. */
@@ -13,6 +14,7 @@ const BOARDS: BoardShape[] = ["hex", "network", "track", "spaces", "regions", "t
 const GOALS: Goal[] = ["points", "race", "secret"];
 const POWERS: Powers[] = ["same", "unique"];
 const TONES: Tone[] = ["cozy", "whimsical", "tense", "epic", "mysterious"];
+const EFFORTS: Effort[] = ["low", "medium", "high"];
 
 const mechanics = new Map(catalog.filter((e) => e.kind === "mechanic" && e.status === "ready").map((e) => [e.id, e.title]));
 
@@ -57,6 +59,9 @@ export function cleanDials(input: unknown): Dials {
   if (mustUse.length) dials.mustUse = mustUse.slice(0, MUST_USE_LIMIT);
   return dials;
 }
+
+/** The reasoning effort a page asked generation to use, or none (the server's own setting). */
+export const cleanEffort = (value: unknown): Effort | undefined => choice(value, EFFORTS);
 
 /** The dials as the models read them: the mechanics a player asked for by title rather than id. */
 export const dialsForModel = (dials: Dials) => (dials.mustUse ? { ...dials, mustUse: mechanicTitles(dials.mustUse) } : dials);

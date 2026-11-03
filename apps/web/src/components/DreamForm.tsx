@@ -1,8 +1,8 @@
 import type { PlayMode } from "@boarddream/engine";
-import { ChevronDown, Dices, Wand2, X } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BOARDS, FAMILIES, GOALS, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, POWERS, THEMES, TONES } from "../dials";
-import type { Dials } from "../generation";
+import { ChevronDown, CircleAlert, Dices, Wand2, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { BOARDS, DEFAULT_EFFORT, EFFORTS, FAMILIES, GOALS, INTERACTIONS, MECHANICS, mechanicLabel, MUST_USE_LIMIT, POWERS, THEMES, TONES } from "../dials";
+import type { Dials, Effort } from "../generation";
 
 const MODES: { value: PlayMode; label: string }[] = [
   { value: "competitive", label: "Versus" },
@@ -51,15 +51,15 @@ interface Props {
   available: boolean;
   /** A game is being made. */
   busy: boolean;
-  /** Makes a game; `invented` when the idea is Muse Spark's, unchanged. */
-  onGenerate(prompt: string, dials: Dials, invented: boolean): void;
+  /** Makes a game at a reasoning effort; `invented` when the idea is Muse Spark's, unchanged. */
+  onGenerate(prompt: string, dials: Dials, invented: boolean, effort: Effort): void;
 }
 
 /**
  * The one thing the home page asks: what game to dream up. A sentence is enough; examples fill the
  * box, Surprise me has Muse Spark write one, and the dials (players, length, complexity, luck, mode,
- * interaction, type, theme, board, how to win, tone, player powers, mechanics) wait under Advanced
- * settings for whoever wants them.
+ * interaction, type, theme, board, how to win, tone, player powers, mechanics) and how hard Muse
+ * Spark thinks wait under Advanced settings for whoever wants them.
  */
 export function DreamForm({ available, busy, onGenerate }: Props) {
   const [prompt, setPrompt] = useState("");
@@ -70,6 +70,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
   const [problem, setProblem] = useState<string>();
   const [options, setOptions] = useState(false);
   const [dials, setDials] = useState<Dials>(DEFAULT_DIALS);
+  const [effort, setEffort] = useState<Effort>(DEFAULT_EFFORT);
   const box = useRef<HTMLTextAreaElement>(null);
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
   const asked = dials.mustUse ?? [];
@@ -80,7 +81,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
     // How to win is a versus choice; co-op and hidden-role games are won their own way.
     setDials({ ...dials, mode, mustUse: kept.length ? kept : undefined, goal: mode === "competitive" ? dials.goal : undefined });
   };
-  const changed = countChanged(dials);
+  const changed = countChanged(dials) + (effort !== DEFAULT_EFFORT ? 1 : 0);
   const locked = busy || inventing || !available;
 
   // The thinking bar: running while Muse Spark writes an idea, then full for a moment once it lands.
@@ -114,7 +115,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
     if (locked) return;
     // An empty box asks for an idea rather than doing nothing.
     if (!prompt.trim()) return box.current?.focus();
-    onGenerate(prompt, dials, prompt.trim() === invented?.trim());
+    onGenerate(prompt, dials, prompt.trim() === invented?.trim(), effort);
   };
 
   return (
@@ -186,6 +187,7 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
 
       {options && (
         <div className="dream-options" id="dream-options">
+          <EffortPicker effort={effort} onChange={setEffort} />
           <div className="field-pair">
             <label className="field">
               <span>Min players</span>
@@ -348,13 +350,52 @@ export function DreamForm({ available, busy, onGenerate }: Props) {
             </select>
           </div>
           {changed > 0 && (
-            <button type="button" className="link dream-reset" onClick={() => setDials(DEFAULT_DIALS)}>
+            <button
+              type="button"
+              className="link dream-reset"
+              onClick={() => {
+                setDials(DEFAULT_DIALS);
+                setEffort(DEFAULT_EFFORT);
+              }}
+            >
               Reset settings
             </button>
           )}
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * How hard Muse Spark thinks while it designs the game. The mark beside it says, on hover or focus,
+ * about how long a game takes at the effort picked.
+ */
+function EffortPicker({ effort, onChange }: { effort: Effort; onChange(effort: Effort): void }) {
+  const id = useId();
+  const picked = EFFORTS.find((e) => e.value === effort) ?? EFFORTS[1];
+  return (
+    <div className="field">
+      <span className="effort-head">
+        Model effort
+        <span className="effort-tip" tabIndex={0} aria-describedby={id} aria-label={`About ${picked.wait}`}>
+          <CircleAlert size={14} aria-hidden />
+          <span className="library-tip" role="tooltip" id={id}>
+            <strong>
+              {picked.label}: a game takes about {picked.wait}.
+            </strong>{" "}
+            {picked.note}
+          </span>
+        </span>
+      </span>
+      <div className="segmented" role="radiogroup" aria-label="Model effort">
+        {EFFORTS.map((e) => (
+          <button key={e.value} type="button" role="radio" aria-checked={effort === e.value} className={effort === e.value ? "on" : ""} title={`About ${e.wait}`} onClick={() => onChange(e.value)}>
+            {e.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

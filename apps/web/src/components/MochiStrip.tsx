@@ -90,8 +90,8 @@ export function useStripOpen(): boolean {
   );
 }
 
-/** Screen height the open strip takes, so the page can leave room for it. */
-export const STRIP_HEIGHT = 200;
+/** Screen height the open strip takes in a window this wide, so the page can leave room for it. */
+export const stripHeight = (width: number): number => (width <= 640 ? 196 : 230);
 
 /** Seconds without a move before two alike are pointed out. */
 const HINT_AFTER = 9;

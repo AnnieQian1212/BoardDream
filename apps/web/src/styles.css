@@ -4692,7 +4692,7 @@ a.quiet {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 200px;
+  height: 230px;
   display: flex;
   flex-direction: column;
   border-top: 2.5px solid var(--m-edge);
@@ -4922,7 +4922,7 @@ a.quiet {
   align-items: center;
   justify-content: center;
   gap: 30px;
-  padding: 2px 20px 8px;
+  padding: 6px 20px 10px;
 }
 
 /* The steamer: a click steams a friend, and it steams one by itself as its bar fills. */
@@ -5609,7 +5609,7 @@ a.quiet {
 
 /* The steps, the design sheet and a draft on the table stop above the open strip. */
 .app.has-mochi :is(.gen-stage, .sidebar.left) {
-  bottom: 216px;
+  bottom: 246px;
 }
 
 @keyframes mochi-breathe {
@@ -5920,6 +5920,23 @@ a.quiet {
 }
 
 @media (max-width: 640px) {
+  /* A phone's tiles are small: the strip need not be as tall. */
+  .mochi {
+    height: 196px;
+  }
+
+  .app.has-mochi :is(.gen-stage, .sidebar.left) {
+    bottom: 212px;
+  }
+
+  .mochi-orders {
+    gap: 4px;
+  }
+
+  .mochi-order {
+    height: 40px;
+  }
+
   .mochi-head {
     gap: 7px;
     padding: 0 8px 0 14px;
@@ -5958,4 +5975,38 @@ a.quiet {
   .mochi-timer {
     width: 56px;
   }
+}
+
+/* The mark beside Model effort: a tip on hover or focus says about how long a game takes. */
+.effort-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.effort-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: #c8891a;
+  cursor: help;
+  border-radius: 999px;
+}
+
+.effort-tip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.effort-tip > .library-tip {
+  left: -8px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.effort-tip:hover > .library-tip,
+.effort-tip:focus > .library-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
 }

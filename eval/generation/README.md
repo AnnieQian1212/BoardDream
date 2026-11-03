@@ -6,6 +6,16 @@ Can BoardDream turn a one-sentence idea into rules that work and are worth playi
 
 Each idea goes through the full pipeline: design, retrieval, rules code, then 1,000 strict random games. Failures go back to Muse Spark for repair (up to 4 rounds). Rules that pass get a playtest: 100 random games, plus 30 where a planner (the generic bot with short playouts) takes each seat in turn against random players. Design problems get one improvement round: games over too fast, mostly draws, a seat that never wins, no real choices, or a planner that barely beats random play.
 
+## The player picks the effort (Nov 3, 2026)
+
+Advanced settings now offer low, medium (the default) and high effort for a game, with about how long each takes. Single real generations on Nov 3, when the API was slower than on Nov 1 (planning alone took 2–3 minutes):
+
+| | Low | Medium | High |
+| --- | --- | --- | --- |
+| Idea to final rules | 3.4 min (two repairs) | 6.7 min (one repair) | 7.3, 6.7 and 5.5 min (two passed on the first draft) |
+
+The first high-effort run failed: Muse Spark thought for more than five minutes before the first piece of the rules, and Node's fetch drops a response silent for that long. The server's model calls now wait up to 20 minutes (`apps/server/src/meta/patient.ts`).
+
 ## Reasoning effort, measured again (Nov 1, 2026): what the app uses
 
 Since the low-effort run below, the rules prompt grew (cards that set each other off, named places, scenery, varied boards), and at low effort first drafts suffered most. The same 24 ideas, with the current prompt, at three settings:

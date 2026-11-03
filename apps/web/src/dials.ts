@@ -1,5 +1,5 @@
 import type { PlayMode } from "@boarddream/engine";
-import type { Dials } from "./generation";
+import type { Dials, Effort } from "./generation";
 
 /** The choices on the create panel beyond players, time, complexity, luck and mode. */
 
@@ -55,6 +55,17 @@ export const INTERACTIONS: { value: NonNullable<Dials["interaction"]>; label: st
   { value: "some", label: "Some", hint: "Players compete for shared spaces, market cards and majorities" },
   { value: "cutthroat", label: "Cutthroat", hint: "Blocking, stealing and fights over majorities every round" },
 ];
+
+/**
+ * How hard Muse Spark thinks while it designs the game, and about how long a game takes at each
+ * effort, from idea to a table you can play, repairs included (measured: eval/generation/README.md).
+ */
+export const EFFORTS: { value: Effort; label: string; wait: string; note: string }[] = [
+  { value: "low", label: "Low", wait: "2–4 minutes", note: "Fastest, but more first drafts fail their tests and need a repair." },
+  { value: "medium", label: "Medium", wait: "3–7 minutes", note: "Recommended: every idea in our tests passed within one repair." },
+  { value: "high", label: "High", wait: "5–9 minutes", note: "Slowest; thinks longest over the rules, and its first drafts pass most often." },
+];
+export const DEFAULT_EFFORT: Effort = "medium";
 
 /** How many mechanics a player can ask for (MUST_USE_LIMIT in apps/server/src/agent/dials.ts). */
 export const MUST_USE_LIMIT = 3;

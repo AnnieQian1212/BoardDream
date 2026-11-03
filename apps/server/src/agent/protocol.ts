@@ -20,6 +20,12 @@ export type Powers = "same" | "unique";
 /** How the game feels: its setting, names and card text. */
 export type Tone = "cozy" | "whimsical" | "tense" | "epic" | "mysterious";
 
+/**
+ * How hard Muse Spark thinks while it designs a game, as the player picks it under Advanced
+ * settings: low is fastest, high gets more first drafts right. It is not a dial the designer reads.
+ */
+export type Effort = "low" | "medium" | "high";
+
 /** The dials on the create screen. The optional ones are left to the designer when absent. */
 export interface Dials {
   minPlayers: number;
