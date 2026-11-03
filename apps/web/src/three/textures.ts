@@ -1045,37 +1045,41 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
 
 const pieceLabels = new Map<string, CanvasTexture>();
 
-/** The ink a mark is printed in on a piece painted `color`: cream on a dark or bright paint, brown on a pale one. */
-export function printInk(color: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return luminance > 0.33 ? "#3a2618" : "#fbf3e1";
-}
-
 /**
- * What is printed on a piece: a short label (a number, initials) as large as its face allows, or for
- * a word the motif it names (a cap for a student, a briefcase for a commuter). A word itself would
- * be a few unreadable pixels; a word with no motif prints nothing, and the cell's hover tip names the
- * piece. It is printed as a game's wooden pieces are, in one flat ink that suits the paint under it
- * (printInk) and a plain heavy sans, with no outline: the display face with a white rim read as a
- * sticker on the wood.
+ * What is pressed into a piece: a short label (a number, initials) or for a word the motif it names
+ * (a cap for a student, a briefcase for a commuter). A word itself would be a few unreadable pixels;
+ * a word with no motif marks nothing, and the cell's hover tip names the piece.
+ *
+ * It is stamped into the wood as a game's wooden pieces are, not printed on them: the board's own
+ * serif, in a deeper tone of the piece's paint, its upper edge in shadow and its lower edge catching
+ * the light, as a cut into the surface does under a light from above. A label in a white-rimmed
+ * display face, then in a bright flat sans, both read as a sticker on the wood.
  */
 export function pieceMark(label: string | undefined, color: string): CanvasTexture | undefined {
   if (!label) return undefined;
   const short = label.length <= 3;
   const motif = short ? undefined : motifFor(label);
   if (!short && !motif) return undefined;
-  const ink = printInk(color);
-  return cached(pieceLabels, `${label}|${ink}`, () => {
+  return cached(pieceLabels, `${label}|${color}`, () => {
     const [canvas, ctx] = canvas2d(128, 128);
-    if (motif) drawIcon(ctx, motif, 64, 64, 96, ink, 3.2);
+    const deep = mix(color, "#1c120a", 0.6);
+    const lit = mix(color, "#ffffff", 0.45);
+    const shade = mix(color, "#1c120a", 0.8);
+    // The cut's lower edge in light, its upper edge in shadow, then its floor.
+    const stamp = (draw: (fill: string, dy: number) => void) => {
+      draw(alpha(lit, 0.75), 2.2);
+      draw(alpha(shade, 0.55), -1.6);
+      draw(deep, 0);
+    };
+    if (motif) stamp((fill, dy) => drawIcon(ctx, motif, 64, 64 + dy, 86, fill, 4));
     else {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = ink;
-      fitFont(ctx, label, 104, 84, 30, (size) => `800 ${size}px ${FONT_UI}`);
-      ctx.fillText(label, 64, 68);
+      fitFont(ctx, label, 92, 74, 30, (size) => `600 ${size}px ${FONT_DISPLAY}`);
+      stamp((fill, dy) => {
+        ctx.fillStyle = fill;
+        ctx.fillText(label, 64, 68 + dy);
+      });
     }
     return texture(canvas);
   });
