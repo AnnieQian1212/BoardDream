@@ -16,7 +16,7 @@ export type { User } from "./room-view";
 export class AccountError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 401 | 409 = 400,
+    readonly status: 400 | 401 | 409 | 429 = 400,
   ) {
     super(message);
   }
@@ -42,7 +42,7 @@ export function emailProblem(email: unknown): string | undefined {
 }
 
 /** One spelling per address, so Ada@Example.com and ada@example.com are one account. */
-const normalEmail = (email: string) => email.trim().toLowerCase();
+export const normalEmail = (email: string) => email.trim().toLowerCase();
 
 export function passwordProblem(password: unknown): string | undefined {
   if (typeof password !== "string" || password.length < 8) return "a password needs at least 8 characters";
@@ -82,6 +82,20 @@ export class Accounts {
     private readonly db: Db,
     private readonly now: () => number = Date.now,
   ) {}
+
+  /**
+   * Whether these would make an account: a fair email, name and password, neither email nor name
+   * taken. Throws what is wrong; returns the email as stored. Asked before a code is mailed and
+   * before it is checked, so a code is never spent on a sign-up that would fail.
+   */
+  vet({ email, password, name }: { email: unknown; password?: unknown; name?: unknown }): string {
+    const problem = emailProblem(email) ?? (name === undefined ? undefined : nameProblem(name)) ?? (password === undefined ? undefined : passwordProblem(password));
+    if (problem) throw new AccountError(problem);
+    const stored = normalEmail(email as string);
+    if (this.db.prepare("SELECT 1 FROM users WHERE email = ?").get(stored)) throw new AccountError("an account already signs in with that email", 409);
+    if (typeof name === "string" && this.db.prepare("SELECT 1 FROM users WHERE name = ?").get(name)) throw new AccountError("that name is taken", 409);
+    return stored;
+  }
 
   /** A new account: the email it signs in with, its password, and the name the table shows. */
   async signUp({ email, password, name }: { email: unknown; password: unknown; name: unknown }): Promise<User> {

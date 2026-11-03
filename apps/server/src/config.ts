@@ -15,6 +15,17 @@ export const config = {
   publicDemo: env("PUBLIC_DEMO") === "1",
   /** Also serve the built web app (apps/web/dist), so one process hosts everything. */
   serveWeb: env("SERVE_WEB") === "1",
+  /**
+   * SMTP for the codes that check an email at sign-up (codes.ts). Without a host a local server
+   * prints codes to its console and a public demo asks for none.
+   */
+  mail: {
+    host: env("MAIL_SMTP_HOST"),
+    port: Number(env("MAIL_SMTP_PORT", "465")),
+    user: env("MAIL_SMTP_USER"),
+    pass: env("MAIL_SMTP_PASS"),
+    from: env("MAIL_FROM"),
+  },
   meta: {
     baseUrl: env("META_BASE_URL", "https://api.meta.ai/v1"),
     apiKey: env("MODEL_API_KEY"),

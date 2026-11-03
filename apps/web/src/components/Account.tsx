@@ -1,6 +1,6 @@
 import { LogIn, LogOut, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { signIn, signOut, useAccount, type User } from "../account";
+import { sendCode, signIn, signOut, useAccount, type User } from "../account";
 import { useEscape } from "../escape";
 
 /**
@@ -10,21 +10,48 @@ import { useEscape } from "../escape";
  */
 export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onDone(user: User): void; onClose(): void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const { codes } = useAccount();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  /** Where the last code went, and when another can be asked for. */
+  const [sent, setSent] = useState<{ to: string; again: number }>();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!sent) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [sent]);
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
   const first = useRef<HTMLInputElement>(null);
   useEscape(onClose);
   useEffect(() => first.current?.focus(), []);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  /** Mails a code to the email typed, for a new account on a server that asks for one. */
+  async function mailCode() {
     setBusy(true);
     setProblem(undefined);
     try {
-      onDone(await signIn(mode, { email, password, name }));
+      await sendCode(email);
+      setSent({ to: email.trim(), again: Date.now() + 60_000 });
+      setCode("");
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    // A new account on a server that mails codes asks for one first.
+    if (mode === "signup" && codes && sent?.to !== email.trim()) return mailCode();
+    setBusy(true);
+    setProblem(undefined);
+    try {
+      onDone(await signIn(mode, { email, password, name, code }));
     } catch (err) {
       setProblem(err instanceof Error ? err.message : String(err));
     } finally {
@@ -73,8 +100,36 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
             required
           />
         </label>
+        {signingUp && codes && sent?.to === email.trim() && (
+          <label className="account-field">
+            <span>Code from your email</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6 digits"
+              required
+            />
+          </label>
+        )}
+        {signingUp && codes && sent?.to === email.trim() && (
+          <p className="account-note">
+            We sent a code to {sent.to}. It works for 10 minutes; look in spam if it has not come.{" "}
+            {now < sent.again ? (
+              <span>Another in {Math.ceil((sent.again - now) / 1000)} s.</span>
+            ) : (
+              <button type="button" className="link" onClick={() => void mailCode()} disabled={busy}>
+                Send another
+              </button>
+            )}
+          </p>
+        )}
         {signingUp ? (
-          <p className="account-note">Friends see your name, never your email. No mail is sent: the email is only how you sign in. The password needs at least 8 characters.</p>
+          <p className="account-note">
+            Friends see your name, never your email.{" "}
+            {codes ? "We mail a code to check the email is yours; nothing else is sent." : "No mail is sent: the email is only how you sign in."} The password needs at least 8 characters.
+          </p>
         ) : (
           <p className="account-note">Made your account before emails? Sign in with its name.</p>
         )}
@@ -84,7 +139,7 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
           </p>
         )}
         <button type="submit" className="action account-go" disabled={busy}>
-          {busy ? "One moment…" : signingUp ? "Make my account" : "Sign in"}
+          {busy ? "One moment…" : signingUp ? (codes && sent?.to !== email.trim() ? "Send me a code" : "Make my account") : "Sign in"}
         </button>
         <button
           type="button"

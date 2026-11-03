@@ -25,6 +25,7 @@ import { Accounts } from "./accounts";
 import { openDb } from "./db";
 import { gameById } from "./games";
 import { playRoutes } from "./play";
+import { EmailCodes, logMailer, smtpMailer } from "./codes";
 import { Rooms } from "./rooms";
 import { loadGameFromSource } from "./sandbox";
 
@@ -75,7 +76,18 @@ app.get("/api/health", (c) =>
 
 // Accounts, and tables friends share: invite links, seats, moves refereed here, bots in empty seats.
 const db = openDb();
-app.route("/api", playRoutes({ accounts: new Accounts(db), rooms: new Rooms(db, gameById), clientOf: (c) => clientAddress(c.req.raw.headers, getConnInfo(c).remote.address) }));
+// Sign-up codes go out by SMTP when it is set; a local server prints them; a public demo without SMTP takes none.
+const mailer = config.mail.host ? smtpMailer(config.mail) : config.publicDemo ? undefined : logMailer;
+if (!mailer) console.warn("[mail] no SMTP set (MAIL_SMTP_HOST): accounts are made without an email code");
+app.route(
+  "/api",
+  playRoutes({
+    accounts: new Accounts(db),
+    rooms: new Rooms(db, gameById),
+    clientOf: (c) => clientAddress(c.req.raw.headers, getConnInfo(c).remote.address),
+    codes: mailer && new EmailCodes(db, mailer),
+  }),
+);
 
 app.get("/api/catalog", (c) => c.json(catalog));
 

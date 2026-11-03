@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS email_codes (
+  email TEXT PRIMARY KEY,
+  hash TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  tries INTEGER NOT NULL,
+  sends TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS rooms (
   code TEXT PRIMARY KEY,
   data TEXT NOT NULL,

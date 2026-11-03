@@ -13,6 +13,8 @@ export interface Account {
   /** False until the server has answered. */
   ready: boolean;
   user: User | null;
+  /** A new account needs a code mailed to its email (the server has SMTP, or prints codes locally). */
+  codes?: boolean;
 }
 
 let account: Account = { ready: false, user: null };
@@ -43,8 +45,8 @@ export function useAccount(): Account {
     if (asked) return;
     asked = true;
     fetch("/api/auth/me")
-      .then((res) => (res.ok ? (res.json() as Promise<{ user: User | null }>) : { user: null }))
-      .then(({ user }) => set({ ready: true, user }))
+      .then((res) => (res.ok ? (res.json() as Promise<{ user: User | null; codes?: boolean }>) : { user: null, codes: false }))
+      .then(({ user, codes }) => set({ ready: true, user, codes: Boolean(codes) }))
       .catch(() => set({ ready: true, user: null }));
   }, []);
   return useSyncExternalStore(subscribe, () => account);
@@ -54,14 +56,22 @@ export function useAccount(): Account {
  * Signs in with an email (or an older account's name), or makes an account with an email and the
  * name the table shows, and signs in; throws what the server objected to.
  */
-export async function signIn(mode: "login" | "signup", fields: { email: string; password: string; name?: string }): Promise<User> {
-  const body = mode === "signup" ? { email: fields.email.trim(), password: fields.password, name: fields.name?.trim() } : { email: fields.email.trim(), password: fields.password };
+export async function signIn(mode: "login" | "signup", fields: { email: string; password: string; name?: string; code?: string }): Promise<User> {
+  const body =
+    mode === "signup"
+      ? { email: fields.email.trim(), password: fields.password, name: fields.name?.trim(), code: fields.code?.trim() }
+      : { email: fields.email.trim(), password: fields.password };
   const { user } = await postJson<{ user: User }>(`/api/auth/${mode}`, body);
-  set({ ready: true, user });
+  set({ ...account, ready: true, user });
   return user;
+}
+
+/** Mails a six-digit code to the email a new account will sign in with. */
+export async function sendCode(email: string): Promise<void> {
+  await postJson("/api/auth/code", { email: email.trim() });
 }
 
 export async function signOut(): Promise<void> {
   await postJson("/api/auth/logout").catch(() => undefined);
-  set({ ready: true, user: null });
+  set({ ...account, ready: true, user: null });
 }

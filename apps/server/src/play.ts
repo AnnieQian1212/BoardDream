@@ -3,13 +3,15 @@ import { bodyLimit } from "hono/body-limit";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
 import { AccountError, SESSION_DAYS, type Accounts, type User } from "./accounts";
+import type { EmailCodes } from "./codes";
 import { RateLimiter } from "./guard";
 import { RoomError, type Rooms } from "./rooms";
 
 /**
  * Accounts and shared tables over HTTP, mounted under /api:
  *
- *   POST /auth/signup {email, password, name}, /auth/login {email, password}; POST /auth/logout; GET /auth/me
+ *   POST /auth/code {email} mails a code; POST /auth/signup {email, password, name, code}
+ *   POST /auth/login {email, password}; POST /auth/logout; GET /auth/me (who, and whether sign-up takes a code)
  *   POST /rooms {gameId, numPlayers, params}; GET /rooms/:code
  *   POST /rooms/:code/join | leave | start | again; POST /rooms/:code/move {turn, move}
  *   GET  /rooms/:code/events: server-sent "room" events, the table as you see it, on every change
@@ -28,9 +30,11 @@ export interface PlayDeps {
   rooms: Rooms;
   /** Who is asking, for rate limits: the client's address. */
   clientOf(c: Context): string;
+  /** Codes mailed to check an email before an account signs in with it; none, and sign-up takes none. */
+  codes?: EmailCodes;
 }
 
-export function playRoutes({ accounts, rooms, clientOf }: PlayDeps) {
+export function playRoutes({ accounts, rooms, clientOf, codes }: PlayDeps) {
   const app = new Hono<Env>();
   // Guessing passwords: 20 tries per address per 10 minutes. Opening tables: 30 an hour.
   const signIns = new RateLimiter({ perClient: 20, windowMs: 10 * 60_000, perDay: 50_000 });
@@ -78,8 +82,18 @@ export function playRoutes({ accounts, rooms, clientOf }: PlayDeps) {
   app.post("/auth/signup", async (c) => {
     const tooMany = limited(signIns, c);
     if (tooMany) return tooMany;
-    const { email, password, name } = await body(c);
+    const { email, password, name, code } = await body(c);
+    if (codes) codes.check(accounts.vet({ email, password, name }), code);
     return begin(c, await accounts.signUp({ email, password, name }));
+  });
+
+  app.post("/auth/code", async (c) => {
+    const tooMany = limited(signIns, c);
+    if (tooMany) return tooMany;
+    if (!codes) throw new AccountError("this server makes accounts without a code");
+    const { email } = await body(c);
+    await codes.send(accounts.vet({ email }));
+    return c.json({ sent: true });
   });
 
   app.post("/auth/login", async (c) => {
@@ -96,7 +110,7 @@ export function playRoutes({ accounts, rooms, clientOf }: PlayDeps) {
     return c.json({ user: null });
   });
 
-  app.get("/auth/me", (c) => c.json({ user: c.get("user") ?? null }));
+  app.get("/auth/me", (c) => c.json({ user: c.get("user") ?? null, codes: Boolean(codes) }));
 
   app.post("/rooms", async (c) => {
     const user = signedIn(c);
