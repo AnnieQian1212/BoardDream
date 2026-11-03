@@ -11,7 +11,7 @@ The video has two parts:
 | 1. BoardDream in motion | 0:00–0:50 | Figma, [Introducing Figma Motion](https://www.youtube.com/watch?v=l3HuAYXyOTo) | A fast reel of the real app in close-ups: music, no voice |
 | 2. A primer with the builder | 0:50–2:56 | Linear, [Introducing Linear Initiatives](https://www.youtube.com/watch?v=FlDVDvzCmn0) | Aichen Qian on camera over one continuous take of the app |
 
-**The guide.** A sakura mochi from the steamer game (the game to play while one is made) lives in the frame and leads the eye, the way an animated mascot does: it hops to whatever matters, lands with a squash, looks on, cheers when something works, and in Part 1 names the Meta model at work in a sticker bubble.
+**The look.** Every shot of the app fills the frame, the camera moving slowly over it; nothing is framed in a box or laid over the page but a small label in the lower left naming what is at work (a Meta model, a feature) and, in Part 2, the subtitles. Between the shots, cards in warm near-black with gold type (the app's Fraunces and Inter), words rising into place. Every cut has a handover, varied but in one family: a blur-zoom, a soft slanted wipe, a push, an iris, a fade, and a gold light leak over a hard cut. Close-ups are recorded at twice the pixels, so they stay sharp enlarged.
 
 ## What the references do
 
@@ -19,29 +19,32 @@ The video has two parts:
 
 **Linear Initiatives (4:14).** A 3-second black title card, "a primer with Nan Yu, Head of Product", then one continuous screen recording with the presenter in a round webcam bubble in the corner, no hard cuts, slow zooms. Who I am and the feature in one sentence; a concrete example walked through as they use it; a second use, done live; why we built it; an invitation to try it; the logo.
 
-## Part 1: BoardDream in motion (0:00–0:50)
+## Part 1: BoardDream in motion (0:00–0:52)
 
-| Time | Shot | The mochi says |
+| Time | Shot | Label (lower left) |
 | --- | --- | --- |
-| 0:00–0:03 | The mark and the name assemble on paper; the mochi hops in | |
-| 0:03–0:07 | "What do you want to play tonight?"; the cursor picks **Cafes on one busy street** | |
-| 0:07–0:10 | "A new game for your table, every night." over the four demo games' covers | |
-| 0:10–0:16 | The game being made, sped up: the plan, mechanic cards dealt, the rules streaming | Muse Spark designs the game and writes its rules as code |
-| 0:16–0:21 | Bots playing the first draft while it is tested | Bots play 1,000 games before you do |
-| 0:21–0:29 | Two windows: Aichen's table, Mira joining by the link, both dealt in | Invite your friends with one link |
-| 0:29–0:35 | Tidehearth up close: bots building, the water rippling under the cursor | |
-| 0:35–0:41 | Fogfall Lanterns with Muse Spark Open in every seat, speaking | A friend can't make it? Muse Spark Open takes the seat, and talks |
-| 0:41–0:45 | A house rule typed into **Change the rules** | Your house rules, in plain words |
-| 0:45–0:48 | A painted board | Muse Image paints. SAM 3.1 checks. |
-| 0:48–0:50 | "Dream it up. Play it tonight." and the mark | |
+| 0:00 | The mark and the name, a sheen across it | |
+| 0:03 | "What do you want to play tonight?", an example idea picked | |
+| 0:07 | "A new game for your table, every night." | |
+| 0:10 | The game being made, 24× | Muse Spark: designs the game and writes its rules as code |
+| 0:15 | "1,000" counting up: games played by bots on every new game | |
+| 0:18 | The rules written, tested, a fault fixed | Tested, then fixed |
+| 0:21 | Split screen: Aichen's screen and Mira's, Mira joining by the link, both dealt in | Game night: invite friends with one link |
+| 0:27 | Tidehearth up close, bots building, the water under the cursor | |
+| 0:32 | Cloudwaft Harbor's hand, a card's ability firing | Engine building |
+| 0:36 | Fogfall Lanterns with Muse Spark Open in every seat, talking | Muse Spark Open: takes the empty seat, and talks |
+| 0:40 | A house rule typed | House rules |
+| 0:44 | A board taking its painting | Muse Image · SAM 3.1 |
+| 0:47 | A tilted wall of the games' covers: "Every game, a world of its own." | |
+| 0:50 | "Dream it up. Play it tonight." | |
 
-## Part 2: a primer with the builder (0:50–2:56)
+## Part 2: a primer with the builder (0:52–2:57)
 
-A 3-second title card, "How BoardDream works: a primer with Aichen Qian, who built it". Then the take that made **Copper Grind** for real, in a window on the paper; Aichen's camera in a round frame in the corner; the narration as captions below; long waits played fast with a "sped up" badge and the real time. The mark closes it. The narration is about 280 words.
+A title card, "How BoardDream works, a primer with Aichen Qian". Then Aichen on camera, full frame, cut between the shots of the app rather than laid over them: the opening, "why", and the close. Until those takes are recorded the line is set in large type in their place. The app's shots are the take that made **Copper Grind** for real (its making, sped up with a badge giving the real time) and a take that plays it on with no first-game guide over the table: Muse Spark Open in the other seats, a house rule made version two, the board painted, the invite link. A tilted wall of covers and a card of the four models close the argument. The narration (about 280 words) runs as subtitles along the bottom.
 
 | Time | On screen | Narration |
 | --- | --- | --- |
-| 0:53 | The home page | Hi, I'm Aichen Qian. Every week my friends and I have a game night, and we'd played everything on the shelf. So I built BoardDream: describe a game in one sentence, and play it together tonight. |
+| 0:55 | Aichen on camera | Hi, I'm Aichen Qian. Every week my friends and I have a game night, and we'd played everything on the shelf. So I built BoardDream: describe a game in one sentence, and play it together tonight. |
 | 1:08 | The idea picked, three to four players, **Dream it up** | Tonight we want a cafe game. I pick an idea, set three to four players, and press Dream it up. |
 | 1:17 | The game being made, 14× (5 min 44 s) | Muse Spark, Meta's model, designs the game: the street, the cards, how you win. It picks tested mechanics from our library and writes the rules as real code. Before anyone plays, bots run a thousand games, and anything that breaks goes back to Muse Spark to fix. |
 | 1:41 | Ready; the table | About six minutes later, the game is ready. |
@@ -49,32 +52,31 @@ A 3-second title card, "How BoardDream works: a primer with Aichen Qian, who bui
 | 1:55 | A house rule typed and applied; version two, 18× (1 min 13 s) | Every group has house rules. We ask for a change in plain words, and it's rewritten and tested again, as version two. |
 | 2:09 | The board painted, 15× (58 s) | Muse Image paints the board, and SAM 3.1 checks every painted tile sits on the real one. |
 | 2:17 | The table's invite link | Then I send my friends a link, and we play at one table. |
-| 2:23 | The games, scrolling | Why build this? Game night is how we stay close, and a new game keeps it fresh. But testing your own idea takes weeks of paper prototypes. BoardDream gives your table a game that has already been played a thousand times. Four Meta models, each with a job: Muse Spark designs, Muse Spark Open plays, Muse Image paints, SAM 3.1 checks. |
-| 2:45 | Home | Everything you saw was built during this hackathon. Try it at boarddream.pages.dev, and play something new with your friends tonight. |
+| 2:25 | Aichen on camera; the wall of covers; the four models | Why build this? Game night is how we stay close, and a new game keeps it fresh. But testing your own idea takes weeks of paper prototypes. BoardDream gives your table a game that has already been played a thousand times. Four Meta models, each with a job: Muse Spark designs, Muse Spark Open plays, Muse Image paints, SAM 3.1 checks. |
+| 2:47 | Aichen on camera; the end card | Everything you saw was built during this hackathon. Try it at boarddream.pages.dev, and play something new with your friends tonight. |
 
 ## How it is made
 
 | Step | Where | What |
 | --- | --- | --- |
-| Footage | `video/record` (the `ui-demo` skill: discover, rehearse, record) | `takes.mjs` drives the installed Chrome with Playwright at 1920 × 1080: an oversized ink cursor that glides before every click, visible typing, a rehearsal that checks every selector first. Frames come from Chrome's screencast and are encoded at 30 fps; a take slows its frame rate while a game is made, and marks the moments the edit cuts on. Takes: `primer` (makes a game for real, then plays, changes, paints and shares it), `friends` (two accounts in two windows), `table`, `cards`, `rivals`, `painted`. The test accounts, Aichen and Mira, are made in the local database by `accounts.ts`, so no sign-up mail is sent |
-| Edit | `video/remotion` (the Remotion skill) | Part 1 (`Reel.tsx`) and Part 2 (`Primer.tsx`), the mochi (`Mochi.tsx`), the captions, the camera frame, the badges; `npx remotion render DemoVideo` |
-| Camera and voice | Aichen | Part 2's talking head and narration, recorded against the finished cut |
+| Footage | `video/record` (the `ui-demo` skill: discover, rehearse, record) | `takes.mjs` drives the installed Chrome with Playwright at 1920 × 1080: an oversized ink cursor that glides before every click, visible typing, a rehearsal that checks every selector first. Frames come from Chrome's screencast and are encoded at 30 fps; a take slows its frame rate while a game is made, and marks the moments the edit cuts on. Takes: `primer` (makes a game for real), `after` (plays it on: rivals, a house rule, the painting, the link), `friends` (two accounts in two windows), `rivals`, and close-ups at twice the pixels with `--2x`: `home`, `rule`, `table`, `cards`, `painted`. Every game counts as seen, so no first-game guide covers a table, and a rehearsal stops before anything that spends model calls. The test accounts, Aichen and Mira, are made in the local database by `accounts.ts`, so no sign-up mail is sent |
+| Edit | `video/remotion` (the Remotion skill) | Part 1 (`Reel.tsx`) and Part 2 (`Primer.tsx`) as scenes with a handover at each cut (`timeline.tsx`); the footage, type, labels, cards and transitions in `fx.tsx`; `npx remotion render DemoVideo` |
+| Camera and voice | Aichen | Part 2's three camera takes (opening, why, close) and the narration over the app, recorded against the cut; the takes go in `public/camera` and their names in `CAMERA` in `Primer.tsx` |
 | Music | Aichen | A licensed royalty-free track; the rules disqualify assets used without the rights to them |
 
 The footage and renders stay out of git; any machine with the servers running makes them again.
 
 ## Still to do
 
-- Record the narration and the camera, and put the camera in the round frame in place of the placeholder.
+- Record the three camera takes and the narration.
 - Music for Part 1, and quietly under Part 2.
-- Record the primer again with its first-game note dismissed after the rule change, so the table is clear while the rules change and the board is painted.
 
 ## Where each part scores
 
 | Rubric | Where |
 | --- | --- |
 | Impact (30%) | The game-night story: friends at one table by a link, an empty seat filled, house rules |
-| Use of Meta AI tooling (25%) | The mochi naming each model in Part 1; Part 2's walk through what each model does, and the four named in "why" |
+| Use of Meta AI tooling (25%) | The labels naming each model in Part 1; Part 2's walk through what each model does, and the four named in "why" |
 | Technical depth (20%) | Rules written as code, a thousand test games, repair, the painted tiles checked by SAM 3.1; the README carries the numbers |
 | Demo (25%) | All of Part 1; the real game made, played and shared in Part 2 |
 

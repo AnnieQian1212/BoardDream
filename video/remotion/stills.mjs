@@ -6,9 +6,9 @@ import path from "node:path";
 
 const frames = process.argv.slice(2).map(Number);
 const serveUrl = await bundle({ entryPoint: path.resolve("src/index.ts") });
-const composition = await selectComposition({ serveUrl, id: process.env.COMP ?? "DemoVideo" });
+const composition = await selectComposition({ serveUrl, id: process.env.COMP ?? "DemoVideo", chromiumOptions: { gl: "angle" } });
 for (const frame of frames) {
   const output = path.resolve("out/stills", `${process.env.COMP ?? "f"}${String(frame).padStart(5, "0")}.png`);
-  await renderStill({ serveUrl, composition, frame, output, scale: 0.5 });
+  await renderStill({ serveUrl, composition, frame, output, scale: 0.5, chromiumOptions: { gl: "angle" } });
   console.log(output);
 }

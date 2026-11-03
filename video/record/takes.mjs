@@ -11,6 +11,11 @@ const TIDEHEARTH = "tidehearth-mw0zl535";
 const CLOUDWAFT = "cloudwaft-harbor-mw0zp3es";
 const FOGFALL = "fogfall-lanterns-mw0zerzb";
 const HERO_IDEA = "Cafes on one busy street";
+/** The game the primer take made; the after take plays it again with no guide over the table. */
+const HERO = "copper-grind-mw166meu";
+/** Close-ups are recorded at twice the pixels with --2x, saved as <take>-2x. */
+const SCALE = process.argv.includes("--2x") ? 2 : 1;
+const named = (take) => (SCALE > 1 ? `${take}-2x` : take);
 const HOUSE_RULE = "Every cafe starts the game with one extra coin.";
 
 /** Waits until `check` holds, looking every `every` ms, for at most `ms`. */
@@ -89,6 +94,7 @@ const takes = {
     await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1200 });
     take.mark("rules");
     await typeSlowly(page, "textarea", HOUSE_RULE, "change the rules");
+    if (REHEARSE) return ensureVisible(page, 'button:has-text("Apply the change")', "Apply the change");
     await moveAndClick(page, 'button:has-text("Apply the change")', "Apply the change", { after: 3000 });
     take.mark("revise");
     take.rate(6);
@@ -135,10 +141,100 @@ const takes = {
     await take.stop();
   },
 
+  /** The home page up close: an example idea picked, the cursor over Dream it up. */
+  async home(browser) {
+    const page = await openPage(browser, { scale: SCALE });
+    await signIn(page, AICHEN);
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await wait(1500);
+    const take = await new Take(page, named("home")).start();
+    await drift(page, [[960, 330], [700, 400]], { ms: 900, pause: 300 });
+    await moveAndClick(page, `button:has-text("${HERO_IDEA}")`, "example idea", { after: 1200 });
+    const dream = await ensureVisible(page, 'button:has-text("Dream it up")', "Dream it up");
+    if (!REHEARSE) {
+      const box = await dream.boundingBox();
+      await glide(page, [box.x + box.width / 2, box.y + box.height / 2], 900);
+      await wait(2500);
+    }
+    await take.stop();
+  },
+
+  /** A house rule typed into Change the rules, up close; not applied. */
+  async rule(browser) {
+    const page = await openPage(browser, { scale: SCALE });
+    await page.goto(`${BASE}/?game=${HERO}&bots`, { waitUntil: "networkidle" });
+    await wait(2500);
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1200 });
+    const take = await new Take(page, named("rule")).start();
+    await wait(600);
+    await typeSlowly(page, "textarea", HOUSE_RULE, "change the rules", 55);
+    const apply = await ensureVisible(page, 'button:has-text("Apply the change")', "Apply the change");
+    if (!REHEARSE) {
+      const box = await apply.boundingBox();
+      await glide(page, [box.x + box.width / 2, box.y + box.height / 2], 800);
+      await wait(2000);
+    }
+    await take.stop();
+  },
+
+  /** After the game is made: Copper Grind played, Muse Spark Open in the other seats, a house rule, the board painted, a link to share. */
+  async after(browser) {
+    const page = await openPage(browser);
+    await signIn(page, AICHEN);
+    await page.goto(`${BASE}/?game=${HERO}&watch&bots`, { waitUntil: "networkidle" });
+    await wait(2500);
+    const take = await new Take(page, "after").start();
+    take.mark("table");
+    await drift(page, [[700, 420], [900, 520], [1150, 430]], { ms: 1300, pause: 600 });
+    await wait(5000);
+
+    await page.goto(`${BASE}/?game=${HERO}&watch`, { waitUntil: "networkidle" });
+    take.mark("rivals");
+    await wait(32_000);
+
+    await page.goto(`${BASE}/?game=${HERO}`, { waitUntil: "networkidle" });
+    await wait(2500);
+    take.mark("table-mine");
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1200 });
+    take.mark("rules");
+    await typeSlowly(page, "textarea", HOUSE_RULE, "change the rules");
+    // A rehearsal stops before anything that spends model calls: the change and the painting.
+    if (REHEARSE) {
+      await ensureVisible(page, 'button:has-text("Apply the change")', "Apply the change");
+      return;
+    }
+    await moveAndClick(page, 'button:has-text("Apply the change")', "Apply the change", { after: 2500 });
+    take.mark("revise");
+    take.rate(6);
+    const revised = await until(() => visible(page, 'button:has-text("Apply the change")'), 15 * 60_000, 2000);
+    take.rate(30);
+    take.mark(revised ? "revised" : "revise-timeout");
+    await wait(7000);
+
+    await moveAndClick(page, 'button:text-is("Art")', "Art tab", { after: 1200 });
+    const paint = page.locator('button:has-text("Paint the board"), button:has-text("Repaint the board")').first();
+    await moveAndClick(page, paint, "paint the board", { after: 1500 });
+    take.mark("paint");
+    take.rate(6);
+    await until(async () => !(await visible(page, 'button:has-text("Cancel")')), 6 * 60_000, 2000);
+    take.rate(30);
+    take.mark("painted");
+    await wait(4000);
+    await moveAndClick(page, 'button[aria-label="Close the designer"]', "close the designer", { after: 2500 });
+    take.mark("painted-table");
+    await drift(page, [[600, 420], [900, 520], [1150, 400]], { ms: 1300, pause: 600 });
+    await wait(2000);
+
+    await moveAndClick(page, 'button:has-text("Invite friends")', "Invite friends", { after: 2500 });
+    take.mark("invite");
+    await moveAndClick(page, 'button:has-text("Copy")', "copy the link", { after: 3000 });
+    await take.stop();
+  },
+
   /** Two windows: Aichen opens a table, Mira joins by the link, Aichen deals. */
   async friends(browser) {
-    const host = await openPage(browser, { seen: [CLOUDWAFT] });
-    const friend = await openPage(browser, { seen: [CLOUDWAFT] });
+    const host = await openPage(browser);
+    const friend = await openPage(browser);
     await signIn(host, AICHEN);
     await signIn(friend, MIRA);
     await host.goto(`${BASE}/?game=${CLOUDWAFT}`, { waitUntil: "networkidle" });
@@ -168,10 +264,10 @@ const takes = {
 
   /** Tidehearth up close: bots building, the water rippling under the cursor. */
   async table(browser) {
-    const page = await openPage(browser, { seen: [TIDEHEARTH] });
+    const page = await openPage(browser, { scale: SCALE });
     await page.goto(`${BASE}/?game=${TIDEHEARTH}&watch&bots`, { waitUntil: "networkidle" });
     await wait(2500);
-    const take = await new Take(page, "table").start();
+    const take = await new Take(page, named("table")).start();
     await drift(page, [[600, 420], [470, 470], [640, 380], [780, 330], [620, 600], [450, 600], [700, 520]], { ms: 1400, pause: 300 });
     await wait(3000);
     await take.stop();
@@ -179,10 +275,10 @@ const takes = {
 
   /** Cloudwaft Harbor: bots launch charters and the cards' abilities fire gold. */
   async cards(browser) {
-    const page = await openPage(browser, { seen: [CLOUDWAFT] });
+    const page = await openPage(browser, { scale: SCALE });
     await page.goto(`${BASE}/?game=${CLOUDWAFT}&watch&bots`, { waitUntil: "networkidle" });
     await wait(2000);
-    const take = await new Take(page, "cards").start();
+    const take = await new Take(page, named("cards")).start();
     await drift(page, [[900, 600], [1200, 500], [800, 700]], { ms: 1500, pause: 1500 });
     await wait(18_000);
     await take.stop();
@@ -190,7 +286,7 @@ const takes = {
 
   /** Fogfall Lanterns with Muse Spark Open in every seat: they speak, accuse and vote. */
   async rivals(browser) {
-    const page = await openPage(browser, { seen: [FOGFALL] });
+    const page = await openPage(browser);
     await page.goto(`${BASE}/?game=${FOGFALL}&watch`, { waitUntil: "networkidle" });
     await wait(2000);
     if (REHEARSE) return;
@@ -201,7 +297,7 @@ const takes = {
 
   /** Tidehearth's painted board switched off and on in the Art panel. */
   async painted(browser) {
-    const page = await openPage(browser, { seen: [TIDEHEARTH] });
+    const page = await openPage(browser, { scale: SCALE });
     await page.goto(`${BASE}/?game=${TIDEHEARTH}&bots`, { waitUntil: "networkidle" });
     await wait(2500);
     await page.keyboard.press("f");
@@ -213,7 +309,7 @@ const takes = {
     if (REHEARSE) return;
     await toggle.click();
     await wait(1500);
-    const take = await new Take(page, "painted").start();
+    const take = await new Take(page, named("painted")).start();
     await wait(1500);
     await moveAndClick(page, toggle, "show the painted board", { after: 3500 });
     await drift(page, [[600, 420], [780, 520]], { ms: 1200, pause: 800 });

@@ -43,18 +43,24 @@ export async function launch() {
   return chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=d3d11", "--hide-scrollbars"] });
 }
 
-/** A page at the video's size, with the cursor drawn; `seen` games skip their first-game guide. */
-export async function openPage(browser, { storageState, theme = "light", seen = [] } = {}) {
-  const context = await browser.newContext({ viewport: SIZE, deviceScaleFactor: 1, storageState, colorScheme: theme });
-  await context.addInitScript((ids) => {
-    try {
-      for (const id of ids) localStorage.setItem(`boarddream:rules-seen:${id}`, "1");
-    } catch {}
-  }, seen);
+/**
+ * A page at the video's size, with the cursor drawn. `scale` 2 records at twice the pixels, for
+ * close-ups that are cropped and enlarged in the edit. Every game counts as seen, so no first-game
+ * guide covers the table.
+ */
+export async function openPage(browser, { storageState, theme = "light", scale = 1 } = {}) {
+  const context = await browser.newContext({ viewport: SIZE, deviceScaleFactor: scale, storageState, colorScheme: theme });
+  await context.addInitScript(() => {
+    const get = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key) {
+      return typeof key === "string" && key.startsWith("boarddream:rules-seen:") ? "1" : get.call(this, key);
+    };
+  });
   await context.addInitScript(CURSOR);
   const page = await context.newPage();
   page.on("pageerror", (err) => log("pageerror:", String(err)));
   page.mouse.at = [SIZE.width / 2, SIZE.height / 2];
+  page.scale = scale;
   return page;
 }
 
@@ -172,7 +178,8 @@ export class Take {
       }
       await this.cdp.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
     });
-    await this.cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: SIZE.width, maxHeight: SIZE.height, everyNthFrame: 1 });
+    const scale = this.page.scale ?? 1;
+    await this.cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: SIZE.width * scale, maxHeight: SIZE.height * scale, everyNthFrame: 1 });
     log(`recording ${this.name}`);
     return this;
   }
@@ -207,7 +214,7 @@ export class Take {
     writeFileSync(list, lines.join("\n") + "\n");
     mkdirSync(FOOTAGE, { recursive: true });
     const out = path.join(FOOTAGE, `${this.name}.mp4`);
-    const run = spawnSync(FFMPEG, ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-fps_mode", "cfr", "-r", "30", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-crf", "16", "-preset", "medium", "-movflags", "+faststart", out], { encoding: "utf8" });
+    const run = spawnSync(FFMPEG, ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-fps_mode", "cfr", "-r", "30", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-crf", "16", "-preset", (this.page.scale ?? 1) > 1 ? "fast" : "medium", "-movflags", "+faststart", out], { encoding: "utf8" });
     if (run.status !== 0) throw new Error(`ffmpeg: ${run.stderr}`);
     writeFileSync(path.join(FOOTAGE, `${this.name}.json`), JSON.stringify({ duration: Math.round(end * 100) / 100, frames: this.frames.length, marks: this.marks }, null, 2) + "\n");
     rmSync(this.dir, { recursive: true, force: true });

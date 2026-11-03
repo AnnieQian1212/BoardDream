@@ -11,3 +11,5 @@ Config.setRspack(true);
 Config.setVideoImageFormat("jpeg");
 Config.setOverwriteOutput(true);
 Config.setDefaultPremountInSeconds(2);
+// The light leaks between scenes are drawn with WebGL.
+Config.setChromiumOpenGlRenderer("angle");
