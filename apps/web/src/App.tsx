@@ -26,6 +26,7 @@ import { openTable } from "./room";
 import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
 import { useGeneration, type Dials, type Effort } from "./generation";
+import { pageAddress, pageAt } from "./pages";
 import { prefs } from "./prefs";
 import { goalOf } from "./instructions";
 import { battleStarted, historyFor, isOver, latestSpeech, nextSeat, playMove, randomStep, restartMatch, startMatch, type Match } from "./match";
@@ -93,26 +94,38 @@ export function App() {
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
   const [match, setMatch] = useState(() => startMatch(game, numPlayers, params, HUMAN));
   const width = useWindowWidth();
-  // Home asks what to play; the table plays it. The browser's Back button goes from one to the other.
+  // Home asks what to play; the table plays it.
   const [screen, setScreen] = useState<"home" | "table">(START_AT_TABLE ? "table" : "home");
   const atTable = screen === "table";
+  const toTable = useCallback(() => setScreen("table"), []);
+  const toHome = useCallback(() => setScreen("home"), []);
+  const [results, setResults] = useState(query.has("results"));
+  const [library, setLibrary] = useState(query.has("games"));
+  // The address follows the page (pageAddress): a refresh reopens the page the player was on, and
+  // Back and Forward step between pages. Opening a page adds a step; a new game on the table does not.
+  const written = useRef(`${screen}|${library}|${results}`);
   useEffect(() => {
-    const onPop = (e: PopStateEvent) => setScreen((e.state as { screen?: string } | null)?.screen === "table" ? "table" : "home");
+    const next = pageAddress(window.location, { table: atTable, game: game.meta.id, library, results });
+    if (next === `${window.location.pathname}${window.location.search}`) return;
+    const key = `${screen}|${library}|${results}`;
+    if (key !== written.current) window.history.pushState(null, "", next);
+    else window.history.replaceState(null, "", next);
+    written.current = key;
+  }, [screen, game, library, results]);
+  // Back and Forward: the page the address names, and its game.
+  const popped = useRef<(id: string | undefined) => void>(() => {});
+  useEffect(() => {
+    const onPop = () => {
+      const page = pageAt(window.location.search);
+      written.current = `${page.table ? "table" : "home"}|${page.library}|${page.results}`;
+      setScreen(page.table ? "table" : "home");
+      setLibrary(page.library);
+      setResults(page.results);
+      popped.current(page.game);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  const screenRef = useRef(screen);
-  screenRef.current = screen;
-  const toTable = useCallback(() => {
-    if (screenRef.current === "home") window.history.pushState({ screen: "table" }, "");
-    setScreen("table");
-  }, []);
-  const toHome = useCallback(() => {
-    if ((window.history.state as { screen?: string } | null)?.screen === "table") window.history.back();
-    else setScreen("home");
-  }, []);
-  const [results, setResults] = useState(query.has("results"));
-  const [library, setLibrary] = useState(query.has("games"));
   const [printing, setPrinting] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   // The designer's drawer: shut while playing, opened from the top bar (or F).
@@ -284,6 +297,10 @@ export function App() {
     setMatch(startMatch(nextGame, nextPlayers, nextParams, HUMAN));
   }
   const selectGame = (g: GameModule) => configure(g, defaultPlayers(g), resolveParams(g.params));
+  popped.current = (id) => {
+    const wanted = id ? games.find((g) => g.meta.id === id) : undefined;
+    if (wanted && wanted !== game) selectGame(wanted);
+  };
   const playGame = (g: GameModule) => {
     if (g !== game) selectGame(g);
     setLibrary(false);
