@@ -32,6 +32,7 @@ import { hash, INK, mix } from "./paint";
 import { Ink } from "./Ink";
 import { Battle3D, BATTLE_SECONDS, KNOCK_AT } from "./Battle3D";
 import { grownPieces, pieceForm, pieceForms, pieceTurn, woodGrain } from "./pieces";
+import { prefs, usePrefs } from "../prefs";
 import { BOARD, blobTexture, boardPrint, groundTexture, pieceMark } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
@@ -497,7 +498,7 @@ function useExits(geometry: Geometry, toWorld: (x: number, y: number) => [number
     const first = m.geometry === undefined;
     const battle = geometry.battle;
     const cell = battle && geometry.cells.find((c) => c.id === battle.cellId);
-    const fresh = !first && battle && cell && battle.id !== m.battle && !reducedMotion ? battle : undefined;
+    const fresh = !first && battle && cell && battle.id !== m.battle && !reducedMotion && prefs().battles ? battle : undefined;
     m.battle = battle?.id;
     const knockFrom = fresh && cell ? toWorld(...centroid(cell.polygon)) : undefined;
     if (fresh && knockFrom) m.fight = { battle: fresh, at: knockFrom, started: now };
@@ -587,6 +588,10 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
   const mesh = useRef<Mesh>(null!);
   const material = useRef<MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
+  // Hints switched on or off: draw a frame so the glow follows.
+  const { hints } = usePrefs();
+  const redraw = useThree((s) => s.invalidate);
+  useEffect(() => redraw(), [hints, redraw]);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [target, hovered, invalidate]);
   // The cell's value (a yield, a cost), shown beside its name while the pointer is on it: printed,
@@ -768,7 +773,8 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
     // glow a bit more. Only the hovered one lifts: the printed labels lie at the tiles' height.
     // A cell that gives off light (Geometry cell.glow) burns softly.
     const burn = glowColor ? 0.35 : 0;
-    const glow = target ? (hovered ? 0.8 : spotTarget ? 0.3 : 0.42) : burn;
+    // With hints off (prefs) a legal tile shows its own colors until the pointer is on it.
+    const glow = target ? (hovered ? 0.8 : !prefs().hints ? burn : spotTarget ? 0.3 : 0.42) : burn;
     let moving = easing.damp(material.current, "emissiveIntensity", glow, 0.1, dt);
     if (wedgeMaterial.current) wedgeMaterial.current.emissiveIntensity = material.current.emissiveIntensity;
     if (rimMaterial.current) rimMaterial.current.emissiveIntensity = material.current.emissiveIntensity;

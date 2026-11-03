@@ -1,7 +1,7 @@
 import { createRng, resolveParams, sampleSeats } from "@boarddream/engine";
 import { referenceGames } from "@boarddream/library";
 import { describe, expect, test } from "vitest";
-import { actionOf, goalOf, instruction } from "./instructions";
+import { actionOf, goalOf, instruction, unlit } from "./instructions";
 
 describe("the action a move description starts with", () => {
   test.each([
@@ -90,4 +90,10 @@ test("the goal is the rule about winning", () => {
   const rules = ["Villages sit on corners.", "Village 1 point, town 2. First to the target score wins.", "Trade freely."];
   expect(goalOf(rules, "A game.")).toBe("Village 1 point, town 2. First to the target score wins.");
   expect(goalOf(["Lay tiles."], "Build the best reef.")).toBe("Build the best reef.");
+});
+
+test("with the glow off, the instruction does not point at glowing things", () => {
+  expect(unlit("Click a glowing space to deploy forager, or a card to play")).toBe("Click a space to deploy forager, or a card to play");
+  expect(unlit("Click anything that glows")).toBe("Click what you want to do");
+  expect(unlit(undefined)).toBeUndefined();
 });

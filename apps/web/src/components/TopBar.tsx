@@ -1,7 +1,8 @@
 import type { GameModule } from "@boarddream/engine";
-import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, ScrollText, SlidersHorizontal, Sparkles, Users, Wand2 } from "lucide-react";
+import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, ScrollText, SlidersHorizontal, Sparkles, Swords, Target, Users, Wand2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEscape } from "../escape";
+import { setPref, usePrefs } from "../prefs";
 import { AccountButton } from "./Account";
 import { splitVersion } from "../names";
 import { BrandMark } from "./BrandMark";
@@ -91,6 +92,7 @@ export function TopBar(props: Props) {
 
 function MoreMenu({ opponentModel, muse, onRestart, onMuse, onPrint, onLog, onResults }: Props) {
   const [open, setOpen] = useState(false);
+  const { hints, battles } = usePrefs();
   const root = useRef<HTMLDivElement>(null);
   useEscape(() => setOpen(false), open);
   useEffect(() => {
@@ -131,6 +133,16 @@ function MoreMenu({ opponentModel, muse, onRestart, onMuse, onPrint, onLog, onRe
             disabled: !opponentModel,
             title: opponentModel ? `${opponentModel} plays the rivals' trades, bids and bluffs, and talks at the table` : "Needs a model API key on the server",
           })}
+          <hr />
+          {item(<Target size={15} />, "Glow on what you can click", () => setPref("hints", !hints), {
+            checked: hints,
+            title: "Off: the board keeps its own colors; what you can click lights up under the pointer",
+          })}
+          {item(<Swords size={15} />, "Play out battles", () => setPref("battles", !battles), {
+            checked: battles,
+            title: "Off: a battle's dice and knocked-off pieces are skipped and play goes straight on",
+          })}
+          <hr />
           {item(<ScrollText size={15} />, "Game log", onLog)}
           {item(<Printer size={15} />, "Print and play", onPrint, { title: "Rules, board and cards on A4, to play on a real table" })}
           <hr />

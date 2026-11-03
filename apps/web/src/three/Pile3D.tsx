@@ -1,4 +1,5 @@
 import { useFrame, useThree } from "@react-three/fiber";
+import { usePrefs } from "../prefs";
 import { easing } from "maath";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
@@ -184,6 +185,7 @@ function PhysicsTokens({ rapier, shape, color, count, seed }: { rapier: NonNulla
  * drop straight into fixed places.
  */
 export function Pile3D({ pile, physics, onPick }: { pile: PileItem; physics: boolean; onPick(id: string, x: number, y: number): void }) {
+  const { hints } = usePrefs();
   const shape = SHAPES[pile.resource?.icon ?? ""] ?? "block";
   const color = pile.resource?.color ?? "#9a8f80";
   const value = pile.counter.value;
@@ -226,7 +228,7 @@ export function Pile3D({ pile, physics, onPick }: { pile: PileItem; physics: boo
         <circleGeometry args={[2.4, 24]} />
         <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
       </mesh>
-      {pile.target && (
+      {pile.target && hints && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]} raycast={noRaycast}>
           <planeGeometry args={[6.4, 6.4]} />
           <meshBasicMaterial map={ringTexture()} color={HIGHLIGHT} transparent opacity={0.95} depthWrite={false} toneMapped={false} />

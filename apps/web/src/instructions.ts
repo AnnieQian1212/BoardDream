@@ -1,3 +1,6 @@
+/** The turn's instruction for a player who switched the glow off (prefs): nothing glows to click. */
+export const unlit = (text: string | undefined) => text?.replace("Click anything that glows", "Click what you want to do").replace("Click a glowing ", "Click a ");
+
 /**
  * What to tell a player whose turn it is, from the moves they can make: "Click a glowing corner to
  * settle", rather than "pick something that glows". Every game describes its moves in words

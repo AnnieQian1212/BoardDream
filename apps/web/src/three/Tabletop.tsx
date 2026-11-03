@@ -1,4 +1,6 @@
 import { fitBounds, type CardView, type GameModule, type ResourceSpec } from "@boarddream/engine";
+import { unlit } from "../instructions";
+import { usePrefs } from "../prefs";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NeutralToneMapping } from "three";
@@ -151,7 +153,8 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
     }
     return out;
   }, [turn, targets, hinted]);
-  const todo = turn.instruction;
+  const { hints } = usePrefs();
+  const todo = hints ? turn.instruction : unlit(turn.instruction);
   const labelLayer = useRef<HTMLDivElement>(null);
   const labels = useMemo(() => ({ anchors: new Map([...labelAnchors(layout), ...markAnchors(layout, marks)]), layer: labelLayer }), [layout, marks]);
   // The guide counts the player's moves and steps aside after a few.

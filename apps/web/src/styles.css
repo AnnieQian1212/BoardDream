@@ -6034,3 +6034,20 @@ a.quiet {
   visibility: visible;
   transform: none;
 }
+
+/* Hints off (prefs.ts): what can be clicked keeps its own look until the pointer is on it. */
+.quiet-hints .card.target:not(:hover),
+.quiet-hints .badge-chip.target:not(:hover),
+.quiet-hints .pile-count.target:not(:hover) {
+  box-shadow: var(--lift);
+}
+
+.quiet-hints .chip.target:not(:hover) {
+  border-color: var(--rule);
+  animation: none;
+}
+
+.quiet-hints .board .cell.target:not(:hover) {
+  fill: inherit;
+  animation: none;
+}

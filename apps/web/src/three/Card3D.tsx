@@ -1,4 +1,5 @@
 import type { ResourceSpec } from "@boarddream/engine";
+import { prefs, usePrefs } from "../prefs";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -110,7 +111,8 @@ export function Card3D({ item, resources, onPick }: CardProps) {
     group.current.quaternion.fromArray(item.quaternion);
     group.current.scale.setScalar(item.scale * 0.85);
   }, []);
-  useEffect(() => invalidate(), [item, hovered, invalidate]);
+  const { hints } = usePrefs();
+  useEffect(() => invalidate(), [item, hovered, hints, invalidate]);
   const clock = useThree((s) => s.clock);
   useEffect(() => {
     if (item.card.pulse === undefined || item.card.pulse === seenPulse.current) return;
@@ -144,7 +146,7 @@ export function Card3D({ item, resources, onPick }: CardProps) {
     let moving = easing.damp3(g.position, goal, flashing ? 0.06 : 0.16, dt);
     moving = easing.dampQ(g.quaternion, goalQ, 0.16, dt) || moving;
     moving = easing.damp3(g.scale, [s, s, s], 0.14, dt) || moving;
-    if (glow.current) moving = easing.damp(glow.current, "opacity", hovered ? 1 : 0.9, 0.1, dt) || moving;
+    if (glow.current) moving = easing.damp(glow.current, "opacity", hovered ? 1 : prefs().hints ? 0.9 : 0, 0.1, dt) || moving;
 
     // The shadow stays on the surface below and fades as the card rises.
     const height = Math.max(0, g.position.y - MAT_TOP);

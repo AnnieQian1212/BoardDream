@@ -26,6 +26,7 @@ import { openTable } from "./room";
 import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
 import { useGeneration, type Dials, type Effort } from "./generation";
+import { prefs } from "./prefs";
 import { goalOf } from "./instructions";
 import { battleStarted, historyFor, isOver, latestSpeech, nextSeat, playMove, randomStep, restartMatch, startMatch, type Match } from "./match";
 import { rulesFor } from "./rules";
@@ -226,7 +227,7 @@ export function App() {
         const decision = await decide(match.game, match.state, seat, match.numPlayers, historyFor(match, seat), match.rng, muse);
         if (!cancelled) setMatch((current) => (current === match ? playMove(match, seat, decision.move, decision.say) : current));
       },
-      BOT_DELAY + (battleStarted(match) ? BATTLE_HOLD : 0),
+      BOT_DELAY + (battleStarted(match) && prefs().battles ? BATTLE_HOLD : 0),
     );
     return () => {
       cancelled = true;
