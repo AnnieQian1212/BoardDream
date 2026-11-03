@@ -30,11 +30,36 @@ export function regularPolygon(cx: number, cy: number, radius: number, sides: nu
 }
 
 /**
+ * Pieces as the table can draw them. Rules checked now must place every piece (checkGeometry), but
+ * a game saved before may name only the cell a piece stands on (`cell` or `cellId`), with no x, y
+ * or r: its pieces were drawn at NaN and the camera, framing them, showed an empty table. Such a
+ * piece stands at its cell's middle, a fifth of the cell across; one with no cell is left off.
+ */
+function placedPieces(geometry: Geometry): Geometry["pieces"] {
+  if (geometry.pieces.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.r > 0)) return geometry.pieces;
+  const cells = new Map(geometry.cells.map((c) => [c.id, c]));
+  return geometry.pieces.flatMap((piece) => {
+    const cell = cells.get(piece.cellId ?? String((piece as { cell?: unknown }).cell));
+    const xs = cell?.polygon.map(([x]) => x) ?? [];
+    const ys = cell?.polygon.map(([, y]) => y) ?? [];
+    const placed = Number.isFinite(piece.x) && Number.isFinite(piece.y);
+    if (!placed && !cell) return [];
+    const x = placed ? piece.x : xs.reduce((a, b) => a + b, 0) / xs.length;
+    const y = placed ? piece.y : ys.reduce((a, b) => a + b, 0) / ys.length;
+    const r = piece.r > 0 ? piece.r : cell ? 0.2 * Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) : 0.3;
+    return [{ ...piece, x, y, r, cellId: piece.cellId ?? cell?.id }];
+  });
+}
+
+/**
  * The geometry grown, and shifted where it reaches below zero, so its size covers every cell and
  * piece. Generated boards sometimes draw past the size they declare (a third player's area beside a
- * board sized for two); drawn as declared, those spaces would hang off the board.
+ * board sized for two); drawn as declared, those spaces would hang off the board. Pieces named only
+ * by their cell are placed first (placedPieces).
  */
 export function fitBounds(geometry: Geometry): Geometry {
+  const pieces = placedPieces(geometry);
+  if (pieces !== geometry.pieces) geometry = { ...geometry, pieces };
   let [minX, minY, maxX, maxY] = [0, 0, geometry.width, geometry.height];
   const take = (x: number, y: number, r = 0) => {
     minX = Math.min(minX, x - r);

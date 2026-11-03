@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { resultHeadline } from "./outcome";
 import { tidyPanels } from "./panels";
 
@@ -29,5 +29,16 @@ describe("counters", () => {
     const [a, b] = tidyPanels([whole, estimated]);
     expect(a).toBe(whole);
     expect(b.counters!.map((c) => c.value)).toEqual([4, 3.9]);
+  });
+});
+
+describe("panels saved before the check asked for every part", () => {
+  test("a seat named `seat`, a missing title, a counter with no label and a card named `name` are made good", () => {
+    const [seat, shared] = tidyPanels([
+      { id: "s", zone: "players", seat: 1, counters: [{ id: "mist-1", resource: "mist", value: 4 }], cards: [{ id: "k", name: "Wisp" }] } as never,
+      { id: "row", zone: "shared", counters: [{ id: "isles", value: 12 }] } as never,
+    ]);
+    expect(seat).toMatchObject({ owner: 1, title: "Player 2", counters: [{ label: "mist" }], cards: [{ title: "Wisp" }] });
+    expect(shared).toMatchObject({ title: "", counters: [{ label: "isles" }] });
   });
 });

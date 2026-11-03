@@ -96,7 +96,7 @@ export function playMatch(game: GameModule, opts: MatchOptions): MatchResult {
     const geometryProblem = geometry && (checkGeometry(geometry) ?? (turn % OVERLAP_EVERY === 0 ? overlappingCells(geometry.cells) : null));
     if (geometryProblem) throw violation("bad-geometry", geometryProblem);
     const panels = game.panels ? call("panels", () => game.panels!(state, player)) : undefined;
-    const panelProblem = panels && checkPanels(panels);
+    const panelProblem = panels && checkPanels(panels, numPlayers);
     if (panelProblem) throw violation("bad-geometry", panelProblem);
     call("describeMove", () => game.describeMove?.(state, move, (player + 1) % numPlayers));
     const target = call("moveTarget", () => game.moveTarget?.(state, move));
@@ -189,6 +189,11 @@ function checkGeometry(geometry: Geometry): string | null {
       if (text.length === 0 || text.length > 3) return `cell "${cell.id}" has a badge that is not a number or a string of 1 to 3 characters`;
     }
   }
+  for (const piece of geometry.pieces) {
+    if (!Number.isFinite(piece.x) || !Number.isFinite(piece.y) || !(piece.r > 0)) {
+      return `piece "${piece.id}" needs x, y and r in board units (a piece on a cell stands at a point inside it)`;
+    }
+  }
   const battle = geometry.battle;
   if (battle !== undefined) {
     if (!battle || typeof battle.id !== "string" || !ids.has(battle.cellId)) return "geometry().battle needs a string id and the id of a cell on the board";
@@ -244,12 +249,17 @@ export function overlappingCells(cells: Geometry["cells"]): string | null {
   return null;
 }
 
-function checkPanels(panels: Panel[]): string | null {
+function checkPanels(panels: Panel[], numPlayers: number): string | null {
   if (!Array.isArray(panels)) return "panels() must return an array of panels";
   const ids = new Set<string>();
   for (const panel of panels) {
     if (!panel || typeof panel.id !== "string" || !["players", "shared", "hand"].includes(panel.zone)) {
       return 'every panel needs an id and a zone of "players", "shared" or "hand"';
+    }
+    // The table prints every panel's title and seats each "players" panel by its owner.
+    if (typeof panel.title !== "string" || !panel.title.trim()) return `panel "${panel.id}" needs a title: its seat's name, or what a shared panel holds`;
+    if (panel.zone === "players" && !(Number.isInteger(panel.owner) && panel.owner! >= 0 && panel.owner! < numPlayers)) {
+      return `"players" panel "${panel.id}" needs owner: the seat (0 to ${numPlayers - 1}) it belongs to`;
     }
     for (const item of [panel, ...(panel.cards ?? []), ...(panel.counters ?? [])]) {
       if (ids.has(item.id)) return `panels() reuses the id "${item.id}"; card, counter and panel ids must be unique`;
@@ -257,6 +267,10 @@ function checkPanels(panels: Panel[]): string | null {
     }
     for (const counter of panel.counters ?? []) {
       if (!Number.isFinite(counter.value)) return `counter "${counter.id}" has a value that is not a finite number`;
+      if (typeof counter.label !== "string") return `counter "${counter.id}" needs a label, the word players read beside its value`;
+    }
+    for (const card of panel.cards ?? []) {
+      if (!card.faceDown && (typeof card.title !== "string" || !card.title.trim())) return `card "${card.id}" needs a title, the name printed on it`;
     }
   }
   return null;

@@ -87,6 +87,23 @@ describe("fuzz", () => {
     expect(firstFailure({ ...nim, geometry: () => squareGridGeometry(1, 1), moveTarget: () => "nowhere" })).toBe("bad-geometry");
   });
 
+  it("catches pieces, panels, counters and cards the table cannot draw", () => {
+    const grid = squareGridGeometry(2, 1);
+    const piece = (p: Record<string, unknown>) => () => ({ ...grid, pieces: [{ id: "p", ...p } as never] });
+    // A piece named only by its cell, or with no size, drew at NaN and the table showed nothing.
+    expect(firstFailure({ ...nim, geometry: piece({ cellId: "0,0", owner: 0 }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, geometry: piece({ x: 0.5, y: 0.5, r: 0 }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, geometry: piece({ x: 0.5, y: 0.5, r: 0.3 }) })).toBeUndefined();
+    const panels = (p: Record<string, unknown>) => () => [{ id: "seat", zone: "players", title: "Seat", owner: 0, ...p } as never];
+    expect(firstFailure({ ...nim, panels: panels({ title: undefined }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, panels: panels({ owner: undefined, seat: 0 }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, panels: panels({ owner: 9 }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, panels: panels({ counters: [{ id: "c", value: 1 }] }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, panels: panels({ cards: [{ id: "k", name: "Wisp" }] }) })).toBe("bad-geometry");
+    expect(firstFailure({ ...nim, panels: panels({ cards: [{ id: "k", faceDown: true }] }) })).toBeUndefined();
+    expect(firstFailure({ ...nim, panels: panels({}) })).toBeUndefined();
+  });
+
   it("catches a cell badge too long for its token", () => {
     const badged = (badge: unknown) => () => {
       const g = squareGridGeometry(1, 1);
@@ -193,6 +210,16 @@ describe("board cells that cover each other", () => {
 
   test("building spots, roads and labels may sit on tiles", () => {
     expect(overlappingCells([square("tile", 0, 0, 2), square("v1", 0.9, 0.9, 0.2, "vertex"), square("e1", 0.5, 0.5, 0.2, "edge"), square("name", 0, 0, 2, "label")])).toBeNull();
+  });
+});
+
+describe("a board saved before its pieces had to be placed", () => {
+  test("a piece named only by its cell stands at the cell's middle; one with no cell is left off", () => {
+    const grid = squareGridGeometry(3, 1);
+    const fitted = fitBounds({ ...grid, pieces: [{ id: "a", cell: "2,0" } as never, { id: "b" } as never, { id: "c", x: 0.5, y: 0.5, r: 0.3 }] });
+    expect(fitted.pieces.map((p) => p.id)).toEqual(["a", "c"]);
+    expect(fitted.pieces[0]).toMatchObject({ x: 2.5, y: 0.5, cellId: "2,0" });
+    expect(fitted.pieces[0].r).toBeCloseTo(0.2);
   });
 });
 
