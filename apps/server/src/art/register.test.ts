@@ -28,6 +28,9 @@ function shiftedDown(picture: Picture, dy: number): Picture {
   return { ...picture, rgba };
 }
 
+/** A search over a whole painting: a second here, several on a slow CI machine running other tests. */
+const SLOW = 30_000;
+
 describe("lining a painting up with its board", () => {
   const geometry = hexBoard();
   const guide = decodePng(renderGuide(geometry).png);
@@ -48,20 +51,20 @@ describe("lining a painting up with its board", () => {
     const { registration } = register(low, geometry, geometry.cells);
     expect(registration.shiftY * px).toBeGreaterThan(15);
     expect(registration.after).toBeGreaterThan(registration.before + 0.05);
-  });
+  }, SLOW);
 
   it("moves the tiles back where the guide put them", () => {
     const { picture } = register(low, geometry, geometry.cells);
     // Low, every tile's top shows the border above it; lined up, its own color again.
     expect(tops(low).filter((c, i) => c === tops(guide)[i]).length).toBe(0);
     expect(tops(picture)).toEqual(tops(guide));
-  });
+  }, SLOW);
 
   it("leaves a painting that already lines up as it is", () => {
     const { picture, registration } = register(guide, geometry, geometry.cells);
     expect(picture).toBe(guide);
     expect([registration.scaleX, registration.scaleY, registration.shiftX, registration.shiftY]).toEqual([1, 1, 0, 0]);
-  });
+  }, SLOW);
 
   it("resamples without moving anything at no stretch and no shift", () => {
     const same = applyRegistration(guide, geometry, { scaleX: 1, scaleY: 1, shiftX: 0, shiftY: 0, before: 0, after: 0 });

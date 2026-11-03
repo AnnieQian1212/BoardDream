@@ -166,8 +166,12 @@ export function findRegistration(picture: Picture, geometry: Geometry, tiles: Ge
     return found;
   };
   const range = (from: number, to: number, step: number) => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, i) => from + i * step);
-  best = search(range(-0.04, 0.04, 0.02), range(-reach, reach, 2), range(-reach, reach, 2), best);
-  best = search(range(-0.02, 0.02, 0.005), range(-3, 3, 0.5), range(-3, 3, 0.5), best);
+  // A painting is mostly moved and seldom stretched much: the shift alone over the whole range
+  // first, then stretch and shift together near it, then both finely. A quarter of the work of
+  // searching every stretch at every shift, which timed out on the CI's slower machines.
+  best = search([0], range(-reach, reach, 2), range(-reach, reach, 2), best);
+  best = search(range(-0.04, 0.04, 0.01), range(-4, 4, 1), range(-4, 4, 1), best);
+  best = search(range(-0.01, 0.01, 0.005), range(-1, 1, 0.5), range(-1, 1, 0.5), best);
   // Shifts in board units: a board point lands (tx, ty) pixels away, beyond the stretch.
   return { scaleX: best.sx, scaleY: best.sy, shiftX: best.tx / px, shiftY: best.ty / px, before, after: best.s };
 }
