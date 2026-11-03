@@ -8,7 +8,6 @@ import {
   Color,
   ExtrudeGeometry,
   Float32BufferAttribute,
-  LatheGeometry,
   Shape,
   ShapeGeometry,
   SRGBColorSpace,
@@ -32,6 +31,7 @@ import { reducedMotion, step } from "./motion";
 import { hash, INK, mix } from "./paint";
 import { Ink } from "./Ink";
 import { Battle3D, BATTLE_SECONDS, KNOCK_AT } from "./Battle3D";
+import { pieceForm, pieceForms, pieceTurn, woodGrain } from "./pieces";
 import { BOARD, blobTexture, boardPrint, groundTexture, pieceMark } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
@@ -888,56 +888,13 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
   );
 }
 
-/** A checker-like disc: flat top, rounded rim. */
-const DISC = (() => {
-  const points = [
-    [0, 0],
-    [0.9, 0],
-    [0.98, 0.06],
-    [1, 0.2],
-    [1, 0.8],
-    [0.97, 0.94],
-    [0.88, 1],
-    [0, 1],
-  ].map(([x, y]) => new Vector2(x, y));
-  return new LatheGeometry(points, 40);
-})();
-
-/** A painted wooden block with softened edges, one unit across. */
-const CUBE = new RoundedBoxGeometry(1, 1, 1, 3, 0.11);
-
-/** A standing worker: wide base, waist and a round head, as tall as PAWN_HEIGHT radii. */
-const PAWN_HEIGHT = 2.4;
-const PAWN = (() => {
-  const body = [
-    [0, 0],
-    [0.95, 0],
-    [1, 0.05],
-    [0.92, 0.11],
-    [0.6, 0.18],
-    [0.42, 0.36],
-    [0.36, 0.58],
-    [0.52, 0.62],
-    [0.52, 0.66],
-    [0.3, 0.69],
-  ];
-  // The head is a sphere of radius 0.42 r; heights are in units of the pawn's full height.
-  const ry = 0.42 / PAWN_HEIGHT;
-  const head = Array.from({ length: 9 }, (_, i) => {
-    const angle = -Math.PI / 3 + (i / 8) * (Math.PI / 2 + Math.PI / 3);
-    return [0.42 * Math.cos(angle), 1 - ry + ry * Math.sin(angle)];
-  });
-  return new LatheGeometry([...body, ...head, [0, 1]].map(([x, y]) => new Vector2(x, y)), 32);
-})();
-
 function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; at: [number, number]; base: number; exit?: Exit }) {
   const ref = useRef<Group>(null!);
   const r = piece.r * k;
-  const square = piece.shape === "square";
-  const pawn = piece.shape === "pawn";
-  const height = square ? 2 * r : pawn ? PAWN_HEIGHT * r : 0.55 * r;
   const color = piece.owner === undefined ? NEUTRAL_PIECE : playerColor(piece.owner);
   const mark = pieceMark(piece.label);
+  const { geometry, mark: printed, turns } = pieceForms()[pieceForm(piece, mark !== undefined)];
+  const turn = turns ? pieceTurn(piece.id) : 0;
   const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
     ref.current.position.set(at[0], base + 6, at[1]);
@@ -971,23 +928,22 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
         <planeGeometry args={[r * 3.2, r * 3.2]} />
         <meshBasicMaterial map={blobTexture()} color="#1a1008" transparent opacity={0.45} depthWrite={false} />
       </mesh>
-      {square ? (
-        <mesh geometry={CUBE} scale={2 * r} position={[0, r, 0]} castShadow receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={color} roughness={0.55} />
-          <Ink geometry={CUBE} width={2} grounded />
+      <group rotation-y={turn}>
+        <mesh geometry={geometry} scale={r} castShadow receiveShadow raycast={noRaycast}>
+          <meshStandardMaterial color={color} map={woodGrain()} roughness={0.5} />
+          <Ink geometry={geometry} width={2} grounded />
         </mesh>
-      ) : (
-        <mesh geometry={pawn ? PAWN : DISC} scale={[r, height, r]} castShadow receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={color} roughness={0.55} />
-          <Ink geometry={pawn ? PAWN : DISC} width={2} grounded />
-        </mesh>
-      )}
-      {mark && (
-        <mesh rotation-x={-Math.PI / 2} position={[0, height + 0.01, 0]} raycast={noRaycast}>
-          <planeGeometry args={[1.6 * r, 1.6 * r]} />
-          <meshBasicMaterial map={mark} transparent depthWrite={false} />
-        </mesh>
-      )}
+        {mark && printed && (
+          <mesh
+            rotation-x={printed.facing === "up" ? -Math.PI / 2 : 0}
+            position={[0, printed.y * r + (printed.facing === "up" ? 0.01 : 0), printed.z * r + (printed.facing === "front" ? 0.01 : 0)]}
+            raycast={noRaycast}
+          >
+            <planeGeometry args={[printed.size * r, printed.size * r]} />
+            <meshBasicMaterial map={mark} transparent depthWrite={false} />
+          </mesh>
+        )}
+      </group>
     </group>
   );
 }
