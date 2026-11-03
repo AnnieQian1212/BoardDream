@@ -4,6 +4,7 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "thr
 import { cardType, iconFor, tagStyle } from "../icons";
 import { motifFor } from "../motifs";
 import { RIM_INK, TILE_SHARE, zoneColors } from "./ground";
+import { isWaterCell } from "./water";
 import { sizeGroups, uniformSizes } from "../sizeGroups";
 import { growthsOf, inside, type PrintBox } from "./growth";
 import { MAT_TITLE } from "./layout";
@@ -1058,6 +1059,30 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
   // room, unless one name has far less than the rest (under three quarters of the middle one): that
   // name alone is printed smaller, rather than all of them.
   const groupSize = uniformSizes(plans.flatMap((p) => (p.group ? [{ group: p.group, size: p.size }] : [])));
+  // A bare tile (no grass, trees, stone or water on it: an action space, an order, a stall) is
+  // printed as a board marks its spaces: an inked frame inside its edge, and where its name leaves
+  // room, the emblem of what it is (a scroll for an order, coins for a market) in ink to the name's
+  // left. A row of plain slabs read as blank cards; an emblem faint behind the name read as a stain.
+  const bare = new Map<string, { shape: [number, number][]; motif?: LucideIcon }>();
+  for (const cell of geometry.cells) {
+    if (cell.kind === "label" || cell.kind === "edge" || cell.kind === "vertex" || cell.segments || isWaterCell(cell) || growthsOf(cell).length > 0) continue;
+    const shape = outlines?.get(cell.id) ?? cell.polygon;
+    const [cx, cy] = centroid(shape);
+    const side = Math.min(span(shape.map(([x]) => x)), span(shape.map(([, y]) => y)));
+    const inset = 0.09 * side;
+    ctx.beginPath();
+    shape.forEach(([x, y], i) => {
+      const d = Math.hypot(x - cx, y - cy) || 1;
+      const [fx, fy] = [(x - ((x - cx) / d) * inset * Math.SQRT2 + margin) * scale, (y - ((y - cy) / d) * inset * Math.SQRT2 + margin) * scale];
+      if (i === 0) ctx.moveTo(fx, fy);
+      else ctx.lineTo(fx, fy);
+    });
+    ctx.closePath();
+    ctx.lineWidth = Math.max(1.5, scale * 0.014);
+    ctx.strokeStyle = alpha(INK, 0.32);
+    ctx.stroke();
+    bare.set(cell.id, { shape, motif: motifFor(cell.kind ?? "") ?? (cell.label ? motifFor(cell.label) : undefined) });
+  }
   // A name smaller than this (on the 2048 px print, about 12 screen pixels on a laptop) cannot be
   // read: it is left off, and the place's hover tip names it (Saffron Wake's harbors, a fifth of a
   // bay across).
@@ -1065,6 +1090,16 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
   for (const { cell, isLabel, px, py, lines, drop, group, size: own } of plans) {
     const size = group ? Math.min(own, groupSize.get(group)!) : own;
     if (!isLabel && size < smallest) continue;
+    const plain = bare.get(cell.id);
+    if (plain?.motif) {
+      ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
+      const hw = Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
+      const x0 = (Math.min(...plain.shape.map(([x]) => x)) + margin) * scale;
+      const tall = span(plain.shape.map(([, y]) => y)) * scale;
+      const gap = px - hw - x0;
+      const icon = Math.min(gap * 0.62, tall * 0.42);
+      if (icon >= size * 0.7) drawIcon(ctx, plain.motif, x0 + gap * 0.5, py + drop, icon, alpha(INK, 0.55), Math.max(1.5, icon / 18));
+    }
     const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
     ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
     lines.forEach((line, i) => {
