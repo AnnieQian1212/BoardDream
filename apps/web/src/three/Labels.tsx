@@ -178,7 +178,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
             <div className={["mat-badge", badge.wrap && "wrap", badge.wrap && badge.start && "start"].filter(Boolean).join(" ")}>
               {badge.active && <span className="turn-pill">{badge.you ? "Your turn" : "Thinking…"}</span>}
               {badge.note && (
-                <span className="badge-note" title={badge.note}>
+                <span className="badge-note">
                   <span>{badge.note}</span>
                 </span>
               )}
@@ -253,10 +253,18 @@ function fitNote(label: HTMLElement, room: number) {
   const note = row?.querySelector<HTMLElement>(".badge-note");
   if (!row || !note) return;
   // A wrapping row gives the note a line of its own.
-  if (row.classList.contains("wrap")) return void (note.style.display = "");
-  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-  const used = Array.from(row.children).reduce((sum, child) => (child === note ? sum : sum + (child as HTMLElement).offsetWidth + gap), 0);
-  note.style.display = room - used < MIN_NOTE ? "none" : "";
+  if (row.classList.contains("wrap")) note.style.display = "";
+  else {
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const used = Array.from(row.children).reduce((sum, child) => (child === note ? sum : sum + (child as HTMLElement).offsetWidth + gap), 0);
+    note.style.display = room - used < MIN_NOTE ? "none" : "";
+  }
+  // The browser's own tooltip, which pops up outside the mat, only for a note cut short by its line
+  // clamp: one shown whole repeated itself in a box beside the mat.
+  const text = note.firstElementChild as HTMLElement | null;
+  const cut = note.style.display !== "none" && text !== null && (text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1);
+  if (cut) note.title = note.textContent ?? "";
+  else note.removeAttribute("title");
 }
 
 /**
