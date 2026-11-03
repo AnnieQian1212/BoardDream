@@ -157,7 +157,8 @@ export interface LayoutInput {
   chipPx?: (id: string) => number | undefined;
   /**
    * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
-   * the middle, as many on the left as on the right (one more on the left when they are odd), and
+   * the middle, as many on the left as on the right, and when they are odd the last in turn order
+   * across the table, on a mat above the board (the fourth player of four sits opposite you); it
    * stands the supply beside the board; "stack" stands the rivals in a row under the middle, which
    * suits a tall screen like a phone's. Tabletop lays out each that fits the screen and keeps
    * whichever draws the board larger. Rivals are never all put on one side: the table stays
@@ -820,9 +821,13 @@ export function layoutTable(input: LayoutInput): TableLayout {
     return local !== undefined && Number.isFinite(local) && local > 0 ? chipSizes(local) : sizes;
   };
   const rivalMat = (p: Panel) => seatColumnBlock(p, input, sizesFor(p.id));
-  const half = Math.ceil(rivals.length / 2);
-  const leftSide = rivals.slice(0, half).reverse().map(rivalMat);
-  const rightSide = rivals.slice(half).map(rivalMat);
+  // An odd number of rivals (three or more): the last in turn order sits across the table, so the
+  // sides stay even.
+  const opposite = rivals.length >= 3 && rivals.length % 2 === 1 ? rivals[rivals.length - 1] : undefined;
+  const beside = opposite ? rivals.slice(0, -1) : rivals;
+  const half = Math.ceil(beside.length / 2);
+  const leftSide = beside.slice(0, half).reverse().map(rivalMat);
+  const rightSide = beside.slice(half).map(rivalMat);
 
   // The middle: the board with the shared supply upright beside it or, with no board, the shared
   // mats in a row.
@@ -845,7 +850,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
   const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes: sizesFor(mine.id) }) : undefined;
   if (input.arrangement === "stack") {
     // Rivals in a row under the middle, the viewer's mat below them.
-    const row = rivals.length > 0 ? across([...leftSide.reverse(), ...rightSide], SIDE_GAP) : undefined;
+    const row = rivals.length > 0 ? across(rivals.map(rivalMat), SIDE_GAP) : undefined;
     center = down(
       [middle, row, you].filter((b): b is Block => b !== undefined),
       ROW_GAP,
@@ -854,8 +859,12 @@ export function layoutTable(input: LayoutInput): TableLayout {
     table.place(0, table.depth / 2, out);
     return finish(out, hand, table.depth / 2 + center.depth / 2 + ROW_GAP, input.targets);
   }
+  // The rival across the table: a mat as wide as the viewer's, above the board.
+  const top = opposite
+    ? matBlock(opposite, input, { cardScale: 0.66, pileScale: 0.8, width: Math.max(56, middle?.width ?? 0), title: opposite.title, you: false, sizes: sizesFor(opposite.id) })
+    : undefined;
   center = down(
-    [middle, you].filter((b): b is Block => b !== undefined),
+    [top, middle, you].filter((b): b is Block => b !== undefined),
     ROW_GAP,
   );
   table = across(

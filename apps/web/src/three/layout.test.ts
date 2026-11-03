@@ -62,12 +62,17 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
           expect(apart, `${a.id} overlaps ${b.id}`).toBe(true);
         }
       }
-      // Rival mats stand wholly to the left or right of the board and the shared supply.
+      // Rival mats stand wholly to the left or right of the board and the shared supply, or (one, when
+      // the rivals are odd) wholly above them, across the table.
       const middle = layout.mats.filter((m) => m.shared);
+      const far = Math.min(...middle.map((m) => m.position[2] - m.depth / 2), ...(layout.board ? [layout.board.position[2] - layout.board.depth / 2] : []));
       const xs = [...middle.map((m) => [m.position[0] - m.width / 2, m.position[0] + m.width / 2]), ...(layout.board ? [[layout.board.position[0] - layout.board.width / 2, layout.board.position[0] + layout.board.width / 2]] : [])].flat();
       if (xs.length === 0) continue;
       const [lo, hi] = [Math.min(...xs), Math.max(...xs)];
-      for (const m of layout.mats.filter((m) => !m.shared && m.title !== "You")) {
+      const rivals = layout.mats.filter((m) => !m.shared && m.title !== "You");
+      const across = rivals.filter((m) => m.position[2] + m.depth / 2 <= far + 0.01);
+      expect(across.length, "rivals across the table").toBeLessThanOrEqual(1);
+      for (const m of rivals.filter((m) => !across.includes(m))) {
         expect(m.position[0] + m.width / 2 <= lo + 0.01 || m.position[0] - m.width / 2 >= hi - 0.01, `${m.title} sits beside the middle`).toBe(true);
       }
     }
@@ -250,11 +255,11 @@ describe("rivals round the table", () => {
   const board = { width: 10, height: 8, cells: [{ id: "c", polygon: [[0, 0], [10, 0], [10, 8], [0, 8]] as [number, number][] }], pieces: [] };
   const seat = (owner: number) => ({ id: `seat${owner}`, title: `Player ${owner + 1}`, zone: "players" as const, owner, counters: [] });
   test.each([
-    [2, 1, 1],
-    [3, 2, 1],
-    [4, 2, 2],
-    [5, 3, 2],
-  ])("seats %i rivals as %i on the left and %i on the right", (rivals, left, right) => {
+    [2, 1, 1, 0],
+    [3, 1, 1, 1],
+    [4, 2, 2, 0],
+    [5, 2, 2, 1],
+  ])("seats %i rivals as %i on the left, %i on the right and %i across", (rivals, left, right, opposite) => {
     const panels = [seat(0), ...Array.from({ length: rivals }, (_, i) => seat(i + 1))];
     const { layout, arrangement } = fitTable(
       { panels, geometry: board, human: 0, active: 0, targets: new Set(), resources: new Map() },
@@ -263,7 +268,12 @@ describe("rivals round the table", () => {
     expect(arrangement).toBe("sides");
     const middle = layout.board!.position[0];
     const rivalMats = layout.mats.filter((m) => !m.shared && m.id !== "seat0");
-    expect(rivalMats.filter((m) => m.position[0] < middle).length).toBe(left);
-    expect(rivalMats.filter((m) => m.position[0] > middle).length).toBe(right);
+    const slab = layout.board!;
+    const sideways = rivalMats.filter((m) => m.position[2] + m.depth / 2 > slab.position[2] - slab.depth / 2);
+    expect(sideways.filter((m) => m.position[0] < middle).length).toBe(left);
+    expect(sideways.filter((m) => m.position[0] > middle).length).toBe(right);
+    // Across the table: above the board, and the last rival in turn order.
+    const across = rivalMats.filter((m) => m.position[2] + m.depth / 2 <= slab.position[2] - slab.depth / 2);
+    expect(across.map((m) => m.id)).toEqual(opposite ? [`seat${rivals}`] : []);
   });
 });

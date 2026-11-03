@@ -1063,7 +1063,7 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
   // printed as a board marks its spaces: an inked frame inside its edge, and where its name leaves
   // room, the emblem of what it is (a scroll for an order, coins for a market) in ink to the name's
   // left. A row of plain slabs read as blank cards; an emblem faint behind the name read as a stain.
-  const bare = new Map<string, { shape: [number, number][]; motif?: LucideIcon }>();
+  const bare = new Map<string, { shape: [number, number][]; frameLeft: number; motif?: LucideIcon }>();
   for (const cell of geometry.cells) {
     if (cell.kind === "label" || cell.kind === "edge" || cell.kind === "vertex" || cell.segments || isWaterCell(cell) || growthsOf(cell).length > 0) continue;
     const shape = outlines?.get(cell.id) ?? cell.polygon;
@@ -1071,9 +1071,11 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
     const side = Math.min(span(shape.map(([x]) => x)), span(shape.map(([, y]) => y)));
     const inset = 0.09 * side;
     ctx.beginPath();
+    let frameLeft = Infinity;
     shape.forEach(([x, y], i) => {
       const d = Math.hypot(x - cx, y - cy) || 1;
       const [fx, fy] = [(x - ((x - cx) / d) * inset * Math.SQRT2 + margin) * scale, (y - ((y - cy) / d) * inset * Math.SQRT2 + margin) * scale];
+      frameLeft = Math.min(frameLeft, fx);
       if (i === 0) ctx.moveTo(fx, fy);
       else ctx.lineTo(fx, fy);
     });
@@ -1081,7 +1083,7 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
     ctx.lineWidth = Math.max(1.5, scale * 0.014);
     ctx.strokeStyle = alpha(INK, 0.32);
     ctx.stroke();
-    bare.set(cell.id, { shape, motif: motifFor(cell.kind ?? "") ?? (cell.label ? motifFor(cell.label) : undefined) });
+    bare.set(cell.id, { shape, frameLeft, motif: motifFor(cell.kind ?? "") ?? (cell.label ? motifFor(cell.label) : undefined) });
   }
   // A name smaller than this (on the 2048 px print, about 12 screen pixels on a laptop) cannot be
   // read: it is left off, and the place's hover tip names it (Saffron Wake's harbors, a fifth of a
@@ -1094,11 +1096,12 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
     if (plain?.motif) {
       ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
       const hw = Math.max(...lines.map((line) => ctx.measureText(line).width)) / 2;
-      const x0 = (Math.min(...plain.shape.map(([x]) => x)) + margin) * scale;
+      // The emblem sits between the frame's inner edge and the name, a fifth of its width clear of each.
       const tall = span(plain.shape.map(([, y]) => y)) * scale;
+      const x0 = plain.frameLeft + Math.max(2, scale * 0.014);
       const gap = px - hw - x0;
-      const icon = Math.min(gap * 0.62, tall * 0.42);
-      if (icon >= size * 0.7) drawIcon(ctx, plain.motif, x0 + gap * 0.5, py + drop, icon, alpha(INK, 0.55), Math.max(1.5, icon / 18));
+      const icon = Math.min(gap / 1.4, tall * 0.42);
+      if (icon >= size * 0.7) drawIcon(ctx, plain.motif, x0 + gap / 2, py + drop, icon, alpha(INK, 0.55), Math.max(1.5, icon / 18));
     }
     const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
     ctx.font = `600 ${size}px ${FONT_DISPLAY}`;

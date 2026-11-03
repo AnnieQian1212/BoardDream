@@ -22,7 +22,6 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, board }
         <Palette size={17} /> Art
       </h2>
       {board && <BoardArt {...board} available={available} />}
-      {cards > 0 && <p className="hint">Muse Image paints every card in one shared style, using the first card as the style reference.</p>}
       {cards === 0 ? null : painting ? (
         <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={painting.total} aria-valuenow={painting.done}>
           <div className="progress-bar" style={{ width: `${(100 * painting.done) / Math.max(1, painting.total)}%` }} />
