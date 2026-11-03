@@ -6,6 +6,7 @@ import { ArtPanel } from "./components/ArtPanel";
 import { Designer, type DesignerTab } from "./components/Designer";
 import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
+import type { Ask } from "./components/DreamForm";
 import { GenerationSteps } from "./components/GenerationSteps";
 import { MochiStrip, stripHeight, useStripOpen } from "./components/MochiStrip";
 import { Table } from "./components/Table";
@@ -186,10 +187,22 @@ export function App() {
   }, []);
   const { generation, start: startGeneration, cancel: closeGeneration } = useGeneration(onReady);
   const generating = Boolean(generation && !generation.done && !generation.error);
+  // The idea last asked for, kept while it is being made: a game stopped or come to nothing goes
+  // back to the home page with its idea in the box, to change and try again.
+  const [asked, setAsked] = useState<Ask>();
+  const [again, setAgain] = useState<Ask>();
   const generate = (prompt: string, dials: Dials, invented: boolean, effort: Effort) => {
     setDesigner((d) => ({ ...d, open: false }));
+    setAsked({ prompt, dials, effort });
+    setAgain(undefined);
     void startGeneration(prompt, dials, invented, effort);
     toTable();
+  };
+  /** Leaves a game being made, or one that came to nothing, for the home page and its idea. */
+  const backHome = () => {
+    closeGeneration();
+    setAgain(asked);
+    toHome();
   };
   // While its rules are checked, bots play the newest draft on the table: the board and cards appear
   // as soon as they exist. A draft that throws stops; the next one starts fresh.
@@ -426,6 +439,7 @@ export function App() {
           onLibrary={() => setLibrary(true)}
           onResults={() => setResults(true)}
           accounts={tables}
+          again={again}
         />
         {overlays}
         {MOCHI_TEST && <MochiStrip test />}
@@ -482,11 +496,12 @@ export function App() {
         <aside className="sidebar left">
           <GenerationSteps
             generation={generation}
-            onCancel={closeGeneration}
-            onClose={closeGeneration}
+            onCancel={backHome}
+            // Ready: on to the new game's table. Nothing made: home, the idea in the box.
+            onClose={() => (generation.done?.ok ? closeGeneration() : backHome())}
             onDiscard={(made) => {
               removeGame(made);
-              closeGeneration();
+              backHome();
             }}
           />
         </aside>

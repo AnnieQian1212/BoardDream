@@ -6,7 +6,7 @@ import type { Dials, Effort } from "../generation";
 import { AccountButton } from "./Account";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandMark } from "./BrandMark";
-import { DreamForm } from "./DreamForm";
+import { DreamForm, type Ask } from "./DreamForm";
 import { GameCover } from "./GameCover";
 
 const MODES: Record<string, string> = { competitive: "Versus", cooperative: "Co-op", "hidden-role": "Hidden role" };
@@ -37,13 +37,15 @@ interface Props {
   onResults(): void;
   /** The server keeps accounts, for tables shared with friends. */
   accounts?: boolean;
+  /** The idea last asked for, back in the box after its game was stopped or came to nothing. */
+  again?: Ask;
 }
 
 /**
  * The first page: one question, what to play, with a box to answer it in; below it, ready games to
  * deal into straight away. Everything about how games are tested lives behind the scenes.
  */
-export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults, accounts }: Props) {
+export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults, accounts, again }: Props) {
   const demos = games.filter((g) => !generatedSource(g)).sort((a, b) => shelfRank(a) - shelfRank(b));
   const recent = games
     .filter((g) => generatedSource(g))
@@ -85,7 +87,7 @@ export function Home({ games, covers, available, making, onGenerate, onPlay, onW
               </button>
             </div>
           ) : (
-            <DreamForm available={available} busy={false} onGenerate={onGenerate} />
+            <DreamForm available={available} busy={false} onGenerate={onGenerate} again={again} />
           )}
           {!available && <p className="home-note">This online demo plays games BoardDream made earlier. Making new ones needs the full server with a model key.</p>}
         </section>

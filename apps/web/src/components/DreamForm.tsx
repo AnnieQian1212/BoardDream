@@ -54,6 +54,15 @@ interface Props {
   busy: boolean;
   /** Makes a game at a reasoning effort; `invented` when the idea is Muse Spark's, unchanged. */
   onGenerate(prompt: string, dials: Dials, invented: boolean, effort: Effort): void;
+  /** What was asked last, back in the box after a game was stopped or came to nothing. */
+  again?: Ask;
+}
+
+/** An idea as it was asked for: the words, the dials and the effort. */
+export interface Ask {
+  prompt: string;
+  dials: Dials;
+  effort: Effort;
 }
 
 /**
@@ -62,16 +71,16 @@ interface Props {
  * interaction, type, theme, board, how to win, tone, player powers, mechanics) and how hard Muse
  * Spark thinks wait under Advanced settings for whoever wants them.
  */
-export function DreamForm({ available, busy, onGenerate }: Props) {
-  const [prompt, setPrompt] = useState("");
+export function DreamForm({ available, busy, onGenerate, again }: Props) {
+  const [prompt, setPrompt] = useState(again?.prompt ?? "");
   // "Surprise me" only writes an idea into the box; the player reads it, changes it or asks for
   // another, and makes the game when it appeals.
   const [invented, setInvented] = useState<string>();
   const [inventing, setInventing] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [options, setOptions] = useState(false);
-  const [dials, setDials] = useState<Dials>(DEFAULT_DIALS);
-  const [effort, setEffort] = useState<Effort>(DEFAULT_EFFORT);
+  const [dials, setDials] = useState<Dials>(again?.dials ?? DEFAULT_DIALS);
+  const [effort, setEffort] = useState<Effort>(again?.effort ?? DEFAULT_EFFORT);
   const box = useRef<HTMLTextAreaElement>(null);
   const set = <K extends keyof Dials>(key: K, value: Dials[K]) => setDials({ ...dials, [key]: value });
   const asked = dials.mustUse ?? [];
