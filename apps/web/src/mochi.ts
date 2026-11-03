@@ -280,6 +280,21 @@ export function tick(p: Patch, dt: number): Patch {
   return patch;
 }
 
+/**
+ * A blanket as it is opened again: every friend above a dewdrop stays, and the dewdrops the steamer
+ * made while nobody played are cleared from the last tile back until half the open tiles are free.
+ * Left to itself through a five-minute game, the steamer covered the blanket in dewdrops, and the
+ * next game opened on a full blanket. Dewdrops are the steamer's to make again, so nothing is lost.
+ */
+export function reopen(p: Patch): Patch {
+  const open = p.locked.filter((l) => !l).length;
+  const spots = p.spots.slice();
+  for (let i = SPOTS - 1; i >= 0 && empties({ ...p, spots }).length < Math.ceil(open / 2); i--) {
+    if (spots[i] === 0 && !p.locked[i]) spots[i] = null;
+  }
+  return spots.every((f, i) => f === p.spots[i]) ? p : { ...p, spots };
+}
+
 /** The friend a golden batch brings, two below the furthest met, and what it costs. */
 export const goldenFriend = (p: Patch): number => Math.max(1, p.best - 2);
 export const goldenCost = (p: Patch): number => 6 * 2 ** goldenFriend(p);

@@ -19,6 +19,7 @@ import {
   ready,
   revive,
   serve,
+  reopen,
   SPOTS,
   start,
   steam,
@@ -278,6 +279,25 @@ describe("the mochi steamer", () => {
     expect(p).toMatchObject({ coins: 0, basket: 1, stove: 1, stars: 1 });
     p = tick(p, 0.25);
     expect(p.orders.filter(Boolean)).toHaveLength(3);
+  });
+
+  it("opens again with room: dewdrops cleared until half the open tiles are free, every other friend kept", () => {
+    // The steamer filled every tile while nobody played: fifteen dewdrops and one bunny.
+    const full = blanket([0, 2, ...new Array(SPOTS - 2).fill(0)]);
+    const settled = reopen(full);
+    expect(empties(settled)).toHaveLength(SPOTS / 2);
+    expect(settled.spots[1]).toBe(2);
+    // The first tiles keep their dewdrops; the last ones are cleared.
+    expect(settled.spots.slice(0, 8)).toEqual(full.spots.slice(0, 8));
+    // Friends above a dewdrop are never cleared, even if the blanket stays full.
+    const precious = blanket(new Array(SPOTS).fill(3));
+    expect(reopen(precious)).toBe(precious);
+    // A blanket with room already is left as it is.
+    const roomy = blanket([0, 0, 1]);
+    expect(reopen(roomy)).toBe(roomy);
+    // Locked tiles do not count as room, and stay as they are.
+    const locked = { ...blanket(new Array(SPOTS).fill(0)), locked: start().locked };
+    expect(empties(reopen(locked))).toHaveLength((SPOTS - LOCKED_AT_START.length) / 2);
   });
 
   it("has a name, a plural and a note for every friend", () => {

@@ -18,6 +18,7 @@ import {
   press,
   ready,
   revive,
+  reopen,
   serve,
   SPOTS,
   start,
@@ -45,7 +46,7 @@ const OLD_KEYS = ["boarddream.hamlet", "boarddream.hamlet-open"];
 function load(): Patch {
   try {
     for (const k of OLD_KEYS) localStorage.removeItem(k);
-    return revive(JSON.parse(localStorage.getItem(KEY) ?? "null"));
+    return reopen(revive(JSON.parse(localStorage.getItem(KEY) ?? "null")));
   } catch {
     return start();
   }
@@ -95,6 +96,12 @@ export const stripHeight = (width: number): number => (width <= 640 ? 196 : 230)
 
 /** Seconds without a move before two alike are pointed out. */
 const HINT_AFTER = 9;
+/**
+ * Seconds without a move after which the steamer stops making batches by itself; it starts again
+ * with the next. It also waits for the first move: a game takes minutes to make, and a steamer left
+ * running filled the blanket for nobody.
+ */
+const STEAM_IDLE = 20;
 
 /** How a friend came to sit on its tile, for the way it appears. */
 type Arrival = "here" | "steam" | "merge" | "move";
@@ -162,6 +169,8 @@ export function MochiStrip({ test = false }: { test?: boolean }) {
   const orderEls = useRef<(HTMLDivElement | null)[]>([]);
   const clock = useRef(0);
   const lastMove = useRef(Date.now());
+  /** When the player last did something; the steamer works by itself only while they play. */
+  const lastPlay = useRef(0);
   const lastMerge = useRef(0);
   const saved = useRef(p);
   const nextId = useRef(1);
@@ -206,11 +215,13 @@ export function MochiStrip({ test = false }: { test?: boolean }) {
   };
   const moved = () => {
     lastMove.current = Date.now();
+    lastPlay.current = Date.now();
     setHint(undefined);
   };
 
   /** A batch from the steamer, by a click or by itself; a click on a full blanket shakes it. */
   const steamOne = (byItself: boolean) => {
+    if (!byItself) lastPlay.current = Date.now();
     const { patch, at } = steam(current.current);
     if (at === undefined) {
       if (!byItself) setShakes((s) => s + 1);
@@ -293,8 +304,9 @@ export function MochiStrip({ test = false }: { test?: boolean }) {
     let beat = 0;
     const timer = setInterval(() => {
       const gap = fastNow.current ? 1 : stoveGap(current.current);
-      clock.current = Math.min(gap, clock.current + 0.25);
-      if (clock.current >= gap && empties(current.current).length) steamOne(true);
+      const playing = Date.now() - lastPlay.current < STEAM_IDLE * 1000;
+      if (playing) clock.current = Math.min(gap, clock.current + 0.25);
+      if (playing && clock.current >= gap && empties(current.current).length) steamOne(true);
       if (++beat % 2 === 0) {
         const next = tick(current.current, 0.5);
         if (next !== current.current) commit(next);
@@ -478,7 +490,7 @@ export function MochiStrip({ test = false }: { test?: boolean }) {
               <SteamerBase />
             </span>
           </button>
-          <span className="mochi-timer" title={`The steamer makes one by itself every ${fast ? 1 : stoveGap(p)} s`} aria-hidden>
+          <span className="mochi-timer" title={`While you play, the steamer makes one by itself every ${fast ? 1 : stoveGap(p)} s`} aria-hidden>
             <i key={batches} style={{ "--steam": `${fast ? 1 : stoveGap(p)}s` } as CSSProperties} />
           </span>
         </div>
