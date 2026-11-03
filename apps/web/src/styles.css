@@ -3377,7 +3377,9 @@ button.pile-count.target {
   white-space: nowrap;
   font-family: var(--font-display);
   font-variation-settings: var(--display-soft);
-  font-size: clamp(20px, calc((100vw - 32px) / 17.5), 72px);
+  /* As large as the width allows, but in step with the height too: on a short screen a 72 px
+     question crowded the bar above it and pushed the games below the fold. */
+  font-size: clamp(20px, min(calc((100vw - 32px) / 17.5), 7.5vh), 72px);
   font-weight: 650;
   line-height: 1.04;
   letter-spacing: -0.015em;
