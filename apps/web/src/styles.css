@@ -3377,7 +3377,7 @@ button.pile-count.target {
   white-space: nowrap;
   font-family: var(--font-display);
   font-variation-settings: var(--display-soft);
-  font-size: clamp(20px, calc((100vw - 32px) / 17.5), 54px);
+  font-size: clamp(20px, calc((100vw - 32px) / 17.5), 72px);
   font-weight: 650;
   line-height: 1.04;
   letter-spacing: -0.015em;
