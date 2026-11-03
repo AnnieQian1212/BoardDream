@@ -3372,7 +3372,7 @@ button.pile-count.target {
   position: relative;
   left: 50%;
   width: max-content;
-  margin: 0 0 28px;
+  margin: 0 0 clamp(28px, 5.5vh, 52px);
   transform: translateX(-50%);
   white-space: nowrap;
   font-family: var(--font-display);
