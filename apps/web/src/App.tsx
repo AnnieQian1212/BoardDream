@@ -25,7 +25,7 @@ import { useCovers } from "./covers";
 import { openTable } from "./room";
 import { useEscape } from "./escape";
 import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
-import { useGeneration, type Dials } from "./generation";
+import { useGeneration, type Dials, type Effort } from "./generation";
 import { goalOf } from "./instructions";
 import { battleStarted, historyFor, isOver, latestSpeech, nextSeat, playMove, randomStep, restartMatch, startMatch, type Match } from "./match";
 import { rulesFor } from "./rules";
@@ -172,9 +172,9 @@ export function App() {
   }, []);
   const { generation, start: startGeneration, cancel: closeGeneration } = useGeneration(onReady);
   const generating = Boolean(generation && !generation.done && !generation.error);
-  const generate = (prompt: string, dials: Dials, invented: boolean) => {
+  const generate = (prompt: string, dials: Dials, invented: boolean, effort: Effort) => {
     setDesigner((d) => ({ ...d, open: false }));
-    void startGeneration(prompt, dials, invented);
+    void startGeneration(prompt, dials, invented, effort);
     toTable();
   };
   // While its rules are checked, bots play the newest draft on the table: the board and cards appear
