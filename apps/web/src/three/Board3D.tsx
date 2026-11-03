@@ -37,7 +37,7 @@ import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
 import { cellSize, clearing, grassSpacing, growthField, growthsOf, HEIGHT, inside, plant, printUnit, sow, type PrintBox } from "./growth";
 import { DOME, jellyGeometry, Wobble } from "./jelly";
-import { isWaterCell, isWaterKind, STEP_RATE, WaterGrid, waterPolygons } from "./water";
+import { clipConvex, evenOutline, inradius, isWaterCell, isWaterKind, STEP_RATE, WaterGrid, waterPolygons } from "./water";
 import { waterCompiler, waterUniforms, type WaterUniforms } from "./waterMaterial";
 
 const SLAB = 0.6;
@@ -165,11 +165,11 @@ interface Water {
 /** Counts water surfaces built, to tell a rebuilt one from the last (Water.id). */
 let surfaces = 0;
 
-function useWater(geometry: BoardItem["geometry"], k: number, position: BoardItem["position"], zones: Map<string, string>): Water | undefined {
+function useWater(geometry: BoardItem["geometry"], k: number, position: BoardItem["position"], zones: Map<string, string>, reach: number): Water | undefined {
   const invalidate = useThree((s) => s.invalidate);
   const [ox, , oz] = position;
   // Rebuilt only when the water itself changes, not on every move.
-  const pools = (c: GeometryCell) => waterPolygons(c, poolShare(zones.has(c.id)), WEDGE_SHARE, TILE_SHARE);
+  const pools = (c: GeometryCell) => waterPolygons(c, poolShare(zones.has(c.id)), WEDGE_SHARE, TILE_SHARE, reach);
   const cells = geometry.cells.filter((c) => c.kind !== "label" && pools(c).length > 0);
   const key = cells.map((c) => `${c.id}:${c.polygon.flat().join(",")}:${c.segments?.join(",") ?? ""}:${zones.has(c.id)}`).join("|");
   const surface = useMemo(() => {
@@ -181,7 +181,7 @@ function useWater(geometry: BoardItem["geometry"], k: number, position: BoardIte
     });
     const grid = new WaterGrid(polygons, k / 20);
     return { grid, uniforms: waterUniforms(grid, [ox, oz], k), id: ++surfaces };
-  }, [key, geometry.width, geometry.height, k, ox, oz]);
+  }, [key, geometry.width, geometry.height, k, ox, oz, reach]);
   useEffect(() => () => surface?.uniforms.uWave.value.dispose(), [surface]);
 
   const last = useRef<{ x: number; z: number; t: number }>(undefined);
@@ -302,10 +302,37 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   // Grass: sized from a typical cell, thinned on boards with a lot of green.
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.terrain ?? ""}${c.segments?.join("") ?? ""}`).join("|");
   const zones = useMemo(() => zoneColors(geometry.cells), [greenKey]);
-  const water = useWater(geometry, k, position, zones);
+  // A usual tile's inradius: tiles draw in from their cells by a gap this size gives, whatever their own.
+  const reach = useMemo(() => {
+    const radii = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")).map((c) => inradius(c.polygon)).sort((a, b) => a - b);
+    return radii.length ? radii[Math.floor(radii.length / 2)] : Infinity;
+  }, [geometry.cells.length, geometry.width, geometry.height]);
+  const water = useWater(geometry, k, position, zones, reach);
   const exits = useExits(geometry, toWorld);
   const size = useMemo(() => cellSize(geometry.cells), [greenKey]);
   const unit = useMemo(() => printUnit(geometry.cells), [geometry.cells.length, geometry.width, geometry.height]);
+  // The parts of paths that cross water (not islands), drawn on its surface: a path into a sea runs
+  // over the water to the place in it, not under it.
+  const wading = useMemo(() => {
+    const seas = geometry.cells.filter((c) => c.kind !== "label" && !c.segments && isWaterCell(c) && !islands.has(c.id));
+    return geometry.cells
+      .filter((c) => paths.has(c.id))
+      .flatMap((path) =>
+        seas.map((sea, i) => ({
+          id: `${path.id}~${sea.id}~${i}`,
+          // The path tile's own outline (it is drawn a little inside its cell), over the water.
+          outline: clipConvex(
+            path.polygon.map(([x, y]): [number, number] => {
+              const [cx, cy] = centroid(path.polygon);
+              return [cx + (x - cx) * 0.85, cy + (y - cy) * 0.85];
+            }),
+            evenOutline(sea.polygon, TILE_SHARE, reach),
+          ),
+          color: tileColor(path),
+        })),
+      )
+      .filter((w) => w.outline.length >= 3);
+  }, [geometry, paths, islands, reach]);
   const spacing = useMemo(() => grassSpacing(geometry.cells, size, grass), [greenKey, size, grass]);
   const growing = useMemo(() => geometry.cells.some((c) => growthField(c, TILE_SHARE)), [greenKey]);
   const rocky = useMemo(() => geometry.cells.some((c) => c.kind !== "label" && growthsOf(c).includes("rock")), [greenKey]);
@@ -358,6 +385,7 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             low={scenery.has(cell.id)}
             island={islands.has(cell.id) ? ISLAND + DOME * k : undefined}
             path={paths.has(cell.id)}
+            reach={reach}
             painted={texture && paint && sourceFor(paint, cell) ? { texture, paint, source: sourceFor(paint, cell)! } : undefined}
             water={water}
             zone={zones.get(cell.id)}
@@ -370,6 +398,9 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
             onPick={onPick}
           />
         ))}
+      {wading.map((w) => (
+        <PathOnWater key={w.id} outline={w.outline} color={w.color} k={k} toWorld={toWorld} />
+      ))}
       {glowLights > 0 && <GlowLights spots={glowing} size={glowLights} k={k} />}
       {rocky && <Chips pool={chips.pool} />}
       <mesh rotation-x={-Math.PI / 2} position={[0, TILE_TOP + 0.02, 0]} raycast={noRaycast}>
@@ -468,6 +499,8 @@ interface TileProps {
   cell: GeometryCell;
   /** An edge that lies low as a path between places, rather than standing up as a road. */
   path?: boolean;
+  /** A usual tile's inradius on this board: tiles draw in from their cells by the gap it gives. */
+  reach: number;
   /** The names of the pieces on it, for its hover tip: printed on a piece, they are too small to read. */
   holding?: string;
   k: number;
@@ -496,13 +529,13 @@ interface TileProps {
   onPick: Props["onPick"];
 }
 
-function Tile({ cell, path, k, at, target, low, island, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
+function Tile({ cell, path, reach, k, at, target, low, island, painted, water: boardWater, zone, box, groundScale, grass, chip, print, holding, onPick }: TileProps) {
   // Where the tile rests: on the slab, or sunk into it as ground when other cells lie inside it.
   // Ground that places stand on (a sea round its harbors) is sunk so they stand clear above it, but
   // only part way: sunk to the board, a sea was a film of water.
   const rest = low ? SLAB - TILE * 0.45 : SLAB + (island ?? 0);
   const segmentsKey = cell.segments?.join(",");
-  const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE, TILE_SHARE), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone]);
+  const pools = useMemo(() => waterPolygons(cell, poolShare(zone !== undefined), WEDGE_SHARE, TILE_SHARE, reach), [cell.polygon, cell.kind, cell.terrain, segmentsKey, zone, reach]);
   // A large pool sways less: the tilt is per board unit, so across a long sea it grew with its length.
   const swayScale = useMemo(() => {
     const reach = Math.max(0.5, ...pools.flat().map(([x, y]) => Math.hypot(x, y)));
@@ -525,8 +558,8 @@ function Tile({ cell, path, k, at, target, low, island, painted, water: boardWat
     const [cx, cy] = centroid(cell.polygon);
     // Shrink toward the center so tiles have a gap, leaving room for the bevel. Spots are already small.
     const spot = SPOTS.has(cell.kind ?? "");
-    const shrink = (p: number, c: number) => (p - c) * k * (spot ? 0.85 : TILE_SHARE);
-    const shape = new Shape(cell.polygon.map(([x, y]) => new Vector2(shrink(x, cx), -shrink(y, cy))));
+    const outline = spot ? cell.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * 0.85, cy + (y - cy) * 0.85]) : evenOutline(cell.polygon, TILE_SHARE, reach);
+    const shape = new Shape(outline.map(([x, y]) => new Vector2((x - cx) * k, -(y - cy) * k)));
     const bevel = spot ? BEVEL * 0.5 : BEVEL;
     const g = new ExtrudeGeometry(shape, { depth: path ? PATH : spot ? SPOT : TILE, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 1 });
     g.rotateX(-Math.PI / 2).translate(0, BEVEL, 0);
@@ -541,7 +574,7 @@ function Tile({ cell, path, k, at, target, low, island, painted, water: boardWat
     }
     return g;
     // The painted prop is rebuilt every render; only its content matters here.
-  }, [cell.polygon, k, groundScale, path, painted?.paint, painted?.source[0], painted?.source[1]]);
+  }, [cell.polygon, k, groundScale, path, reach, painted?.paint, painted?.source[0], painted?.source[1]]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   // Where a tile holds water its top is a slab of jelly, a little inside the tile (or over its
   // water wedges) so a rim of shore shows.
@@ -921,6 +954,26 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
         </mesh>
       )}
     </group>
+  );
+}
+
+/** A path's stretch across water, lying on the water's surface, in the path's color and inked. */
+function PathOnWater({ outline, color, k, toWorld }: { outline: [number, number][]; color: string; k: number; toWorld: (x: number, y: number) => [number, number] }) {
+  const geometry = useMemo(() => {
+    const shape = new Shape(outline.map(([x, y]) => {
+      const [wx, wz] = toWorld(x, y);
+      return new Vector2(wx, -wz);
+    }));
+    const g = new ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: false, curveSegments: 1 });
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, [outline, k]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} position={[0, TILE_TOP + DOME * k * 1.1 + 0.01, 0]} raycast={noRaycast} castShadow>
+      {/* No ink line: round a strip this narrow it covered the strip, which read as a black bar. */}
+      <meshStandardMaterial color={color} roughness={0.85} />
+    </mesh>
   );
 }
 

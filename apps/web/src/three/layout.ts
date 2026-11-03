@@ -373,7 +373,7 @@ type ChipSizes = ReturnType<typeof chipSizes>;
  * A shared supply standing upright beside the board: its piles in rows under the header, then its
  * deck and cards two to a row, so a market runs down the table instead of across it.
  */
-function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block {
+function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidth = 0, minDepth = 0): Block {
   const title = panel.title;
   const counters = panel.counters ?? [];
   const piles = counters.filter((c) => c.resource);
@@ -400,7 +400,7 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const titleRoom = slots > 0 || piles.length > 0 ? 0 : titleW + 2;
   // A counter's chip cannot wrap, so the mat is at least as wide as the widest (a note wraps instead).
   const counterRoom = plain.length > 0 ? Math.max(...plain.map(sizes.counter)) + 2.6 : 0;
-  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, counterRoom, 14);
+  const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, counterRoom, 14, minWidth);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
   // Wrapped chips start a little way into the body, clear of the header.
@@ -412,7 +412,8 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Block 
   const pileRows = Math.ceil(piles.length / perRow);
   const pilesDepth = pileRows * pile + (pileRows > 0 && slots > 0 ? 0.6 : 0);
   const bodyDepth = Math.max(chipsDepth + pilesDepth + (rows > 0 ? rows * CARD_H + (rows - 1) * gap : 0), 2);
-  const depth = HEADER + bodyDepth + PAD;
+  // Stretched to line up with its neighbours, it keeps its content at the top.
+  const depth = Math.max(HEADER + bodyDepth + PAD, minDepth);
   return {
     width,
     depth,
@@ -610,21 +611,25 @@ function down(blocks: Block[], gap: number): Block {
  * narrowest, so the board can be drawn largest. A tall market can stand alone while two short
  * supplies share a column, one over the other. Within a column the supplies keep their order.
  */
-function columns(blocks: Block[], height: number): Block | undefined {
-  if (blocks.length === 0) return undefined;
+function columns(makers: ((minWidth: number, minDepth: number) => Block)[], height: number): Block | undefined {
+  if (makers.length === 0) return undefined;
+  const blocks = makers.map((make) => make(0, 0));
   const COLUMN_GAP = 2.5;
   const ROW_GAP = 2;
-  let best: { width: number; depth: number; groups: number[][] } | undefined;
+  const options: { width: number; depth: number; waste: number; groups: number[][] }[] = [];
   // Each grouping in turn: block i joins one of the groups so far, or starts a new one.
   const visit = (i: number, groups: number[][]) => {
     if (i === blocks.length) {
       const depths = groups.map((g) => g.reduce((sum, b) => sum + blocks[b].depth, 0) + ROW_GAP * (g.length - 1));
       // A single supply taller than the limit stands alone; groups may not exceed it.
       if (groups.some((g, k) => g.length > 1 && depths[k] > height)) return;
-      const width = groups.reduce((sum, g) => sum + Math.max(...g.map((b) => blocks[b].width)), 0) + COLUMN_GAP * (groups.length - 1);
+      const widths = groups.map((g) => Math.max(...g.map((b) => blocks[b].width)));
+      const width = widths.reduce((sum, w) => sum + w, 0) + COLUMN_GAP * (groups.length - 1);
       const depth = Math.max(...depths);
-      // Narrowest first; between equals, the shallower.
-      if (!best || width < best.width - 1e-6 || (Math.abs(width - best.width) < 1e-6 && depth < best.depth)) best = { width, depth, groups: groups.map((g) => [...g]) };
+      // Empty mat left by stretching every supply to fill the rectangle.
+      const filled = groups.reduce((sum, g) => sum + g.reduce((s2, b) => s2 + blocks[b].width * blocks[b].depth, 0), 0);
+      const waste = widths.reduce((sum, w) => sum + w * depth, 0) - filled;
+      options.push({ width, depth, waste, groups: groups.map((g) => [...g]) });
       return;
     }
     for (const g of groups) {
@@ -637,10 +642,25 @@ function columns(blocks: Block[], height: number): Block | undefined {
     groups.pop();
   };
   visit(0, []);
+  // The narrowest groupings (within a twentieth of the narrowest), and of those the one that leaves
+  // the least empty mat once stretched into a rectangle.
+  const narrowest = Math.min(...options.map((o) => o.width));
+  const best = options.filter((o) => o.width <= narrowest * 1.05 + 1e-6).sort((a, b) => a.waste - b.waste || a.width - b.width)[0];
   // Columns in the order of their first supply, so the market (usually first) stays nearest the board.
-  const groups = best!.groups.sort((a, b) => a[0] - b[0]);
+  const groups = best.groups.sort((a, b) => a[0] - b[0]);
+  // The supplies together make a rectangle: each one as wide as its column's widest, and each column
+  // as deep as the deepest, its extra depth shared among its supplies.
+  const full = best.depth;
   return across(
-    groups.map((g) => down(g.map((b) => blocks[b]), ROW_GAP)),
+    groups.map((g) => {
+      const wide = Math.max(...g.map((b) => blocks[b].width));
+      const used = g.reduce((sum, b) => sum + blocks[b].depth, 0) + ROW_GAP * (g.length - 1);
+      const extra = (full - used) / g.length;
+      return down(
+        g.map((b) => makers[b](wide, blocks[b].depth + extra)),
+        ROW_GAP,
+      );
+    }),
     COLUMN_GAP,
   );
 }
@@ -750,7 +770,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
   if (geometry) {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
     const supply = columns(
-      shared.map((p) => supplyBlock(p, input, sizes)),
+      shared.map((p) => (minWidth: number, minDepth: number) => supplyBlock(p, input, sizes, minWidth, minDepth)),
       Math.max(board.depth, 40) * (input.supplyHeight ?? 1),
     );
     middle = supply ? across([board, supply], 3) : board;

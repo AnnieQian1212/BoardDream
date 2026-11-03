@@ -24,20 +24,18 @@ export const isWaterCell = (cell: GeometryCell): boolean => (cell.terrain ? cell
  * and `tile` how much the tile it lies in fills (Board3D's TILE_SHARE), so the shore is the band
  * between them.
  */
-export function waterPolygons(cell: GeometryCell, share: number, wedge: number, tile = 0.9): Polygon[] {
+export function waterPolygons(cell: GeometryCell, share: number, wedge: number, tile = 0.9, reach = Infinity): Polygon[] {
   const n = cell.polygon.length;
   const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / n;
   const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / n;
   const corner = (i: number, f: number): [number, number] => [(cell.polygon[i % n][0] - cx) * f, (cell.polygon[i % n][1] - cy) * f];
   if (!cell.segments) {
     if (!isWaterCell(cell)) return [];
-    // An even shore all round: the tile's outline drawn in by one distance, the shore a square cell
-    // of the same narrowness would have. Scaled toward its middle instead, a long sea kept a wide
-    // shore at its ends and a thin one along its sides, like a framed pool.
-    const xs = cell.polygon.map(([x]) => x);
-    const ys = cell.polygon.map(([, y]) => y);
-    const narrow = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2;
-    const outline = cell.polygon.map(([x, y]): [number, number] => [cx + (x - cx) * tile, cy + (y - cy) * tile]);
+    // An even shore all round: inside the tile's own outline (drawn in evenly, see evenOutline) by
+    // one distance, the shore a cell of the board's usual size would have. Scaled toward its middle
+    // instead, a long sea kept a wide shore at its ends and a thin one along its sides.
+    const narrow = Math.min(inradius(cell.polygon), reach);
+    const outline = evenOutline(cell.polygon, tile, reach);
     const even = share < tile ? insetConvex(outline, narrow * (tile - share), [cx, cy]) : undefined;
     return [even ? even.map(([x, y]): [number, number] => [x - cx, y - cy]) : cell.polygon.map((_, i) => corner(i, share))];
   }
@@ -53,6 +51,66 @@ export function waterPolygons(cell: GeometryCell, share: number, wedge: number, 
     fans[fans.length - 1].push(corner(i + 1, wedge));
   }
   return fans;
+}
+
+/** The shortest distance from a polygon's middle to its sides. */
+export function inradius(polygon: [number, number][]): number {
+  const n = polygon.length;
+  const cx = polygon.reduce((sum, [x]) => sum + x, 0) / n;
+  const cy = polygon.reduce((sum, [, y]) => sum + y, 0) / n;
+  let best = Infinity;
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = polygon[i];
+    const [bx, by] = polygon[(i + 1) % n];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (len < 1e-9) continue;
+    best = Math.min(best, Math.abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) / len);
+  }
+  return Number.isFinite(best) ? best : 0;
+}
+
+/**
+ * A tile's outline: its cell drawn in by the same distance on every side, the gap a cell of the
+ * board's usual size (`reach`, its inradius) leaves at `share`. For a regular cell this is the cell
+ * scaled by `share`; a long cell (a sea along the board's edge) no longer leaves a wide gap at its
+ * ends. A cell that is not convex is scaled as before.
+ */
+export function evenOutline(polygon: [number, number][], share: number, reach = Infinity): [number, number][] {
+  const n = polygon.length;
+  const cx = polygon.reduce((sum, [x]) => sum + x, 0) / n;
+  const cy = polygon.reduce((sum, [, y]) => sum + y, 0) / n;
+  const d = (1 - share) * Math.min(inradius(polygon), reach);
+  return insetConvex(polygon, d, [cx, cy]) ?? polygon.map(([x, y]): [number, number] => [cx + (x - cx) * share, cy + (y - cy) * share]);
+}
+
+/** The part of `subject` inside the convex `clip` (Sutherland-Hodgman); empty when they do not meet. */
+export function clipConvex(subject: [number, number][], clip: [number, number][]): [number, number][] {
+  const n = clip.length;
+  const cx = clip.reduce((sum, [x]) => sum + x, 0) / n;
+  const cy = clip.reduce((sum, [, y]) => sum + y, 0) / n;
+  let out = subject;
+  for (let i = 0; i < n && out.length > 0; i++) {
+    const [ax, ay] = clip[i];
+    const [bx, by] = clip[(i + 1) % n];
+    const side = (x: number, y: number) => (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+    const inner = Math.sign(side(cx, cy)) || 1;
+    const inside = (p: [number, number]) => side(p[0], p[1]) * inner >= -1e-9;
+    const cross = (p: [number, number], q: [number, number]): [number, number] => {
+      const t = side(p[0], p[1]) / (side(p[0], p[1]) - side(q[0], q[1]));
+      return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+    };
+    const next: [number, number][] = [];
+    for (let j = 0; j < out.length; j++) {
+      const p = out[j];
+      const q = out[(j + 1) % out.length];
+      if (inside(p)) {
+        next.push(p);
+        if (!inside(q)) next.push(cross(p, q));
+      } else if (inside(q)) next.push(cross(p, q));
+    }
+    out = next;
+  }
+  return out;
 }
 
 /**

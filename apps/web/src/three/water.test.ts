@@ -1,6 +1,6 @@
 import type { GeometryCell } from "@boarddream/engine";
 import { describe, expect, it, test } from "vitest";
-import { insetConvex, isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
+import { clipConvex, insetConvex, isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
 
 const square = (x: number, z: number, size: number): [number, number][] => [
   [x, z],
@@ -111,15 +111,24 @@ describe("WaterGrid", () => {
 describe("an even shore", () => {
   test("a long sea is drawn in by the same distance on every side", () => {
     const sea = { id: "sea", kind: "sea", polygon: [[0, 0], [20, 0], [20, 4], [0, 4]] as [number, number][] };
-    // The tile fills 0.9 of the cell; the water lies an even shore inside the tile.
+    // The tile is the cell drawn in evenly (by a tenth of its inradius, 2); the water an even shore inside it.
     const [pool] = waterPolygons(sea, 0.86, 0.75, 0.9);
-    const shore = 2 * (0.9 - 0.86);
+    const edge = 2 * 0.1 + 2 * (0.9 - 0.86);
     const xs = pool.map(([x]) => x);
     const ys = pool.map(([, y]) => y);
-    expect(10 * 0.9 - Math.max(...xs)).toBeCloseTo(shore);
-    expect(Math.min(...xs) + 10 * 0.9).toBeCloseTo(shore);
-    expect(2 * 0.9 - Math.max(...ys)).toBeCloseTo(shore);
-    expect(Math.min(...ys) + 2 * 0.9).toBeCloseTo(shore);
+    expect(10 - Math.max(...xs)).toBeCloseTo(edge);
+    expect(Math.min(...xs) + 10).toBeCloseTo(edge);
+    expect(2 - Math.max(...ys)).toBeCloseTo(edge);
+    expect(Math.min(...ys) + 2).toBeCloseTo(edge);
+  });
+
+  test("a path is clipped to the part that crosses the water", () => {
+    const water: [number, number][] = [[0, 0], [10, 0], [10, 4], [0, 4]];
+    const path: [number, number][] = [[-2, 1.8], [5, 1.8], [5, 2.2], [-2, 2.2]];
+    const part = clipConvex(path, water);
+    expect(Math.min(...part.map(([x]) => x))).toBeCloseTo(0);
+    expect(Math.max(...part.map(([x]) => x))).toBeCloseTo(5);
+    expect(clipConvex([[20, 20], [21, 20], [21, 21]], water)).toEqual([]);
   });
 
   test("an outline that is not convex, or too small, is left to the scaled one", () => {
