@@ -150,6 +150,11 @@ export interface LayoutInput {
    * balanced, as players sit round a real one.
    */
   arrangement?: Arrangement;
+  /**
+   * How tall the supplies' columns beside the board may be, as a share of the board's depth: taller
+   * columns make the table narrower and its board larger on a wide screen, deeper on a tall one.
+   */
+  supplyHeight?: number;
 }
 
 const IDENTITY: Quat = [0, 0, 0, 1];
@@ -599,23 +604,44 @@ function down(blocks: Block[], gap: number): Block {
  * Upright mats in as few columns as keep each no taller than `height`, unless one alone is. A
  * height or depth that is not a number starts a column per mat rather than failing.
  */
+/**
+ * The shared supplies beside the board, grouped into columns no taller than `height`: of every way to
+ * group them (there are a handful of supplies, so a few dozen ways), the one that leaves the table
+ * narrowest, so the board can be drawn largest. A tall market can stand alone while two short
+ * supplies share a column, one over the other. Within a column the supplies keep their order.
+ */
 function columns(blocks: Block[], height: number): Block | undefined {
   if (blocks.length === 0) return undefined;
-  const columns: Block[][] = [];
-  let used = 0;
-  for (const block of blocks) {
-    const column = columns.at(-1);
-    if (column && used + 2 + block.depth <= height) {
-      column.push(block);
-      used += 2 + block.depth;
-    } else {
-      columns.push([block]);
-      used = block.depth;
+  const COLUMN_GAP = 2.5;
+  const ROW_GAP = 2;
+  let best: { width: number; depth: number; groups: number[][] } | undefined;
+  // Each grouping in turn: block i joins one of the groups so far, or starts a new one.
+  const visit = (i: number, groups: number[][]) => {
+    if (i === blocks.length) {
+      const depths = groups.map((g) => g.reduce((sum, b) => sum + blocks[b].depth, 0) + ROW_GAP * (g.length - 1));
+      // A single supply taller than the limit stands alone; groups may not exceed it.
+      if (groups.some((g, k) => g.length > 1 && depths[k] > height)) return;
+      const width = groups.reduce((sum, g) => sum + Math.max(...g.map((b) => blocks[b].width)), 0) + COLUMN_GAP * (groups.length - 1);
+      const depth = Math.max(...depths);
+      // Narrowest first; between equals, the shallower.
+      if (!best || width < best.width - 1e-6 || (Math.abs(width - best.width) < 1e-6 && depth < best.depth)) best = { width, depth, groups: groups.map((g) => [...g]) };
+      return;
     }
-  }
+    for (const g of groups) {
+      g.push(i);
+      visit(i + 1, groups);
+      g.pop();
+    }
+    groups.push([i]);
+    visit(i + 1, groups);
+    groups.pop();
+  };
+  visit(0, []);
+  // Columns in the order of their first supply, so the market (usually first) stays nearest the board.
+  const groups = best!.groups.sort((a, b) => a[0] - b[0]);
   return across(
-    columns.map((column) => down(column, 2)),
-    2.5,
+    groups.map((g) => down(g.map((b) => blocks[b]), ROW_GAP)),
+    COLUMN_GAP,
   );
 }
 
@@ -658,6 +684,15 @@ export function fitTable(
   previous: Arrangement = "sides",
 ): FittedTable {
   const { width, height, insets } = screen;
+  // The supplies' column height that draws the table, and so its board, largest on this screen. The
+  // board is a fixed size on the table, so the larger the table's scale, the larger the board.
+  let supplyHeight = 1;
+  let best = -1;
+  for (const option of [1, 1.35, 1.75]) {
+    const s = tableScale(layoutTable({ ...input, arrangement: previous === "stack" ? "stack" : "sides", supplyHeight: option }), width, height, insets);
+    if (Number.isFinite(s) && s > best * 1.03) [best, supplyHeight] = [s, option];
+  }
+  input = { ...input, supplyHeight };
   const scaleOf = (arrangement: Arrangement) => tableScale(layoutTable({ ...input, arrangement }), width, height, insets);
   const tall = height > width * 1.15;
   const offered: Arrangement[] = ["sides", ...(tall ? (["stack"] as const) : [])];
@@ -716,7 +751,7 @@ export function layoutTable(input: LayoutInput): TableLayout {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
     const supply = columns(
       shared.map((p) => supplyBlock(p, input, sizes)),
-      Math.max(board.depth, 40),
+      Math.max(board.depth, 40) * (input.supplyHeight ?? 1),
     );
     middle = supply ? across([board, supply], 3) : board;
   } else if (shared.length > 0) {
