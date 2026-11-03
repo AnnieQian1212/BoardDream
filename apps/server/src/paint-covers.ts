@@ -1,6 +1,7 @@
 // Paints a box cover (Muse Image) for every game that has none: the reference games and the games
-// saved under data/games. The reference games' covers are then copied into the web app
-// (apps/web/public/covers), so a static deployment with no server shows them too. Muse Image paints
+// saved under data/games. The covers of the games the web app offers without a server, the demo
+// games BoardDream made (apps/web/src/demo-games) and the hand-made games, are then copied into it
+// (apps/web/public/covers), so a static deployment shows them too. Muse Image paints
 // at 1920x1280 whatever size is asked for; the copies shipped there were then scaled to 960 px wide
 // (about 170 KB each) with an image tool, which is worth redoing after a repaint: only a cover
 // painted in this run, or one not shipped yet, replaces the shipped copy.
@@ -8,7 +9,7 @@
 //   npm run covers                  paint what is missing, then bundle
 //   npm run covers -- lantern-isles paint only these games (repainting them), then bundle
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { demoGames, referenceGames } from "@boarddream/library";
+import { handMadeGames, referenceGames } from "@boarddream/library";
 import { coverFile, paintCover, type CoverRequest } from "./art/cover";
 import { config } from "./config";
 import { ModelClient } from "./meta/client";
@@ -16,6 +17,7 @@ import { listGames } from "./store";
 
 const ART = new URL("../../../data/art/", import.meta.url);
 const BUNDLE = new URL("../../web/public/covers/", import.meta.url);
+const DEMO_GAMES = new URL("../../web/src/demo-games/index.json", import.meta.url);
 const CONCURRENCY = 3;
 
 if (!config.meta.apiKey) {
@@ -50,17 +52,20 @@ await Promise.all(
   }),
 );
 
-// The demo games' covers ship with the web app.
+// The covers of the games that ship with the web app go with it. A demo game this machine has no
+// cover for keeps the copy already shipped.
+const demos = existsSync(DEMO_GAMES) ? (JSON.parse(readFileSync(DEMO_GAMES, "utf8")) as { id: string }[]).map((g) => g.id) : [];
+const shipped = [...demos, ...handMadeGames.map((g) => g.meta.id)];
 mkdirSync(BUNDLE, { recursive: true });
 const INDEX = new URL("index.json", BUNDLE);
 const index = (existsSync(INDEX) ? JSON.parse(readFileSync(INDEX, "utf8")) : {}) as Record<string, string>;
-for (const old of Object.keys(index).filter((id) => !demoGames.some((g) => g.meta.id === id))) delete index[old];
-for (const game of demoGames) {
-  const file = coverFile(game.meta.id);
+for (const old of Object.keys(index).filter((id) => !shipped.includes(id))) delete index[old];
+for (const id of shipped) {
+  const file = coverFile(id);
   if (!file) continue;
-  const name = `${game.meta.id}.${file.split(".").pop()}`;
-  if (painted.has(game.meta.id) || !existsSync(new URL(name, BUNDLE))) copyFileSync(new URL(`${game.meta.id}/${file}`, ART), new URL(name, BUNDLE));
-  index[game.meta.id] = name;
+  const name = `${id}.${file.split(".").pop()}`;
+  if (painted.has(id) || !existsSync(new URL(name, BUNDLE))) copyFileSync(new URL(`${id}/${file}`, ART), new URL(name, BUNDLE));
+  index[id] = name;
 }
 writeFileSync(INDEX, JSON.stringify(index, null, 2) + "\n");
-console.log(`bundled ${Object.keys(index).length} demo game covers`);
+console.log(`bundled ${Object.keys(index).length} covers`);

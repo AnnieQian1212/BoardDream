@@ -36,60 +36,73 @@ export const gameOrigin = (game: GameModule) => origins.get(game);
 export const rememberOrigin = (game: GameModule, origin: GameOrigin) => void origins.set(game, origin);
 
 /**
- * One game by its id, wherever it lives: the library, the server's saved games, or those bundled
- * with the web app. For a table shared with friends, which names its game by id.
+ * The demo games: the best games BoardDream made, bundled with the web app (src/demo-games, written
+ * by `npm run demo:games`) so they are on offer at once, with or without a server. In the bundle's
+ * order, best first. A game that no longer loads, e.g. after an engine change, is left out.
  */
-export async function gameById(id: string): Promise<GameModule | undefined> {
-  const library = referenceGames.find((g) => g.meta.id === id);
-  if (library) return library;
-  const bundled = `${import.meta.env.BASE_URL}demo-games/`;
-  const places = [
-    { list: "/api/games", url: (game: string) => `/api/games/${game}` },
-    { list: `${bundled}index.json`, url: (game: string) => `${bundled}${game}.js` },
-  ];
-  for (const place of places) {
-    try {
-      const res = await fetch(place.list);
-      if (!res.ok) continue;
-      const entry = ((await res.json()) as SavedGame[]).find((g) => g.id === id);
-      if (!entry) continue;
-      const source = await fetch(place.url(id));
-      if (!source.ok) continue;
-      const game = loadGeneratedGame(await source.text(), id, entry.rules, entry.title);
-      origins.set(game, { createdAt: entry.createdAt, idea: entry.idea });
-      return game;
-    } catch {
-      // Try the next place.
-    }
-  }
-  return undefined;
-}
+const BUNDLE = import.meta.glob<string>("./demo-games/*", { query: "?raw", import: "default", eager: true });
+let demos: GameModule[] | undefined;
 
-/**
- * Games generated earlier: those bundled with the web app (public/demo-games, so a static deploy
- * has some) and those the server saved, when one is running. A game that no longer loads, e.g.
- * after an engine change, is left out.
- */
-export async function savedGames(): Promise<GameModule[]> {
-  const fetchList = async (url: string): Promise<SavedGame[]> => {
+export function demoGames(): GameModule[] {
+  if (demos) return demos;
+  const index = JSON.parse(BUNDLE["./demo-games/index.json"] ?? "[]") as SavedGame[];
+  demos = index.flatMap(({ id, title, rules, createdAt, idea }) => {
+    const source = BUNDLE[`./demo-games/${id}.js`];
+    if (source === undefined) return [];
     try {
-      const res = await fetch(url);
-      return res.ok ? ((await res.json()) as SavedGame[]) : [];
+      const game = loadGeneratedGame(source, id, rules, title);
+      origins.set(game, { createdAt, idea });
+      return [game];
     } catch {
       return [];
     }
-  };
-  const bundled = `${import.meta.env.BASE_URL}demo-games/`;
-  const sources = [
-    ...(await fetchList(`${bundled}index.json`)).map((game) => ({ ...game, url: `${bundled}${game.id}.js` })),
-    ...(await fetchList("/api/games")).map((game) => ({ ...game, url: `/api/games/${game.id}` })),
-  ];
+  });
+  return demos;
+}
+
+/** Whether a game is one of the demo games. */
+export const isDemoGame = (game: GameModule) => demoGames().includes(game);
+
+/**
+ * One game by its id, wherever it lives: the library, the demo games, or the server's saved games.
+ * For a table shared with friends, which names its game by id.
+ */
+export async function gameById(id: string): Promise<GameModule | undefined> {
+  const known = [...referenceGames, ...demoGames()].find((g) => g.meta.id === id);
+  if (known) return known;
+  try {
+    const res = await fetch("/api/games");
+    if (!res.ok) return undefined;
+    const entry = ((await res.json()) as SavedGame[]).find((g) => g.id === id);
+    if (!entry) return undefined;
+    const source = await fetch(`/api/games/${id}`);
+    if (!source.ok) return undefined;
+    const game = loadGeneratedGame(await source.text(), id, entry.rules, entry.title);
+    origins.set(game, { createdAt: entry.createdAt, idea: entry.idea });
+    return game;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The games the server saved, when one is running, other than the demo games (the server that made
+ * a demo game keeps it too). A game that no longer loads, e.g. after an engine change, is left out.
+ */
+export async function savedGames(): Promise<GameModule[]> {
+  let listed: SavedGame[] = [];
+  try {
+    const res = await fetch("/api/games");
+    if (res.ok) listed = (await res.json()) as SavedGame[];
+  } catch {
+    // No server: the static demo has only its demo games.
+  }
   const hidden = hiddenGames();
   const games: GameModule[] = [];
-  for (const { id, title, rules, url, createdAt, idea } of sources) {
-    if (hidden.has(id) || games.some((g) => g.meta.id === id)) continue;
+  for (const { id, title, rules, createdAt, idea } of listed) {
+    if (hidden.has(id) || games.some((g) => g.meta.id === id) || demoGames().some((g) => g.meta.id === id)) continue;
     try {
-      const res = await fetch(url);
+      const res = await fetch(`/api/games/${id}`);
       if (!res.ok) continue;
       const game = loadGeneratedGame(await res.text(), id, rules, title);
       origins.set(game, { createdAt, idea });
@@ -115,8 +128,7 @@ function hiddenGames(): Set<string> {
 
 /**
  * Deletes a generated game: the server moves its files aside, and this browser stops listing it,
- * which is all that happens where the server keeps it (the public demo) or there is no server (a
- * game bundled with a static deploy).
+ * which is all that happens where the server keeps it (the public demo).
  */
 export async function deleteGeneratedGame(id: string): Promise<void> {
   try {

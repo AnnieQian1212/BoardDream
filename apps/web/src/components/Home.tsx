@@ -1,6 +1,6 @@
 import type { GameModule } from "@boarddream/engine";
 import { ArrowRight, BarChart3, LayoutGrid, Loader2, Play } from "lucide-react";
-import { gameOrigin, generatedSource } from "../generated";
+import { gameOrigin, generatedSource, isDemoGame } from "../generated";
 import { splitVersion } from "../names";
 import type { Dials, Effort } from "../generation";
 import { AccountButton } from "./Account";
@@ -11,16 +11,10 @@ import { GameCover } from "./GameCover";
 
 const MODES: Record<string, string> = { competitive: "Versus", cooperative: "Co-op", "hidden-role": "Hidden role" };
 /**
- * The shelf is one row: the four hand-made games and the newest generated one. The rest are a
- * click away in Games.
+ * The shelf is one row: the demo games, best first (a visitor's first look should be the table at
+ * its richest), and the newest game made here. The rest are a click away in Games.
  */
 const RECENT = 1;
-/** The hand-made games, best first: a visitor's first look should be the table at its richest. */
-const SHELF_ORDER = ["lantern-isles", "highsail", "wildmere", "fenlight"];
-const shelfRank = (game: GameModule) => {
-  const rank = SHELF_ORDER.indexOf(game.meta.id);
-  return rank < 0 ? SHELF_ORDER.length : rank;
-};
 
 interface Props {
   games: GameModule[];
@@ -46,9 +40,9 @@ interface Props {
  * deal into straight away. Everything about how games are tested lives behind the scenes.
  */
 export function Home({ games, covers, available, making, onGenerate, onPlay, onWatch, onLibrary, onResults, accounts, again }: Props) {
-  const demos = games.filter((g) => !generatedSource(g)).sort((a, b) => shelfRank(a) - shelfRank(b));
+  const demos = games.filter(isDemoGame);
   const recent = games
-    .filter((g) => generatedSource(g))
+    .filter((g) => generatedSource(g) && !isDemoGame(g))
     .map((g, i) => ({ g, i, at: gameOrigin(g)?.createdAt ?? "" }))
     .sort((a, b) => b.at.localeCompare(a.at) || b.i - a.i)
     .slice(0, RECENT)

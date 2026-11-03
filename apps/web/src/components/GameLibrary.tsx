@@ -3,7 +3,7 @@ import { Info, Play, Star, Trash2, X } from "lucide-react";
 import { useId, useState } from "react";
 import { useEscape } from "../escape";
 import { toggleFavorite, useFavorites } from "../favorites";
-import { gameOrigin, generatedSource } from "../generated";
+import { gameOrigin, generatedSource, isDemoGame } from "../generated";
 import { splitVersion } from "../names";
 import { GameCover } from "./GameCover";
 
@@ -18,10 +18,7 @@ interface Props {
   current?: GameModule;
   /** No other game can be opened while one is being made. */
   busy: boolean;
-  /**
-   * Whether games can be made here. Without a server that makes them (the static demo), the
-   * generated games are ones BoardDream made earlier and shipped with the page, not the visitor's.
-   */
+  /** Whether games can be made here: not on the static demo, which has no server to make them. */
   canMake: boolean;
   onPlay(game: GameModule): void;
   onDelete(game: GameModule): void;
@@ -29,18 +26,21 @@ interface Props {
 }
 
 /**
- * Every game on offer on one page: the original demo games, then the games generated here, newest
- * first, each with its box cover, a button to play it and, for a generated game, one to delete it.
+ * Every game on offer on one page: the demo games (the best BoardDream made, shipped with the app),
+ * the games generated here, newest first, and the hand-made games, each with its box cover, a
+ * button to play it and, for a game generated here, one to delete it.
  */
 export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onDelete, onClose }: Props) {
   useEscape(onClose);
   const favorites = useFavorites();
-  const demos = games.filter((g) => !generatedSource(g));
+  const demos = games.filter(isDemoGame);
+  const own = (g: GameModule) => Boolean(generatedSource(g)) && !isDemoGame(g);
   const made = games
-    .filter((g) => generatedSource(g))
+    .filter(own)
     .map((g, i) => ({ g, i, at: gameOrigin(g)?.createdAt ?? "" }))
     .sort((a, b) => b.at.localeCompare(a.at) || b.i - a.i)
     .map(({ g }) => g);
+  const handMade = games.filter((g) => !generatedSource(g));
   const card = (g: GameModule) => (
     <GameCard
       key={g.meta.id}
@@ -49,8 +49,8 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
       playing={g === current}
       busy={busy}
       onPlay={() => onPlay(g)}
-      onDelete={canMake && generatedSource(g) ? () => onDelete(g) : undefined}
-      favorite={generatedSource(g) ? favorites.has(g.meta.id) : undefined}
+      onDelete={canMake && own(g) ? () => onDelete(g) : undefined}
+      favorite={own(g) ? favorites.has(g.meta.id) : undefined}
     />
   );
   // Starred games get their own group at the top of the generated ones.
@@ -66,7 +66,7 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
           </button>
         </header>
         <section>
-          <GroupHeading title="Demo games" tip="Original games we designed by hand." />
+          <GroupHeading title="Demo games" tip="The best games BoardDream has made, each from an idea in a few lines." />
           <div className="library-grid">{demos.map(card)}</div>
         </section>
         {starred.length > 0 && (
@@ -75,24 +75,24 @@ export function GameLibrary({ games, covers, current, busy, canMake, onPlay, onD
             <div className="library-grid">{starred.map(card)}</div>
           </section>
         )}
-        <section>
-          <GroupHeading
-            title={canMake ? "Your generated games" : "Made by BoardDream"}
-            count={rest.length}
-            tip={
-              canMake
-                ? "Games you dreamed up here."
-                : "Games BoardDream made from a one-line idea."
-            }
-          />
-          {rest.length > 0 ? (
-            <div className="library-grid">{rest.map(card)}</div>
-          ) : made.length > 0 ? (
-            <p className="hint">Every game here is in your favorites.</p>
-          ) : (
-            <p className="hint">{canMake ? "Games you dream up on the home page appear here." : "Games made with the full server appear here."}</p>
-          )}
-        </section>
+        {(canMake || made.length > 0) && (
+          <section>
+            <GroupHeading title="Your generated games" count={rest.length} tip="Games you dreamed up here." />
+            {rest.length > 0 ? (
+              <div className="library-grid">{rest.map(card)}</div>
+            ) : made.length > 0 ? (
+              <p className="hint">Every game here is in your favorites.</p>
+            ) : (
+              <p className="hint">Games you dream up on the home page appear here.</p>
+            )}
+          </section>
+        )}
+        {handMade.length > 0 && (
+          <section>
+            <GroupHeading title="Hand-made games" tip="Original games we designed by hand. BoardDream builds on them when it designs a new game." />
+            <div className="library-grid">{handMade.map(card)}</div>
+          </section>
+        )}
       </div>
     </div>
   );

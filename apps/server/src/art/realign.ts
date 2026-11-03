@@ -4,7 +4,7 @@
 //   npx tsx apps/server/src/art/realign.ts [--dry] [game ...]
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRng, fitBounds, resolveParams, sampleSeats, type GameModule, type Geometry } from "@boarddream/engine";
-import { demoGames, fixtureGames, referenceGames } from "@boarddream/library";
+import { fixtureGames, referenceGames } from "@boarddream/library";
 import { loadGameFromSource } from "../sandbox";
 import { lineUp, type BoardReport } from "./board";
 
@@ -13,7 +13,7 @@ const GAMES = new URL("../../../../data/games/", import.meta.url);
 const args = process.argv.slice(2);
 const dry = args.includes("--dry");
 const games = args.filter((a) => a !== "--dry");
-const library = new Map([...demoGames, ...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g]));
+const library = new Map([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g]));
 
 /** The game's board as it is first laid out, as the web sends it to be painted (startingGeometry in apps/web/src/art.ts). */
 function geometryOf(id: string): Geometry | undefined {

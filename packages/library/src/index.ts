@@ -41,11 +41,11 @@ export { fenlight, glasshouse, hexGame, highsail, iDoubtIt, lanternIsles, liarsD
 export const referenceGames: GameModule[] = [glasshouse, lanternIsles, highsail, wildmere, fenlight];
 
 /**
- * The hand-made games the app offers. Glasshouse, the first and plainest (players barely touch
- * each other and nothing sits on the table but cards), stays a reference game for tests and
- * retrieval but is not offered.
+ * The hand-made games the app offers, below the demo games BoardDream made (apps/web/src/demo-games).
+ * Glasshouse, the first and plainest (players barely touch each other and nothing sits on the
+ * table but cards), stays a reference game for tests and retrieval but is not offered.
  */
-export const demoGames: GameModule[] = [lanternIsles, highsail, wildmere, fenlight];
+export const handMadeGames: GameModule[] = [lanternIsles, highsail, wildmere, fenlight];
 
 /**
  * Small classic games that exercise engine features (grids, dice, tracks, hidden hands, bluffing,

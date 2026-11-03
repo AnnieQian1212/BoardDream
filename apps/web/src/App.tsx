@@ -1,5 +1,5 @@
 import { resolveParams, sampleSeats, type BalanceStats, type GameModule, type GameProfile, type Params } from "@boarddream/engine";
-import { demoGames } from "@boarddream/library";
+import { handMadeGames } from "@boarddream/library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collectCards, startingGeometry, useArt } from "./art";
 import { ArtPanel } from "./components/ArtPanel";
@@ -24,7 +24,7 @@ import { SignInDialog } from "./components/Account";
 import { useCovers } from "./covers";
 import { openTable } from "./room";
 import { useEscape } from "./escape";
-import { deleteGeneratedGame, generatedSource, savedGames } from "./generated";
+import { deleteGeneratedGame, demoGames, generatedSource, isDemoGame, savedGames } from "./generated";
 import { useGeneration, type Dials, type Effort } from "./generation";
 import { pageAddress, pageAt } from "./pages";
 import { prefs } from "./prefs";
@@ -61,10 +61,11 @@ const TOP_INSET = 66;
 const GUIDE_INSET = 112;
 const BOTTOM_INSET = 92;
 
-/** The game on the table until another is picked: one with a painted board, the table at its best. */
-const FIRST_GAME = "lantern-isles";
-const firstGame = demoGames.find((g) => g.meta.id === FIRST_GAME) ?? demoGames[0];
-const initialGame = demoGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
+/** The games on offer at once, before the server lists its own: the demo games BoardDream made, then the hand-made ones. */
+const readyGames = [...demoGames(), ...handMadeGames];
+/** The game on the table until another is picked: the first demo game, the best of them. */
+const firstGame = readyGames[0];
+const initialGame = readyGames.find((g) => g.meta.id === query.get("game")) ?? firstGame;
 /** A link to a game, or bots playing one, opens at the table; anything else at home. */
 const START_AT_TABLE = query.has("game") || WATCH;
 /** How long bots wait after a battle for the table to play it out; the flat table, and reduced motion, show none. */
@@ -88,7 +89,7 @@ const defaultPlayers = (game: GameModule) =>
     : game.meta.minPlayers;
 
 export function App() {
-  const [games, setGames] = useState<GameModule[]>(demoGames);
+  const [games, setGames] = useState<GameModule[]>(readyGames);
   const [game, setGame] = useState<GameModule>(initialGame);
   const [numPlayers, setNumPlayers] = useState(() => defaultPlayers(initialGame));
   const [params, setParams] = useState<Params>(() => resolveParams(initialGame.params));
@@ -156,8 +157,7 @@ export function App() {
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
   // Painted box covers, asked for again whenever the shelf is looked at.
   const covers = useCovers(`${games.length}|${screen}|${library}`);
-  // Games generated earlier (bundled demo games, and the server's when one runs) join the picker;
-  // ?game=<id> can open one of them.
+  // The games the server saved, when one runs, join the picker; ?game=<id> can open one of them.
   useEffect(() => {
     let cancelled = false;
     void savedGames().then((loaded) => {
@@ -473,7 +473,7 @@ export function App() {
 
       <TopBar
         game={game}
-        generated={Boolean(generatedSource(game))}
+        generated={Boolean(generatedSource(game)) && !isDemoGame(game)}
         making={making}
         designerOpen={drawerOpen}
         opponentModel={opponentModel}

@@ -1,0 +1,75 @@
+[
+  {
+    "id": "tidehearth-mw0zl535",
+    "title": "Tidehearth",
+    "rules": [
+      "Lay the 27 isle and lagoon hexes into Mallow, Nettle and Wren atolls around Honeymilk, Firefly and Wrenwater lagoons and set out 3 cove wish boards with 2 tide cards face up on the forecast pier.",
+      "Each family sets 2 reed villages on open shore corners at least two corners from any other village with 1 braided footbridge leading from each and takes 1 driftwood, 1 pandan and 1 coconut for housewarming tea.",
+      "On your turn pick 1 of the 2 forecast tide cards to be today's tide, put the other under the tide deck and flip a new forecast card so neighbors can plan around what is coming.",
+      "Everyone with a village touching a hex of the named terrain gathers that bounty, towns on those corners gather double, and any of your villages touching one of your lit lantern lagoons also shells one extra coconut with thanks.",
+      "If you hold more than 9 bounties after gathering give the extra to the gull bank with a crumb, keeping your basket tidy.",
+      "On your own turn you may trade freely, swapping 3 of one bounty to the bank for 1 of any you need or swapping 1 for 1 with willing neighbors over friendly haggling.",
+      "Then take up to 2 builds in any order: lay a footbridge for 1 driftwood plus 1 pandan along an empty shore edge from your own network, raise a village for 1 driftwood plus 1 pandan plus 1 coconut on an open corner joined to your footbridge, turn a village into a whitewashed town for 2 coconut plus 2 pearl, moor a firefly lantern for 1 driftwood plus 1 coconut plus 1 pearl, or invite a hearth keepsake for 1 pandan plus 1 pearl.",
+      "Moor lanterns only on empty moorings around lagoon hexes for 1 point each, and whoever tends the most lanterns around each named lagoon holds its warm glow for 2 extra points until someone passes them.",
+      "Hearth keepsakes are 24 different neighbors like Hammock Auntie who makes footbridges cheaper and Turtle Nap who pays when Turtle-tag friends arrive, and Gull, Turtle, Hibiscus and Moon tags count together so playing them in the right order builds cozy combos worth hearth points.",
+      "Villages are worth 1 hearth point and towns are worth 2, and the 3 coves each promise 2 points to the first family to settle its wish such as homes on two atolls or two lanterns beside a town.",
+      "At the end of your turn if you hold 10 hearth points from villages, towns, lanterns, lagoon glows, coves and keepsakes you share honey tea and win at once."
+    ],
+    "createdAt": "2026-11-03T17:53:37.793Z",
+    "idea": "Settle an archipelago of hex islands ringed by water tiles. Villages sit on tile corners and roads run along edges from your own network. Each turn a tide card names a terrain, and every village beside a tile of it gathers that resource (towns gather double). Trade three-for-one with the bank or one-for-one with other players, upgrade villages to towns, and light lanterns on the lagoons. Named islands, coves and lagoons; first to the target score wins."
+  },
+  {
+    "id": "cloudwaft-harbor-mw0zp3es",
+    "title": "Cloudwaft Harbor",
+    "rules": [
+      "Lay out the five island ledges and deal four charter scrolls face up beside the deck.",
+      "Each captain starts with 3 squeak-crew, 2 timber, 1 crystal, 1 fuel, 3 coins and 2 hidden scrolls.",
+      "Play 6 rounds each with income then placements: first collect coins from every Survey scroll you have launched, then starting with the Admiral take turns posting one crew to an empty berth until all crews are placed.",
+      "Timber Barge gives 3 timber, Scree Lift gives 2 crystal, Siphon Buoy gives 2 fuel, and Toll Booth gives 4 coins plus 1 coin for each Survey you have launched.",
+      "Charter Office lets you draw 2 scrolls and keep 1 and discard the other, while never holding more than 4 unlaunched scrolls in hand.",
+      "Shipyard Slip lets you launch 1 scroll from hand by paying its timber crystal and fuel cost, then gain its printed sails at once, plant your outpost kite on its named island and use its launch power.",
+      "Launched Surveys stay whirring for coins every round, Couriers give instant coins and make your next launch 1 timber cheaper for each Courier you already fly, and Envoys give no income but score sails at the end for tags and islands you own.",
+      "Crew Mess lets you hire one extra squeak-crew for 3 coins up to 5 crew total or take 3 coins if you are full, and Admiralty Perch takes the teacup for first play next round plus 2 coins or a peek at the top 2 scrolls to keep 1.",
+      "After round 3 and after the final round hold a census: on each island the captain with the most kites gains 6 coins, and an outright leader with no tie also gains 3 sails.",
+      "After the final census score all Envoys, turn every leftover 3 coins into 1 sail, and the captain with the most sails wins with coins breaking ties."
+    ],
+    "createdAt": "2026-11-03T17:56:42.244Z",
+    "idea": "Airship crews at a skyport above five sky islands. Each round players take turns sending one crew member to an open action space; a taken space is blocked until the next round. Gather timber, crystal, fuel and coins, take charters and launch them at the shipyard: a launched charter scores and puts an outpost on its island. Survey charters pay income every round, envoy charters score at the end, and each island pays its most outposts after the middle round and the last. Recruit more crew; taking the admiralty makes you first next round."
+  },
+  {
+    "id": "saffron-wake-mw0415eq",
+    "title": "Saffron Wake",
+    "rules": [
+      "Set out 12 harbors in three bays of four and seed each harbor with its spice supply and price marker.",
+      "Each merchant takes 2 dhows, 8 guild houses, 5 coins, 2 saffron and 1 clove.",
+      "Shuffle the 28 voyage charts, lay 4 face up as the market, and lay 3 commission contracts face up.",
+      "Play 6 rounds, and in each round in turn order each merchant takes 3 turns.",
+      "On a turn sail one dhow up to 2 routes, then take one harbor action: Trade, Found, Chart or Fulfill.",
+      "Trade lets you buy or sell up to 3 spices at the harbor price, and each sale raises that price while each purchase lowers it.",
+      "Found lets you spend 2 matching spices plus 4 coins to place a guild house in your dhow harbor for 2 ledger points and its bay income each round.",
+      "Chart lets you pay coins to take one face-up chart into a hand of at most 5 and then play one chart, such as Pilot giving extra sails for Guild tags, Broker discounting Found for each Sail tag, and Factor paying coins for each Coin tag played before it.",
+      "Fulfill lets you discard the spices shown on an open contract if you own a guild house in its named bay to score 4 to 7 ledger points and coins, then refill the contract.",
+      "Each harbor holds at most 3 dhows total and only 1 guild house, so your house blocks rivals from that harbor and gives you trade discounts there.",
+      "After 6 rounds the game ends and the merchant with the most ledger points wins."
+    ],
+    "createdAt": "2026-11-03T03:10:16.994Z",
+    "idea": "Spice merchants chart voyages between distant ports, trade cargo and found guild houses along the coast."
+  },
+  {
+    "id": "fogfall-lanterns-mw0zerzb",
+    "title": "Fogfall Lanterns",
+    "rules": [
+      "Deal two secret wisp shrouds that know each other and keeper shrouds to the rest; keep shrouds hidden until exile.",
+      "Set 5 lanterns along the causeway and moor 5 boats; give each player 3 oil and 2 whisper veils from the 24 whisper deck.",
+      "Each night everyone secretly picks one of the 5 lanterns and one deed: Tend for 1 oil, Slip Away to watch one named player, or Snuff, which only a wisp can pick.",
+      "A lantern with Tend and no Snuff stays truly lit; a lantern with Snuff and no Tend goes truly dark and 1 boat is lost; lanterns with both, or with no visitors at all, lose no boat but are reported as dark.",
+      "At dawn reveal which lanterns look dark, including one fog lie where a random truly lit lantern is also reported as dark.",
+      "Each watcher privately learns whether their target stayed at a lantern or slipped away and which lantern they chose, but cannot tell Tend apart from Snuff.",
+      "Tenders of truly lit lanterns regain 1 oil up to 3, and watchers who slipped away draw a whisper veil up to 3 in hand; Moth veils sharpen watching, Bell veils sway votes, Tide veils restore oil, and discarding two of the same mark adds a vote pebble.",
+      "By day in seat order each player speaks once and may play one veil, truthfully or not, then all vote with pebbles to exile one suspect or no one; ties exile no one and the exiled shroud is revealed.",
+      "Wisps win at once when 3 boats are lost; keepers win at once when both wisps are exiled, or after 5 nights if fewer than 3 boats are lost."
+    ],
+    "createdAt": "2026-11-03T17:48:40.871Z",
+    "idea": "A hidden-role game on a foggy causeway of lanterns. Most players are keepers; two secret wisps know each other. Each night players are paired at lanterns and choose in secret: tend it, slip away to watch another player, or (wisps only) put it out. A dark lantern loses a boat. At dawn everyone learns which lanterns looked dark, though fog can make a lit one look dark, and watchers learn privately what their target did. By day each player speaks once (accuse, vouch, report truthfully or not), then all vote to exile a suspect, whose role is revealed. Wisps win when enough boats are lost; keepers win by exiling both wisps or lasting the nights."
+  }
+]

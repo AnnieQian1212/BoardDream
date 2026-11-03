@@ -6,11 +6,11 @@ import { gameSource, listGames } from "./store";
 
 /**
  * Every game a shared table can play, by the id the web app knows it by: the library's games, the
- * games saved here, and the generated games bundled with the web app. A generated game carries the
- * id and title it was saved under, as the web app shows it, whatever its own module says.
+ * games saved here, and the demo games bundled with the web app. A generated game carries the id
+ * and title it was saved under, as the web app shows it, whatever its own module says.
  */
 
-const BUNDLED = new URL("../../web/public/demo-games/", import.meta.url);
+const BUNDLED = new URL("../../web/src/demo-games/", import.meta.url);
 const loaded = new Map<string, GameModule>();
 
 interface Listed {

@@ -28,7 +28,7 @@ interface Props {
   onResults(): void;
   /** Opens a table friends can join; absent where no server keeps accounts (the static demo). */
   onInvite?(): void;
-  /** A generated game can be starred from its table. */
+  /** A game generated here (not a demo game) can be starred from its table. */
   generated?: boolean;
 }
 
