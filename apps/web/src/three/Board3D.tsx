@@ -603,6 +603,15 @@ function Tile({ cell, path, k, at, target, low, island, painted, water: boardWat
     return g;
   }, [target, island, cell.label, cell.kind, cell.polygon, k, at[0], at[1], print.width, print.depth]);
   useEffect(() => () => decal?.dispose(), [decal]);
+  // An island's shadow on the water, toward the lower right like every other shadow on the table.
+  const islandShadow = useMemo(() => {
+    if (!island) return undefined;
+    const [cx, cy] = centroid(cell.polygon);
+    const g = new ShapeGeometry(new Shape(cell.polygon.map(([x, y]) => new Vector2((x - cx) * k * TILE_SHARE * 1.04, -(y - cy) * k * TILE_SHARE * 1.04))));
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, [island, cell.polygon, k]);
+  useEffect(() => () => islandShadow?.dispose(), [islandShadow]);
   const decalMesh = useRef<Mesh>(null);
   // A stony tile glitters under the pointer, like the rocks on it.
   const stony = !cell.segments && growthsOf(cell).includes("rock");
@@ -749,7 +758,14 @@ function Tile({ cell, path, k, at, target, low, island, painted, water: boardWat
         roughness={painted ? 0.8 : 0.82}
         {...(glitter && { onBeforeCompile: glitter, defines: { GLITTER: "" } })}
       />
-      <Ink geometry={geometry} width={SPOTS.has(cell.kind ?? "") ? 1.5 : 2} grounded />
+      {/* An island has no ink line: drawn round a tile standing out of water, the line's far and left
+          edges showed as a dark band, a shadow falling the wrong way. It casts a soft one instead. */}
+      {!island && <Ink geometry={geometry} width={SPOTS.has(cell.kind ?? "") ? 1.5 : 2} grounded />}
+      {islandShadow && (
+        <mesh geometry={islandShadow} position={[0.09 * k, (island ?? 0) * -1 + TILE_TOP - SLAB + DOME * k + 0.012, 0.13 * k]} raycast={noRaycast} renderOrder={1}>
+          <meshBasicMaterial color="#0d2a3a" transparent opacity={0.28} depthWrite={false} />
+        </mesh>
+      )}
       {decal && (
         <mesh ref={decalMesh} geometry={decal} position={[0, TILE_TOP - SLAB + 0.02, 0]} visible={false} raycast={noRaycast}>
           <meshStandardMaterial map={print.texture} transparent roughness={0.8} depthWrite={false} />
