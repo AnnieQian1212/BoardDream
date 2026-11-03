@@ -23,8 +23,8 @@ import {
   type PointLight,
   type Texture,
 } from "three";
-import { NEUTRAL_PIECE, playerColor, TILE_COLORS } from "../colors";
-import { groundOf, kindColor, ownColor, RIM, RIM_INK, SHORE, TILE_SHARE, tileColor, zoneColors } from "./ground";
+import { NEUTRAL_PIECE, playerColor } from "../colors";
+import { groundOf, kindColor, ownColor, RIM, RIM_INK, TILE_SHARE, tileColor, zoneColors } from "./ground";
 import { HIGHLIGHT } from "./Card3D";
 import { setCursor, setHover } from "./hover";
 import type { BoardItem } from "./layout";
@@ -122,7 +122,7 @@ const SPOTS = new Set(["vertex", "edge"]);
 /** A building spot or road that can be clicked. */
 const TARGET_SPOT = "#3cc6d6";
 const noRaycast = () => null;
-/** Water fills a little less of its cell than a tile, leaving a rim of shore. */
+/** Water fills a little less of its cell than a tile, leaving a rim of the tile round it. */
 const WATER_SHARE = 0.86;
 /** Edge-matched tiles show their terrain as wedges inset this far, so a rim of the tile shows. */
 const WEDGE_SHARE = TILE_SHARE * 0.84;
@@ -623,13 +623,13 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
     wobble.poke(strength, p.x / k, p.z / k);
     invalidate();
   };
-  // Water wedges keep their own color under the surface; a whole cell its tile's, on a sandy shore
-  // when the color is the ground's rather than the kind's own.
+  // Water wedges keep their own color under the surface; a whole cell its tile's. The tile under
+  // the jelly is that blue right to its edge, as on Lantern Isles' reefs and lagoons: a sandy tile
+  // under a cove or a bay showed through the clear jelly, and the water looked thin and pale.
   const waterColor = useMemo(
     () => new Color(cell.segments ? kindColor(cell.segments.find((s) => isWaterKind(s)) ?? "") : tileColor(cell)),
     [segmentsKey, cell],
   );
-  const shore = ground === "water" && !painted && cell.owner === undefined && !TILE_COLORS[cell.kind ?? ""];
   useEffect(() => () => surface?.dispose(), [surface]);
   const surfaceMaterial = useRef<MeshPhysicalMaterial>(null);
   // What grows on the cell (or on an edge-matched tile's wedges), with a bare patch for its name
@@ -747,8 +747,8 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
   const base = useMemo(
     // A spot that can be clicked is painted teal, unless the glow is switched off (prefs): then only
     // while the pointer is on it.
-    () => (spotTarget && (hints || hovered) ? new Color(TARGET_SPOT) : groundMap ? tint : new Color(shore ? SHORE : tileColor(cell))),
-    [cell, shore, groundMap, tint, spotTarget, hints, hovered],
+    () => (spotTarget && (hints || hovered) ? new Color(TARGET_SPOT) : groundMap ? tint : new Color(tileColor(cell))),
+    [cell, groundMap, tint, spotTarget, hints, hovered],
   );
   const highlight = useMemo(() => new Color(HIGHLIGHT), []);
   const glowColor = useMemo(() => (cell.glow ? new Color(cell.glow) : undefined), [cell.glow]);

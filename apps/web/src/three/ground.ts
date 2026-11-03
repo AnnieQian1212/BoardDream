@@ -37,9 +37,6 @@ export const GROUND_COLORS: Record<Ground, string> = {
   water: "#7fbad6",
 };
 
-/** The sandy rim a pool of water leaves on its tile. */
-export const SHORE = "#e8d6a6";
-
 export const CREAM = "#f3ead8";
 const SPOTS = new Set(["vertex", "edge"]);
 
