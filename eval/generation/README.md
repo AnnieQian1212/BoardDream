@@ -13,8 +13,9 @@ Advanced settings now offer low, medium (the default) and high effort for a game
 | | Low | Medium | High |
 | --- | --- | --- | --- |
 | Idea to final rules | 3.4 min (two repairs) | 6.7 min (one repair) | 7.3, 6.7 and 5.5 min (two passed on the first draft) |
+| Two games each, three at a time (later that evening) | 3.3 and 2.7 min; one more failed after four repairs | 6.1 and 5.0 min | 9.7 and 13.2 min; 12.5 min for a remake |
 
-The first high-effort run failed: Muse Spark thought for more than five minutes before the first piece of the rules, and Node's fetch drops a response silent for that long. The server's model calls now wait up to 20 minutes (`apps/server/src/meta/patient.ts`).
+The tip beside the effort picker says about 3–5, 5–8 and 6–13 minutes. The first high-effort run failed: Muse Spark thought for more than five minutes before the first piece of the rules, and Node's fetch drops a response silent for that long. The server's model calls now wait up to 20 minutes (`apps/server/src/meta/patient.ts`).
 
 ## Reasoning effort, measured again (Nov 1, 2026): what the app uses
 

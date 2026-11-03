@@ -61,9 +61,9 @@ export const INTERACTIONS: { value: NonNullable<Dials["interaction"]>; label: st
  * effort, from idea to a table you can play, repairs included (measured: eval/generation/README.md).
  */
 export const EFFORTS: { value: Effort; label: string; wait: string; note: string }[] = [
-  { value: "low", label: "Low", wait: "2–4 minutes", note: "Fastest, but more first drafts fail their tests and need a repair." },
-  { value: "medium", label: "Medium", wait: "3–7 minutes", note: "Recommended: every idea in our tests passed within one repair." },
-  { value: "high", label: "High", wait: "5–9 minutes", note: "Slowest; thinks longest over the rules, and its first drafts pass most often." },
+  { value: "low", label: "Low", wait: "3–5 minutes", note: "Fastest, but more first drafts fail their tests and need a repair." },
+  { value: "medium", label: "Medium", wait: "5–8 minutes", note: "Recommended: every idea in our tests passed within one repair." },
+  { value: "high", label: "High", wait: "6–13 minutes", note: "Slowest; thinks longest over the rules, and its first drafts pass most often." },
 ];
 export const DEFAULT_EFFORT: Effort = "medium";
 
