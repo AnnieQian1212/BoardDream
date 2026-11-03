@@ -23,7 +23,7 @@ The narration below is about 370 words, which fills three minutes at an easy pac
 - Run the full server locally with `.env` set, so generation, art, Muse Spark opponents and tables with friends all work.
 - Tidy the game list: delete weak or old generated games, so the library and the home row look chosen.
 - Make the hero game in advance, two or three times from the same idea, and keep the best take. A take where one check fails and the repair fixes it is the best one to show. Suggested idea: **Cafes on one busy street** (an example on the home page; worker-placement ideas passed 4 of 4 first drafts in the benchmark), with one or two Advanced settings changed on camera.
-- Record each scene on its own (OBS or similar) and cut them together. Generation takes about three minutes: show it sped up, with "sped up" on screen and the real time from the steps panel.
+- Record each scene on its own (OBS or similar) and cut them together. Generation takes about 5–8 minutes at the default effort (3–5 at low): show it sped up, with "sped up" on screen and the real time from the steps panel.
 - For the friends scene, two windows side by side: a normal one and an incognito one, each signed in with its own test account.
 - For the opponents scene, open Fenlight without `&bots`, with **Muse Spark opponents** on in the `…` menu, so Muse Spark Open plays, talks and is named in the status line.
 
@@ -33,7 +33,7 @@ The narration below is about 370 words, which fills three minutes at an easy pac
 
 **On screen:** the home page; type the idea and press **Dream it up**. Hard cut to the finished game on the 3D table, a card flashing gold as its ability fires.
 
-**Say:** "This board game didn't exist three minutes ago. I typed one sentence, and BoardDream designed it, playtested it a thousand times, and dealt me in."
+**Say:** "This board game didn't exist a few minutes ago. I typed one sentence, and BoardDream designed it, playtested it a thousand times, and dealt me in."
 
 ### 2. Who it is for (0:12–0:25)
 
@@ -63,7 +63,7 @@ The narration below is about 370 words, which fills three minutes at an easy pac
 
 **On screen:** the games page, its painted covers; a painted board. **Print and play** for a second. Then **Invite friends**: the lobby, **Copy**, the friend's window joining, **Start the game**, a move in each window.
 
-**Say:** "Muse Image paints every cover, card and board, and SAM 3.1 checks that each painted tile lines up with the real board. You can print a game and play it on paper, or invite friends with a link: they sign in and sit down, the server referees every move, and bots fill the empty seats."
+**Say:** "Muse Image paints every cover, card and board, the cards in a style chosen for each game, and SAM 3.1 checks that each painted tile lines up with the real board. You can print a game and play it on paper, or invite friends with a link: they sign in and sit down, the server referees every move, and bots fill the empty seats."
 
 ### 7. Where Meta's models are used (2:25–2:48)
 
