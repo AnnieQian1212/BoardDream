@@ -1,7 +1,7 @@
 import { isDeck, type CardView, type Counter, type Geometry, type Panel, type ResourceSpec } from "@boarddream/engine";
 import { Quaternion, Vector3 } from "three";
 import { playerColor } from "../colors";
-import { ELEVATION, tableScale, type Insets } from "./camera";
+import { depthBelow, ELEVATION, screenProjector, tableScale, type Insets } from "./camera";
 import { FONT_UI } from "./paint";
 
 /**
@@ -141,6 +141,13 @@ export interface LayoutInput {
    * chips. A first layout's camera fit gives it (tableScale); about 7 if left out.
    */
   pxPerUnit?: number;
+  /**
+   * The table depth that `pixels` of chips wrapped under mat `id`'s header take, measured where a
+   * first layout put them on the camera fitted to it (fitTable). Without it, pxPerUnit gives the
+   * depth, which is the middle's: on the far side of the table, where supplies stand, rows of chips
+   * take more and ran into the cards under them.
+   */
+  chipRoom?: (id: string, pixels: number) => number | undefined;
   /**
    * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
    * the middle, as many on the left as on the right (one more on the left when they are odd), and
@@ -338,8 +345,12 @@ function chipSizes(px: number) {
   const deep = px * Math.sin(ELEVATION);
   return {
     gap,
-    /** A wrapped row of chips, with the gap below it. */
-    row: (CHIP.height + CHIP.gap) / deep,
+    /** Screen pixels that `rows` rows of wrapped chips take, with the extra lines of a note too long for one across `room`. */
+    wrappedPx(rows: number, note: string | undefined, room: number): number {
+      return rows * (CHIP.height + CHIP.gap) + (note && room > 0 ? (noteLineCount(note, room * px) - 1) * CHIP.noteLine : 0);
+    },
+    /** The table depth `pixels` of chips take where the table is drawn at its middle's scale. */
+    depth: (pixels: number) => pixels / deep,
     counter: (c: Counter) => (24 + textWidth(c.label, `700 13px ${FONT_UI}`, 7.2) + textWidth(String(c.value), `700 13px ${FONT_UI}`, 8)) / px,
     // A little over the measure, so a note that only just fits is not wrapped by rounding.
     note: (note: string) => Math.min(NOTE_MAX, NOTE_PAD + noteWidth(note) * 1.04) / px,
@@ -347,11 +358,6 @@ function chipSizes(px: number) {
     pile: 52 / px,
     /** The "Thinking…" pill at the head of a rival's chips. */
     turnPill: (24 + 7 * 10) / px,
-    /** Extra depth for a note too long for one line across `room`: it wraps, up to CHIP.noteLines lines. */
-    noteLines(note: string | undefined, room: number): number {
-      if (!note || !(room > 0)) return 0;
-      return (noteLineCount(note, room * px) - 1) * (CHIP.noteLine / deep);
-    },
     /** How many rows `widths` wrap into across `room`, filling each row before starting the next. */
     rows(widths: number[], room: number): number {
       let rows = 1;
@@ -406,7 +412,8 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidt
   // Wrapped chips start a little way into the body, clear of the header.
   // A deck stands up from the mat, toward the camera, so the chips over it need room for its height too.
   const deckRise = wrap && decks.length > 0 ? Math.max(...decks.map((d) => deckHeight(d.value))) / Math.tan(ELEVATION) : 0;
-  const chipsDepth = wrap ? chipRows * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4 + deckRise : 0;
+  const chipsPx = wrap ? sizes.wrappedPx(chipRows, panel.note, width - 2) : 0;
+  const chipsDepth = wrap ? (input.chipRoom?.(panel.id, chipsPx) ?? sizes.depth(chipsPx)) + CHIPS_IN + 0.4 + deckRise : 0;
   const pile = Math.max(PILE, sizes.pile);
   const perRow = Math.max(1, Math.floor((width - 2 * PAD) / pile));
   const pileRows = Math.ceil(piles.length / perRow);
@@ -503,7 +510,8 @@ function seatColumnBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes): Bl
   const counterW = Math.max(sizes.turnPill, ...plain.map(sizes.counter));
   const width = Math.max(titleEnd(title) + 1, pile + 2 * PAD, counterW * 1.08 + 3.5, 10);
   const inner = width - 2 * PAD;
-  const chipsDepth = sizes.rows(chips, width - 2) * sizes.row + sizes.noteLines(panel.note, width - 2) + CHIPS_IN + 0.4;
+  const chipsPx = sizes.wrappedPx(sizes.rows(chips, width - 2), panel.note, width - 2);
+  const chipsDepth = (input.chipRoom?.(panel.id, chipsPx) ?? sizes.depth(chipsPx)) + CHIPS_IN + 0.4;
   const perRow = 1;
   const pileRows = Math.ceil(piles.length / perRow);
   const pilesDepth = pileRows * pile + (pileRows > 0 ? 0.4 : 0);
@@ -728,7 +736,19 @@ export function fitTable(
   const clamp = (px: number) => (Number.isFinite(px) ? Math.min(24, Math.max(MIN_PX, px)) : 7);
   const first = layoutTable({ ...input, arrangement, pxPerUnit: clamp(scale) });
   const drawn = tableScale(first, width, height, insets);
-  const layout = drawn < scale * 0.97 ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn * 0.97) }) : first;
+  // Rows of chips wrapped under a header take the depth they cover where they stand, measured on
+  // the camera that frames the first layout (chips drawn smaller take fewer pixels).
+  const wrapped = new Map(first.badges.filter((b) => b.wrap).map((b) => [b.id, b.position]));
+  const shrink = Number.isFinite(drawn) ? Math.min(1, Math.max(0.4, drawn / MIN_PX)) : 1;
+  const project = wrapped.size > 0 && Number.isFinite(drawn) ? screenProjector(first, width, height, insets) : undefined;
+  const chipRoom = project
+    ? (id: string, pixels: number) => {
+        const start = wrapped.get(id);
+        return start && depthBelow(project, start, pixels * shrink);
+      }
+    : undefined;
+  const layout =
+    drawn < scale * 0.97 || chipRoom ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn < scale * 0.97 ? drawn * 0.97 : scale), chipRoom }) : first;
   const final = layout === first ? drawn : tableScale(layout, width, height, insets);
   return { arrangement, layout, chipScale: Number.isFinite(final) ? Math.min(1, Math.max(0.4, final / MIN_PX)) : 1 };
 }

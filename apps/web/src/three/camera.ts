@@ -65,3 +65,37 @@ export function tableScale(layout: TableLayout, width: number, height: number, i
   const distance = position.distanceTo(target);
   return (0.9 * height) / (2 * distance * Math.tan((FOV * Math.PI) / 360));
 }
+
+/**
+ * Where points on the table land on screen, in pixels, once the camera frames `layout` as the
+ * scene's camera will (fitCamera, with the same view offset for the side panels).
+ */
+export function screenProjector(layout: TableLayout, width: number, height: number, insets: Insets): (point: [number, number, number]) => [number, number] {
+  const { target, position } = fitCamera(layout, width, height, insets);
+  const cam = new PerspectiveCamera(FOV, width / height, 1, 5000);
+  cam.setViewOffset(width, height, -(insets.left - insets.right) / 2, -(insets.top - insets.bottom) / 2, width, height);
+  cam.position.copy(position);
+  cam.lookAt(target);
+  cam.updateMatrixWorld();
+  const v = new Vector3();
+  return (point) => {
+    v.set(...point).project(cam);
+    return [((v.x + 1) / 2) * width, ((1 - v.y) / 2) * height];
+  };
+}
+
+/**
+ * How far down the table, from `start`, a column of `pixels` screen pixels reaches. The far side of
+ * the table is drawn smaller and seen at a lower angle than its middle, so there a pixel of height
+ * covers more of it.
+ */
+export function depthBelow(project: (point: [number, number, number]) => [number, number], start: [number, number, number], pixels: number): number {
+  const [, y0] = project(start);
+  let [lo, hi] = [0, 400];
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (project([start[0], start[1], start[2] + mid])[1] - y0 < pixels) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}

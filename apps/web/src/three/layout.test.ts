@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { createRng, fitBounds, resolveParams, type GameModule } from "@boarddream/engine";
+import { createRng, fitBounds, resolveParams, squareGridGeometry, type GameModule, type Panel } from "@boarddream/engine";
 import { fixtureGames, referenceGames } from "@boarddream/library";
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
-import { fitCamera, FOV } from "./camera";
-import { CHIP, fitTable, layoutTable, type Arrangement, type TableLayout } from "./layout";
+import { depthBelow, fitCamera, FOV, screenProjector } from "./camera";
+import { CARD_H, CHIP, fitTable, layoutTable, type Arrangement, type TableLayout } from "./layout";
 
 const resourcesOf = (game: GameModule) => new Map((game.meta.resources ?? []).map((r) => [r.id, r]));
 
@@ -165,6 +165,61 @@ describe("a table fitted to a screen", () => {
       arrangement = next;
     }
     expect(changes).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("rows of chips under a supply's header", () => {
+  // A supply with more counters than its header holds, so they wrap in rows over its cards.
+  const supply: Panel = {
+    id: "supply",
+    title: "Sector supply",
+    zone: "shared",
+    counters: [
+      ...["Round", "Moss left", "Bramble left", "Canopy left"].map((label, i) => ({ id: `c${i}`, label, value: 12 })),
+      { id: "deck", label: "Deck", value: 6 },
+    ],
+    cards: [1, 2, 3, 4, 5].map((i) => ({ id: `card${i}`, title: `Card ${i}` })),
+  };
+  const seat = (owner: number, title: string): Panel => ({
+    id: `seat${owner}`,
+    title,
+    zone: "players",
+    owner,
+    counters: [
+      { id: `docked${owner}`, label: "Docked", value: 0 },
+      { id: `moss${owner}`, label: "Moss", value: 3, resource: "moss" },
+    ],
+  });
+  const input = {
+    panels: [supply, seat(0, "You"), seat(1, "Gardener 2")],
+    geometry: squareGridGeometry(5, 8),
+    human: 0,
+    targets: new Set<string>(),
+    resources: new Map(),
+  };
+  const desktop = { width: 1707, height: 960, insets: { left: 0, right: 0, top: 66, bottom: 92 } };
+
+  test("take more of the table on its far side, where a pixel covers more of it", () => {
+    const { layout } = fitTable(input, desktop);
+    const project = screenProjector(layout, desktop.width, desktop.height, desktop.insets);
+    const far: [number, number, number] = [0, 0.3, layout.bounds.min[2] + 2];
+    const near: [number, number, number] = [0, 0.3, layout.bounds.max[2] - 8];
+    const room = depthBelow(project, far, 128);
+    expect(project([far[0], far[1], far[2] + room])[1] - project(far)[1]).toBeCloseTo(128, 0);
+    expect(room).toBeGreaterThan(1.1 * depthBelow(project, near, 128));
+  });
+
+  test("stop short of the cards under them, on the camera that frames the table", () => {
+    const { layout } = fitTable(input, desktop);
+    const project = screenProjector(layout, desktop.width, desktop.height, desktop.insets);
+    const badge = layout.badges.find((b) => b.id === "supply")!;
+    expect(badge.wrap).toBe(true);
+    // Four counters, one to a row across this narrow supply, each row with the gap under it.
+    const chipsBottom = project(badge.position)[1] + 4 * (CHIP.height + CHIP.gap);
+    const cardsTop = Math.min(...layout.cards.filter((c) => c.zone === "shared").map((c) => project([badge.position[0], 0.3, c.position[2] - CARD_H / 2])[1]));
+    // Measured at the table's middle scale, the room left about a pixel past the last row's gap,
+    // and the real table, framed a little differently, put the last chip on the cards.
+    expect(cardsTop - chipsBottom).toBeGreaterThan(3);
   });
 });
 
