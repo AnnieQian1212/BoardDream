@@ -1,6 +1,7 @@
 import { Brush, Map as MapIcon, Palette, ScanSearch } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { BoardReport } from "../art";
+import type { ArtShown } from "../artShown";
 
 interface Props {
   /** Distinct cards the game shows. */
@@ -10,12 +11,26 @@ interface Props {
   /** The server has a model API key. */
   available: boolean;
   onPaint(): void;
+  /** Which paintings the table shows, and a switch for each. */
+  shown: ArtShown;
+  onShow(part: keyof ArtShown, on: boolean): void;
   /** Board art: present when the game has a board. */
   board?: { report?: BoardReport; step: string | null; onPaint(): void };
 }
 
+/** A switch for whether the table shows one part of the art. */
+function ShowSwitch({ on, label, onChange }: { on: boolean; label: string; onChange(on: boolean): void }) {
+  return (
+    <label className="toggle art-toggle">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      <span className="toggle-track" />
+      {label}
+    </label>
+  );
+}
+
 /** Muse Image art in two parts: the board (painted over its layout, checked by SAM 3.1) and the cards. */
-export function ArtPanel({ cards, painted, painting, available, onPaint, board }: Props) {
+export function ArtPanel({ cards, painted, painting, available, onPaint, shown, onShow, board }: Props) {
   const missing = Math.max(0, cards - painted);
   return (
     <section className="panel">
@@ -27,7 +42,7 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, board }
           <h3 className="art-part">
             <MapIcon size={15} /> Board
           </h3>
-          <BoardArt {...board} available={available} />
+          <BoardArt {...board} available={available} shown={shown.board} onShow={(on) => onShow("board", on)} />
         </>
       )}
       {cards > 0 && (
@@ -47,6 +62,7 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, board }
           <p className="hint status-line">
             {painted === 0 ? `${cards} cards to paint` : missing === 0 ? `All ${cards} cards painted` : `${painted} of ${cards} cards painted`}
           </p>
+          {painted > 0 && <ShowSwitch on={shown.cards} label="Show the card art" onChange={(on) => onShow("cards", on)} />}
           {missing > 0 && (
             <button type="button" className="action wide" disabled={!available} onClick={onPaint} title={available ? undefined : "Set MODEL_API_KEY on the server"}>
               <Brush size={16} /> {painted === 0 ? "Paint the cards" : "Paint the rest"}
@@ -58,7 +74,21 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, board }
   );
 }
 
-function BoardArt({ report, step, onPaint, available }: { report?: BoardReport; step: string | null; onPaint(): void; available: boolean }) {
+function BoardArt({
+  report,
+  step,
+  onPaint,
+  available,
+  shown,
+  onShow,
+}: {
+  report?: BoardReport;
+  step: string | null;
+  onPaint(): void;
+  available: boolean;
+  shown: boolean;
+  onShow(on: boolean): void;
+}) {
   return (
     <>
       <p className="hint">Muse Image paints the board over its tile layout; SAM 3.1 then checks every tile against where it should be.</p>
@@ -73,6 +103,7 @@ function BoardArt({ report, step, onPaint, available }: { report?: BoardReport; 
               {report.repainted ? ` (was ${report.firstMeanIoU.toFixed(2)} before a repaint)` : ""}
             </p>
           )}
+          {report && <ShowSwitch on={shown} label="Show the painted board" onChange={onShow} />}
           <button type="button" className="action wide secondary" disabled={!available} onClick={onPaint}>
             <MapIcon size={16} /> {report ? "Repaint the board" : "Paint the board"}
           </button>

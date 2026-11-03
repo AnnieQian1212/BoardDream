@@ -194,7 +194,8 @@ function Lobby(props: { room: RoomView; game: GameModule; ready: boolean; signed
 
 /** The game at a shared table: the same table as alone, with friends' names and the server's state. */
 function SharedTable({ room, game, note, onMove, onAgain }: { room: RoomView; game: GameModule; note?: string; onMove(move: unknown): void; onAgain(): void }) {
-  const { art, board } = useArt(game);
+  // The paintings the player chose to show for this game (the Art panel), as at their own table.
+  const { onTable } = useArt(game);
   const names = useMemo(() => room.seats.map((s, i) => (i === room.you ? undefined : s.kind === "bot" ? `Bot ${i + 1}` : s.name)), [room.seats, room.you]);
   const active = room.status === "playing" ? safely(() => game.activePlayers(room.state)[0]) : undefined;
   const props = {
@@ -214,7 +215,7 @@ function SharedTable({ room, game, note, onMove, onAgain }: { room: RoomView; ga
             <Table key={room.deal} {...props} />
           </div>
         ) : (
-          <Tabletop key={room.deal} {...props} insets={INSETS} art={art} boardPaint={board?.paint} />
+          <Tabletop key={room.deal} {...props} insets={INSETS} art={onTable.art} boardPaint={onTable.boardPaint} />
         )}
       </TableGuard>
       <header className="topbar room-bar">

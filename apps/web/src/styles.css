@@ -479,6 +479,11 @@ input[type="range"] {
   transform: translateX(14px);
 }
 
+/* The Art panel's switches for whether the table shows the painted board and the card art. */
+.art-toggle {
+  margin: 2px 0 10px;
+}
+
 .stats,
 .log {
   list-style: none;

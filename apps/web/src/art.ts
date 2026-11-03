@@ -1,5 +1,6 @@
 import { collectCards, createRng, fitBounds, resolveParams, sampleSeats, type GameModule } from "@boarddream/engine";
 import { useEffect, useState } from "react";
+import { artShown, setArtShown, type ArtShown } from "./artShown";
 import { readEvents } from "./sse";
 import type { BoardPaint } from "./three/Board3D";
 
@@ -53,17 +54,23 @@ const url = (gameId: string, file: string) => `/api/art/${gameId}/${file}`;
 
 export { collectCards };
 
-/** The game's art so far, plus a function that paints the missing cards and adds each one as it lands. */
+/**
+ * The game's art so far, plus a function that paints the missing cards and adds each one as it
+ * lands; which parts the table shows (artShown.ts), and the art to put on the table accordingly.
+ */
 export function useArt(game: GameModule) {
   const [art, setArt] = useState<ArtMap>(new Map());
   const [painting, setPainting] = useState<{ done: number; total: number } | null>(null);
   const [board, setBoard] = useState<BoardArt>();
   const [boardStep, setBoardStep] = useState<string | null>(null);
   const id = game.meta.id;
+  const [shown, setShown] = useState<ArtShown>(() => artShown(id));
+  const show = (part: keyof ArtShown, on: boolean) => setShown(setArtShown(id, part, on));
 
   useEffect(() => {
     setArt(new Map());
     setBoard(undefined);
+    setShown(artShown(id));
     let cancelled = false;
     fetch(`/api/art/${id}/board`)
       .then((res) => (res.ok ? (res.json() as Promise<BoardReport>) : undefined))
@@ -86,6 +93,8 @@ export function useArt(game: GameModule) {
     const cards = collectCards(game);
     const missing = cards.filter((c) => !art.has(c.title));
     if (missing.length === 0) return;
+    // Painting shows what it paints, even if the card art was hidden.
+    show("cards", true);
     setPainting({ done: 0, total: missing.length });
     try {
       const res = await fetch(`/api/art/${id}`, {
@@ -114,6 +123,7 @@ export function useArt(game: GameModule) {
   async function paintBoard() {
     const geometry = startingGeometry(game);
     if (!geometry) return;
+    show("board", true);
     setBoardStep("Starting…");
     try {
       const res = await fetch(`/api/art/${id}/board`, {
@@ -131,5 +141,7 @@ export function useArt(game: GameModule) {
     }
   }
 
-  return { art, painting, paint, board, boardStep, paintBoard };
+  // What the table draws: each part only while it is shown.
+  const onTable = { art: shown.cards ? art : undefined, boardPaint: shown.board ? board?.paint : undefined };
+  return { art, painting, paint, board, boardStep, paintBoard, shown, show, onTable };
 }

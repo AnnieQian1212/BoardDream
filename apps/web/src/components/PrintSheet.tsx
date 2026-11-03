@@ -1,4 +1,5 @@
 import { randomPlayout, type CardView, type GameModule, type Geometry, type Params } from "@boarddream/engine";
+import type { ArtShown } from "../artShown";
 import { Printer, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { startingGeometry } from "../art";
@@ -102,13 +103,28 @@ function usePrintBoard(paint: BoardPaint | undefined): BoardPaint | null | undef
 }
 
 /** A print-and-play kit: the rules, the components, the board and every card, laid out for A4 with cut lines. */
-export function PrintSheet({ game, params, art, boardPaint, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; boardPaint?: BoardPaint; onClose(): void }) {
+export function PrintSheet({
+  game,
+  params,
+  art,
+  boardPaint,
+  shown,
+  onClose,
+}: {
+  game: GameModule;
+  params: Params;
+  art?: Map<string, string>;
+  boardPaint?: BoardPaint;
+  /** What the table shows of the art (the Art panel's switches): the kit starts from the same. */
+  shown?: ArtShown;
+  onClose(): void;
+}) {
   useEscape(onClose);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
   // The paintings are printed unless the player leaves them off (to save ink, or to colour in by
   // hand): the card art, and a painted board, which then prints as its plain tiles.
-  const [withCardArt, setWithCardArt] = useState(true);
-  const [withBoardArt, setWithBoardArt] = useState(true);
+  const [withCardArt, setWithCardArt] = useState(shown?.cards ?? true);
+  const [withBoardArt, setWithBoardArt] = useState(shown?.board ?? true);
   const printArt = usePrintArt(art);
   // A board that has been painted prints painted, as the table shows it.
   const printBoard = usePrintBoard(boardPaint);

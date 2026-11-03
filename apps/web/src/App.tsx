@@ -151,7 +151,7 @@ export function App() {
       })
       .catch(() => {});
   }, []);
-  const { art, painting, paint, board, boardStep, paintBoard } = useArt(game);
+  const { art, painting, paint, board, boardStep, paintBoard, shown, show, onTable } = useArt(game);
   const cardCount = useMemo(() => collectCards(game).length, [game]);
   const hasBoard = useMemo(() => (startingGeometry(game)?.cells.some((c) => c.kind !== "label") ?? false), [game]);
   // Painted box covers, asked for again whenever the shelf is looked at.
@@ -449,8 +449,8 @@ export function App() {
               {...tableProps}
               insets={insets}
               speech={preview ? undefined : speech}
-              art={preview ? undefined : art}
-              boardPaint={preview ? undefined : board?.paint}
+              art={preview ? undefined : onTable.art}
+              boardPaint={preview ? undefined : onTable.boardPaint}
               guide={guiding ? { goal, onRules: () => setRulesOpen(true), onDone: endGuide } : undefined}
             />
           )}
@@ -527,6 +527,8 @@ export function App() {
                   painting={painting}
                   available={hasApiKey}
                   onPaint={() => void paint()}
+                  shown={shown}
+                  onShow={show}
                   board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
                 />
               ) : undefined,
@@ -536,7 +538,7 @@ export function App() {
       )}
       {rulesOpen && !results && !library && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
       {overlays}
-      {printing && <PrintSheet game={game} params={params} art={art} boardPaint={board?.paint} onClose={() => setPrinting(false)} />}
+      {printing && <PrintSheet game={game} params={params} art={art} boardPaint={board?.paint} shown={shown} onClose={() => setPrinting(false)} />}
     </div>
   );
 }
