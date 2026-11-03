@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   password TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  email TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -36,5 +37,9 @@ export function openDb(where: URL | ":memory:" = DEFAULT_FILE): Db {
   const db = new DatabaseSync(where === ":memory:" ? ":memory:" : fileURLToPath(where));
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 2000;");
   db.exec(SCHEMA);
+  // Accounts made before sign-in took an email have none: the column is added to older files.
+  const columns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!columns.some((c) => c.name === "email")) db.exec("ALTER TABLE users ADD COLUMN email TEXT");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_by_email ON users(email COLLATE NOCASE)");
   return db;
 }

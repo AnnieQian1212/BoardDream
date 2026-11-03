@@ -9,7 +9,7 @@ import { RoomError, type Rooms } from "./rooms";
 /**
  * Accounts and shared tables over HTTP, mounted under /api:
  *
- *   POST /auth/signup, /auth/login {name, password}; POST /auth/logout; GET /auth/me
+ *   POST /auth/signup {email, password, name}, /auth/login {email, password}; POST /auth/logout; GET /auth/me
  *   POST /rooms {gameId, numPlayers, params}; GET /rooms/:code
  *   POST /rooms/:code/join | leave | start | again; POST /rooms/:code/move {turn, move}
  *   GET  /rooms/:code/events: server-sent "room" events, the table as you see it, on every change
@@ -78,15 +78,16 @@ export function playRoutes({ accounts, rooms, clientOf }: PlayDeps) {
   app.post("/auth/signup", async (c) => {
     const tooMany = limited(signIns, c);
     if (tooMany) return tooMany;
-    const { name, password } = await body(c);
-    return begin(c, await accounts.signUp(name, password));
+    const { email, password, name } = await body(c);
+    return begin(c, await accounts.signUp({ email, password, name }));
   });
 
   app.post("/auth/login", async (c) => {
     const tooMany = limited(signIns, c);
     if (tooMany) return tooMany;
-    const { name, password } = await body(c);
-    return begin(c, await accounts.logIn(name, password));
+    // An account made before emails signs in with its name.
+    const { email, name, password } = await body(c);
+    return begin(c, await accounts.logIn(email ?? name, password));
   });
 
   app.post("/auth/logout", (c) => {

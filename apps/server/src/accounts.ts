@@ -5,9 +5,11 @@ import type { User } from "./room-view";
 export type { User } from "./room-view";
 
 /**
- * Accounts so friends can share a table: a name and a password, nothing else (no email, nothing to
- * configure). Passwords are kept as scrypt hashes with their own salt; a session is a random token
- * in an http-only cookie, kept here only as its SHA-256, so a copy of the database signs nobody in.
+ * Accounts so friends can share a table: an email and a password to sign in, and a name the table
+ * shows. The email is only how its owner signs in: no mail is sent, and no other player sees it.
+ * Accounts made before emails sign in with their name. Passwords are kept as scrypt hashes with
+ * their own salt; a session is a random token in an http-only cookie, kept here only as its
+ * SHA-256, so a copy of the database signs nobody in.
  */
 
 /** Why a sign-up or sign-in was refused, in words for the player. */
@@ -30,6 +32,17 @@ export function nameProblem(name: unknown): string | undefined {
   if (typeof name !== "string" || !NAME.test(name)) return "a name is 2 to 24 letters, digits, dots, dashes or underscores";
   return undefined;
 }
+
+/** Something@somewhere.tld, as typed (spaces round it trimmed). */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function emailProblem(email: unknown): string | undefined {
+  if (typeof email !== "string" || email.trim().length > 254 || !EMAIL.test(email.trim())) return "that does not look like an email address";
+  return undefined;
+}
+
+/** One spelling per address, so Ada@Example.com and ada@example.com are one account. */
+const normalEmail = (email: string) => email.trim().toLowerCase();
 
 export function passwordProblem(password: unknown): string | undefined {
   if (typeof password !== "string" || password.length < 8) return "a password needs at least 8 characters";
@@ -61,7 +74,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 
-/** Hashed against when a name is unknown, so a wrong name takes as long as a wrong password. */
+/** Hashed against when an email is unknown, so a wrong email takes as long as a wrong password. */
 let decoy: Promise<string> | undefined;
 
 export class Accounts {
@@ -70,32 +83,42 @@ export class Accounts {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async signUp(name: unknown, password: unknown): Promise<User> {
-    const problem = nameProblem(name) ?? passwordProblem(password);
+  /** A new account: the email it signs in with, its password, and the name the table shows. */
+  async signUp({ email, password, name }: { email: unknown; password: unknown; name: unknown }): Promise<User> {
+    const problem = emailProblem(email) ?? nameProblem(name) ?? passwordProblem(password);
     if (problem) throw new AccountError(problem);
     const user = { id: randomUUID(), name: name as string };
     const hash = await hashPassword(password as string);
     try {
-      this.db.prepare("INSERT INTO users (id, name, password, created_at) VALUES (?, ?, ?, ?)").run(user.id, user.name, hash, this.now());
+      this.db
+        .prepare("INSERT INTO users (id, name, email, password, created_at) VALUES (?, ?, ?, ?, ?)")
+        .run(user.id, user.name, normalEmail(email as string), hash, this.now());
     } catch (err) {
+      if (String(err).includes("users.email")) throw new AccountError("an account already signs in with that email", 409);
       if (String(err).includes("UNIQUE")) throw new AccountError("that name is taken", 409);
       throw err;
     }
     return user;
   }
 
-  async logIn(name: unknown, password: unknown): Promise<User> {
-    const row =
-      typeof name === "string" && name.length <= 24
-        ? (this.db.prepare("SELECT id, name, password FROM users WHERE name = ?").get(name) as { id: string; name: string; password: string } | undefined)
+  /** Signs in with an email, or with its name an account made before emails. */
+  async logIn(login: unknown, password: unknown): Promise<User> {
+    const typed = typeof login === "string" ? login.trim() : "";
+    type Row = { id: string; name: string; password: string };
+    const row = typed.includes("@")
+      ? typed.length <= 254
+        ? (this.db.prepare("SELECT id, name, password FROM users WHERE email = ?").get(normalEmail(typed)) as Row | undefined)
+        : undefined
+      : typed && typed.length <= 24
+        ? (this.db.prepare("SELECT id, name, password FROM users WHERE name = ? AND email IS NULL").get(typed) as Row | undefined)
         : undefined;
     const given = typeof password === "string" ? password.slice(0, 200) : "";
     if (!row) {
       decoy ??= hashPassword("not anyone's password");
       await verifyPassword(given, await decoy);
-      throw new AccountError("wrong name or password", 401);
+      throw new AccountError("wrong email or password", 401);
     }
-    if (!(await verifyPassword(given, row.password))) throw new AccountError("wrong name or password", 401);
+    if (!(await verifyPassword(given, row.password))) throw new AccountError("wrong email or password", 401);
     return { id: row.id, name: row.name };
   }
 

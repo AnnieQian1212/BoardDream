@@ -50,9 +50,13 @@ export function useAccount(): Account {
   return useSyncExternalStore(subscribe, () => account);
 }
 
-/** Signs in, or makes an account and signs in; throws what the server objected to. */
-export async function signIn(mode: "login" | "signup", name: string, password: string): Promise<User> {
-  const { user } = await postJson<{ user: User }>(`/api/auth/${mode}`, { name: name.trim(), password });
+/**
+ * Signs in with an email (or an older account's name), or makes an account with an email and the
+ * name the table shows, and signs in; throws what the server objected to.
+ */
+export async function signIn(mode: "login" | "signup", fields: { email: string; password: string; name?: string }): Promise<User> {
+  const body = mode === "signup" ? { email: fields.email.trim(), password: fields.password, name: fields.name?.trim() } : { email: fields.email.trim(), password: fields.password };
+  const { user } = await postJson<{ user: User }>(`/api/auth/${mode}`, body);
   set({ ready: true, user });
   return user;
 }

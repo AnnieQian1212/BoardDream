@@ -4,11 +4,13 @@ import { signIn, signOut, useAccount, type User } from "../account";
 import { useEscape } from "../escape";
 
 /**
- * Signing in: a name and a password, nothing else. One form both signs in and makes an account,
- * so a friend who followed an invite link is a few keystrokes from their seat.
+ * Signing in: an email and a password; a new account also picks the name the table shows. One form
+ * both signs in and makes an account, so a friend who followed an invite link is a few keystrokes
+ * from their seat. No mail is sent: the email is only how its owner signs in.
  */
 export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onDone(user: User): void; onClose(): void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [problem, setProblem] = useState<string>();
@@ -22,7 +24,7 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
     setBusy(true);
     setProblem(undefined);
     try {
-      onDone(await signIn(mode, name, password));
+      onDone(await signIn(mode, { email, password, name }));
     } catch (err) {
       setProblem(err instanceof Error ? err.message : String(err));
     } finally {
@@ -40,9 +42,25 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
         <h2 id="account-title">{signingUp ? "Make an account" : "Sign in"}</h2>
         {reason && <p className="account-why">{reason}</p>}
         <label className="account-field">
-          <span>Name</span>
-          <input ref={first} value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" maxLength={24} required />
+          <span>Email</span>
+          {/* Text, not an email field: an account made before emails signs in with its name here. */}
+          <input
+            ref={first}
+            type={signingUp ? "email" : "text"}
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete={signingUp ? "email" : "username"}
+            maxLength={254}
+            required
+          />
         </label>
+        {signingUp && (
+          <label className="account-field">
+            <span>Name at the table</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="nickname" maxLength={24} required />
+          </label>
+        )}
         <label className="account-field">
           <span>Password</span>
           <input
@@ -55,7 +73,11 @@ export function SignInDialog({ reason, onDone, onClose }: { reason?: string; onD
             required
           />
         </label>
-        {signingUp && <p className="account-note">Just a name and a password of at least 8 characters: no email.</p>}
+        {signingUp ? (
+          <p className="account-note">Friends see your name, never your email. No mail is sent: the email is only how you sign in. The password needs at least 8 characters.</p>
+        ) : (
+          <p className="account-note">Made your account before emails? Sign in with its name.</p>
+        )}
         {problem && (
           <p className="account-problem" role="alert">
             {problem.charAt(0).toUpperCase() + problem.slice(1)}.

@@ -30,9 +30,9 @@ const now = (run: () => void) => {
 async function people() {
   const db = openDb(":memory:");
   const accounts = new Accounts(db);
-  const host = await accounts.signUp("Ada", "correct horse");
-  const friend = await accounts.signUp("Bao", "battery staple");
-  const third = await accounts.signUp("Cyd", "another secret");
+  const host = await accounts.signUp({ email: "ada@example.com", password: "correct horse", name: "Ada" });
+  const friend = await accounts.signUp({ email: "bao@example.com", password: "battery staple", name: "Bao" });
+  const third = await accounts.signUp({ email: "cyd@example.com", password: "another secret", name: "Cyd" });
   return { db, accounts, host, friend, third };
 }
 
@@ -46,23 +46,38 @@ describe("accounts", () => {
     expect(await verifyPassword("correct hors", hash)).toBe(false);
   });
 
-  it("sign people up with a fair name and password, once per name", async () => {
+  it("sign people up with an email, a fair name and a password, once per email and per name", async () => {
     const { accounts } = await people();
-    await expect(accounts.signUp("x", "long enough")).rejects.toThrow(/2 to 24/);
-    await expect(accounts.signUp("has space", "long enough")).rejects.toThrow(/2 to 24/);
-    await expect(accounts.signUp("Dee", "short")).rejects.toThrow(/at least 8/);
-    await expect(accounts.signUp("ada", "whatever123")).rejects.toMatchObject({ status: 409 });
-    expect((await accounts.signUp("小明", "long enough")).name).toBe("小明");
+    const up = (email: string, name: string, password = "long enough") => accounts.signUp({ email, password, name });
+    await expect(up("not an email", "Dee")).rejects.toThrow(/email address/);
+    await expect(up("dee@example", "Dee")).rejects.toThrow(/email address/);
+    await expect(up("dee@example.com", "x")).rejects.toThrow(/2 to 24/);
+    await expect(up("dee@example.com", "has space")).rejects.toThrow(/2 to 24/);
+    await expect(up("dee@example.com", "Dee", "short")).rejects.toThrow(/at least 8/);
+    // One account per address, however it is capitalized, and one per name.
+    await expect(up(" ADA@Example.com ", "Ada2")).rejects.toMatchObject({ status: 409, message: "an account already signs in with that email" });
+    await expect(up("ada2@example.com", "ada")).rejects.toMatchObject({ status: 409, message: "that name is taken" });
+    expect((await up("xiaoming@example.com", "小明")).name).toBe("小明");
+  });
+
+  it("let an account made before emails sign in with its name", async () => {
+    const db = openDb(":memory:");
+    const accounts = new Accounts(db);
+    db.prepare("INSERT INTO users (id, name, password, created_at) VALUES (?, ?, ?, ?)").run("old", "Ada", await hashPassword("correct horse"), 1);
+    expect(await accounts.logIn("ada", "correct horse")).toEqual({ id: "old", name: "Ada" });
+    await expect(accounts.logIn("ada", "wrong horse")).rejects.toMatchObject({ status: 401 });
   });
 
   it("sign in with the right password only, and keep a session until it ends or expires", async () => {
     let clock = 1_000_000;
     const db = openDb(":memory:");
     const accounts = new Accounts(db, () => clock);
-    const ada = await accounts.signUp("Ada", "correct horse");
-    expect(await accounts.logIn("ADA", "correct horse")).toEqual(ada);
-    await expect(accounts.logIn("Ada", "wrong horse")).rejects.toMatchObject({ status: 401, message: "wrong name or password" });
-    await expect(accounts.logIn("Nobody", "correct horse")).rejects.toMatchObject({ status: 401, message: "wrong name or password" });
+    const ada = await accounts.signUp({ email: "ada@example.com", password: "correct horse", name: "Ada" });
+    expect(await accounts.logIn(" Ada@Example.COM", "correct horse")).toEqual(ada);
+    await expect(accounts.logIn("ada@example.com", "wrong horse")).rejects.toMatchObject({ status: 401, message: "wrong email or password" });
+    await expect(accounts.logIn("nobody@example.com", "correct horse")).rejects.toMatchObject({ status: 401, message: "wrong email or password" });
+    // An account with an email signs in with it, not with its name.
+    await expect(accounts.logIn("Ada", "correct horse")).rejects.toMatchObject({ status: 401 });
     const token = accounts.startSession(ada.id);
     expect(accounts.userFor(token)).toEqual(ada);
     expect(accounts.userFor(token + "x")).toBeUndefined();
@@ -182,7 +197,7 @@ describe("the play routes", () => {
       return { res, json: (await res.json()) as Record<string, unknown> };
     };
     const signUp = async (name: string) => {
-      const { res } = await send("/api/auth/signup", { body: { name, password: "long enough" } });
+      const { res } = await send("/api/auth/signup", { body: { email: `${name.toLowerCase()}@example.com`, name, password: "long enough" } });
       return res.headers.get("set-cookie")!.split(";")[0];
     };
     return { send, signUp };
@@ -190,7 +205,7 @@ describe("the play routes", () => {
 
   it("sign in with an http-only cookie and say who is signed in", async () => {
     const { send } = await server();
-    const { res, json } = await send("/api/auth/signup", { body: { name: "Ada", password: "correct horse" } });
+    const { res, json } = await send("/api/auth/signup", { body: { email: "ada@example.com", name: "Ada", password: "correct horse" } });
     expect(json.user).toMatchObject({ name: "Ada" });
     const cookie = res.headers.get("set-cookie")!;
     expect(cookie).toMatch(new RegExp(`^${SESSION_COOKIE}=`));
@@ -199,7 +214,10 @@ describe("the play routes", () => {
     const session = cookie.split(";")[0];
     expect((await send("/api/auth/me", { cookie: session })).json.user).toMatchObject({ name: "Ada" });
     expect((await send("/api/auth/me")).json.user).toBeNull();
-    expect((await send("/api/auth/login", { body: { name: "Ada", password: "nope nope" } })).res.status).toBe(401);
+    expect((await send("/api/auth/login", { body: { email: "ada@example.com", password: "nope nope" } })).res.status).toBe(401);
+    expect((await send("/api/auth/login", { body: { email: "ada@example.com", password: "correct horse" } })).json.user).toMatchObject({ name: "Ada" });
+    // The email is how Ada signs in; nobody is shown it.
+    expect(JSON.stringify(json)).not.toContain("ada@example.com");
     await send("/api/auth/logout", { body: {}, cookie: session });
     expect((await send("/api/auth/me", { cookie: session })).json.user).toBeNull();
   });
