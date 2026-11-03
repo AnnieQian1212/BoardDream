@@ -149,6 +149,13 @@ export interface LayoutInput {
    */
   chipRoom?: (id: string, pixels: number) => number | undefined;
   /**
+   * Screen pixels per table unit across the table where mat `id`'s chips stand, on the camera
+   * fitted to a first layout, over how much the chips are shrunk (fitTable): their width there.
+   * Without it pxPerUnit, the middle's scale, sizes them, which on a deep table (a phone's) left a
+   * far supply narrower than its widest chip.
+   */
+  chipPx?: (id: string) => number | undefined;
+  /**
    * Where rivals and the shared supply stand. "sides" seats the rivals in columns either side of
    * the middle, as many on the left as on the right (one more on the left when they are odd), and
    * stands the supply beside the board; "stack" stands the rivals in a row under the middle, which
@@ -289,7 +296,24 @@ const PX_PER_UNIT = 7;
  * The HTML chips' measures in screen pixels, as styles.css draws them (a test holds the two
  * together): a chip's height, the gap between chips and rows, and a note's line clamp and height.
  */
-export const CHIP = { height: 26, gap: 6, noteLines: 4, noteLine: 13 };
+export const CHIP = { height: 26, gap: 6, noteLines: 4, noteLine: 13, padding: 10, border: 1.5, inner: 5, label: 10.5, tracking: 0.06 };
+
+/**
+ * A counter chip's width in screen pixels: its padding and border, its label in small capitals
+ * (10.5px semibold, upper case, letters 0.06em apart), the gap, then its value in 13px bold.
+ * Measured as typed in 13px bold, the label ran about 10px short, which on a phone left a chip
+ * wider than the supply it sat on.
+ */
+function counterWidth(c: Counter): number {
+  const label = c.label.toUpperCase();
+  return (
+    2 * (CHIP.padding + CHIP.border) +
+    textWidth(label, `600 ${CHIP.label}px ${FONT_UI}`, 7.4) +
+    CHIP.tracking * CHIP.label * label.length +
+    CHIP.inner +
+    textWidth(String(c.value), `700 13px ${FONT_UI}`, 8)
+  );
+}
 
 let measurer: CanvasRenderingContext2D | null | undefined;
 
@@ -351,7 +375,7 @@ function chipSizes(px: number) {
     },
     /** The table depth `pixels` of chips take where the table is drawn at its middle's scale. */
     depth: (pixels: number) => pixels / deep,
-    counter: (c: Counter) => (24 + textWidth(c.label, `700 13px ${FONT_UI}`, 7.2) + textWidth(String(c.value), `700 13px ${FONT_UI}`, 8)) / px,
+    counter: (c: Counter) => counterWidth(c) / px,
     // A little over the measure, so a note that only just fits is not wrapped by rounding.
     note: (note: string) => Math.min(NOTE_MAX, NOTE_PAD + noteWidth(note) * 1.04) / px,
     /** A resource pile's count chip: piles stand at least this far apart, so their chips never touch. */
@@ -404,8 +428,9 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidt
   const chipsOnly = slots === 0 && piles.length === 0 && chips.length > 1 ? Math.min(26, 2 * Math.max(...chips) + sizes.gap + 2) : 0;
   // A long title does not widen a mat with cards or piles: it is printed smaller to fit (matTexture).
   const titleRoom = slots > 0 || piles.length > 0 ? 0 : titleW + 2;
-  // A counter's chip cannot wrap, so the mat is at least as wide as the widest (a note wraps instead).
-  const counterRoom = plain.length > 0 ? Math.max(...plain.map(sizes.counter)) + 2.6 : 0;
+  // A counter's chip cannot wrap, so the mat is at least as wide as the widest (a note wraps instead),
+  // with a little to spare for the measure: on a phone the 0.6 units over the room were 1.5 pixels.
+  const counterRoom = plain.length > 0 ? Math.max(...plain.map(sizes.counter)) * 1.06 + 2.6 : 0;
   const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, counterRoom, 14, minWidth);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
@@ -736,19 +761,31 @@ export function fitTable(
   const clamp = (px: number) => (Number.isFinite(px) ? Math.min(24, Math.max(MIN_PX, px)) : 7);
   const first = layoutTable({ ...input, arrangement, pxPerUnit: clamp(scale) });
   const drawn = tableScale(first, width, height, insets);
-  // Rows of chips wrapped under a header take the depth they cover where they stand, measured on
-  // the camera that frames the first layout (chips drawn smaller take fewer pixels).
-  const wrapped = new Map(first.badges.filter((b) => b.wrap).map((b) => [b.id, b.position]));
+  // Chips take the room they cover where they stand, measured on the camera that frames the first
+  // layout: rows wrapped under a header the depth their pixels reach down the table, and every
+  // mat's chips the width they span across it there (chips drawn smaller take fewer pixels).
+  const badges = new Map(first.badges.map((b) => [b.id, b]));
   const shrink = Number.isFinite(drawn) ? Math.min(1, Math.max(0.4, drawn / MIN_PX)) : 1;
-  const project = wrapped.size > 0 && Number.isFinite(drawn) ? screenProjector(first, width, height, insets) : undefined;
+  const project = badges.size > 0 && Number.isFinite(drawn) ? screenProjector(first, width, height, insets) : undefined;
   const chipRoom = project
     ? (id: string, pixels: number) => {
-        const start = wrapped.get(id);
-        return start && depthBelow(project, start, pixels * shrink);
+        const badge = badges.get(id);
+        return badge?.wrap ? depthBelow(project, badge.position, pixels * shrink) : undefined;
+      }
+    : undefined;
+  const chipPx = project
+    ? (id: string) => {
+        const badge = badges.get(id);
+        if (!badge) return undefined;
+        const [x, y, z] = badge.position;
+        const [a, b] = [project([x - 0.5, y, z]), project([x + 0.5, y, z])];
+        return Math.hypot(b[0] - a[0], b[1] - a[1]) / shrink;
       }
     : undefined;
   const layout =
-    drawn < scale * 0.97 || chipRoom ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn < scale * 0.97 ? drawn * 0.97 : scale), chipRoom }) : first;
+    drawn < scale * 0.97 || project
+      ? layoutTable({ ...input, arrangement, pxPerUnit: clamp(drawn < scale * 0.97 ? drawn * 0.97 : scale), chipRoom, chipPx })
+      : first;
   const final = layout === first ? drawn : tableScale(layout, width, height, insets);
   return { arrangement, layout, chipScale: Number.isFinite(final) ? Math.min(1, Math.max(0.4, final / MIN_PX)) : 1 };
 }
@@ -777,7 +814,12 @@ export function layoutTable(input: LayoutInput): TableLayout {
   const hand = panels.find((p) => p.zone === "hand");
   const px = input.pxPerUnit;
   const sizes = chipSizes(px !== undefined && Number.isFinite(px) && px > 0 ? px : PX_PER_UNIT);
-  const rivalMat = (p: Panel) => seatColumnBlock(p, input, sizes);
+  // Each mat's chips at the scale where they stand, when a first layout has measured it.
+  const sizesFor = (id: string) => {
+    const local = input.chipPx?.(id);
+    return local !== undefined && Number.isFinite(local) && local > 0 ? chipSizes(local) : sizes;
+  };
+  const rivalMat = (p: Panel) => seatColumnBlock(p, input, sizesFor(p.id));
   const half = Math.ceil(rivals.length / 2);
   const leftSide = rivals.slice(0, half).reverse().map(rivalMat);
   const rightSide = rivals.slice(half).map(rivalMat);
@@ -790,17 +832,17 @@ export function layoutTable(input: LayoutInput): TableLayout {
   if (geometry) {
     const board = boardBlock(geometry, panels.length > 0 ? BOARD : BOARD_ALONE);
     const supply = columns(
-      shared.map((p) => (minWidth: number, minDepth: number) => supplyBlock(p, input, sizes, minWidth, minDepth)),
+      shared.map((p) => (minWidth: number, minDepth: number) => supplyBlock(p, input, sizesFor(p.id), minWidth, minDepth)),
       Math.max(board.depth, 40) * (input.supplyHeight ?? 1),
     );
     middle = supply ? across([board, supply], 3) : board;
   } else if (shared.length > 0) {
     middle = across(
-      shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false, sizes })),
+      shared.map((p) => matBlock(p, input, { cardScale: 1, pileScale: 1, title: p.title, you: false, sizes: sizesFor(p.id) })),
       3,
     );
   }
-  const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes }) : undefined;
+  const you = mine ? matBlock(mine, input, { cardScale: 0.82, pileScale: 1, width: Math.max(56, middle?.width ?? 0), title: "You", you: true, sizes: sizesFor(mine.id) }) : undefined;
   if (input.arrangement === "stack") {
     // Rivals in a row under the middle, the viewer's mat below them.
     const row = rivals.length > 0 ? across([...leftSide.reverse(), ...rightSide], SIDE_GAP) : undefined;

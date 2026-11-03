@@ -229,6 +229,12 @@ test("the chips' measures match the stylesheet", () => {
   expect(rule(".badge-chip,\n.badge-note,\n.turn-pill {")).toContain(`height: ${CHIP.height}px`);
   expect(rule(".badge-note > span {")).toContain(`-webkit-line-clamp: ${CHIP.noteLines}`);
   expect(rule(".badge-note > span {")).toContain(`line-height: ${CHIP.noteLine}px`);
+  const chip = rule(".badge-chip,\n.badge-note,\n.turn-pill {");
+  expect(chip).toContain(`padding: 0 ${CHIP.padding}px`);
+  expect(chip).toContain(`gap: ${CHIP.inner}px`);
+  expect(css).toContain(`--edge: ${CHIP.border}px solid`);
+  expect(rule(".badge-chip small {")).toContain(`font-size: ${CHIP.label}px`);
+  expect(rule(".badge-chip small {")).toContain(`letter-spacing: ${CHIP.tracking}em`);
 });
 
 describe("rivals round the table", () => {
