@@ -29,6 +29,15 @@ const MOST_ELONGATED = 3;
 /** A painting with fewer of its tiles lined up than this, after its second try, is not kept. */
 const LEAST_ALIGNED = 0.25;
 
+/**
+ * The table shows each painted tile a little cropped, to leave out the painter's inked gaps
+ * (ART_CROP in apps/web/src/paintSource.ts, about a twentieth of the tile at each edge). Fogfall
+ * Lanterns' villagers were painted standing the full height of their seats and lost the tops of
+ * their heads, so whatever stands on a tile is kept clear of its edges.
+ */
+export const INSIDE_TILES =
+  "Keep whatever stands on a tile (a figure, a building, a lantern) small enough to sit wholly inside it, clear of every edge by about a tenth of the tile, so nothing touches or crosses a border";
+
 /** A cell this many times longer than wide is a strip for text (Fogfall Lanterns' report rail, 23:1), not a place. */
 const BANNER = 10;
 
@@ -588,7 +597,7 @@ export async function paintBoard(
 
   step("painting the board");
   const rows = rowsOf(geometry);
-  const prompt = `Repaint this game board guide as an illustrated board for "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}. In the guide, ${legend(geometry)}; paint each tile as that terrain or space. Keep every tile exactly where it is with the same shape and outline${rows ? ` (${rows})` : ""}, and keep the dark gaps between tiles as borders: do not move, add, remove or spread out any tile. ${HOUSE_STYLE}.`;
+  const prompt = `Repaint this game board guide as an illustrated board for "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}. In the guide, ${legend(geometry)}; paint each tile as that terrain or space. Keep every tile exactly where it is with the same shape and outline${rows ? ` (${rows})` : ""}, and keep the dark gaps between tiles as borders: do not move, add, remove or spread out any tile. ${INSIDE_TILES}. ${HOUSE_STYLE}.`;
   const raw = await edit(client, models.image, prompt, [guide], size, signal);
   writeFileSync(new URL("board-first.png", dir), raw);
   // Lined up with the geometry before SAM checks it and before tiles are cut from it.
@@ -615,7 +624,7 @@ export async function paintBoard(
       .slice(0, 8)
       .map((s) => whereIs(geometry, s.id))
       .join("; ");
-    const fixPrompt = `The first image is a painted game board; the second is its layout guide. Some painted tiles drifted from the guide's outlines, around: ${spots}. Repaint those tiles so their shapes and borders match the guide exactly, and keep everything else unchanged. ${HOUSE_STYLE}.`;
+    const fixPrompt = `The first image is a painted game board; the second is its layout guide. Some painted tiles drifted from the guide's outlines, around: ${spots}. Repaint those tiles so their shapes and borders match the guide exactly, and keep everything else unchanged. ${INSIDE_TILES}. ${HOUSE_STYLE}.`;
     const fixed = lineUp(await edit(client, models.image, fixPrompt, [painted, guide], size, signal), geometry);
     step("checking the repaint");
     const fixedScores = await checkAlignment(client, models.sam, geometry, fixed.png, signal);

@@ -2,7 +2,7 @@ import { regularPolygon, type Geometry, type GeometryCell } from "@boarddream/en
 import { describe, expect, it } from "vitest";
 import { existsSync, rmSync } from "node:fs";
 import type { ModelClient } from "../meta/client";
-import { framed, guideColors, intoBoard, legend, outlineIoUs, paintBoard, paintFrame, rowsOf } from "./board";
+import { framed, guideColors, INSIDE_TILES, intoBoard, legend, outlineIoUs, paintBoard, paintFrame, rowsOf } from "./board";
 import { decodePng, encodePng } from "./png";
 
 const tile = (id: string, kind: string, terrain?: GeometryCell["terrain"], x = 0): GeometryCell => ({
@@ -178,10 +178,12 @@ describe("stopping a board being painted", () => {
     const dir = new URL(`../../../../data/art/${id}/`, import.meta.url);
     // A painter that never answers on its own: it only ends when it is stopped.
     let calls = 0;
+    let prompt = "";
     const painter = {
-      post: (_path: string, _body: unknown, _attempts: number, signal?: AbortSignal) =>
+      post: (_path: string, body: { prompt: string }, _attempts: number, signal?: AbortSignal) =>
         new Promise((_, reject) => {
           calls++;
+          prompt = body.prompt;
           signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
         }),
     } as unknown as ModelClient;
@@ -197,6 +199,8 @@ describe("stopping a board being painted", () => {
       await expect(painting).rejects.toThrow();
       expect(steps).toEqual(["painting the board"]);
       expect(calls).toBe(1);
+      // The painter is told to keep what stands on a tile inside it: the table crops each tile a little.
+      expect(prompt).toContain(INSIDE_TILES);
       expect(existsSync(new URL("board.json", dir))).toBe(false);
       expect(existsSync(new URL("board.png", dir))).toBe(false);
     } finally {
