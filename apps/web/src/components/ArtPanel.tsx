@@ -13,7 +13,7 @@ interface Props {
   board?: { report?: BoardReport; step: string | null; onPaint(): void };
 }
 
-/** Muse Image card art: how much is painted and a button to paint the rest. */
+/** Muse Image art in two parts: the board (painted over its layout, checked by SAM 3.1) and the cards. */
 export function ArtPanel({ cards, painted, painting, available, onPaint, board }: Props) {
   const missing = Math.max(0, cards - painted);
   return (
@@ -21,7 +21,19 @@ export function ArtPanel({ cards, painted, painting, available, onPaint, board }
       <h2>
         <Palette size={17} /> Art
       </h2>
-      {board && <BoardArt {...board} available={available} />}
+      {board && (
+        <>
+          <h3 className="art-part">
+            <MapIcon size={15} /> Board
+          </h3>
+          <BoardArt {...board} available={available} />
+        </>
+      )}
+      {cards > 0 && (
+        <h3 className="art-part">
+          <Brush size={15} /> Cards
+        </h3>
+      )}
       {cards === 0 ? null : painting ? (
         <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={painting.total} aria-valuenow={painting.done}>
           <div className="progress-bar" style={{ width: `${(100 * painting.done) / Math.max(1, painting.total)}%` }} />

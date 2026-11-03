@@ -1,5 +1,5 @@
 import type { GameModule } from "@boarddream/engine";
-import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, ScrollText, SlidersHorizontal, Sparkles, Swords, Target, Users, Wand2 } from "lucide-react";
+import { BarChart3, BookOpen, Check, LayoutGrid, MoreHorizontal, Printer, RotateCcw, SlidersHorizontal, Sparkles, Swords, Target, Users, Wand2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEscape } from "../escape";
 import { setPref, usePrefs } from "../prefs";
@@ -25,7 +25,6 @@ interface Props {
   onRestart(): void;
   onMuse(on: boolean): void;
   onPrint(): void;
-  onLog(): void;
   onResults(): void;
   /** Opens a table friends can join; absent where no server keeps accounts (the static demo). */
   onInvite?(): void;
@@ -90,7 +89,7 @@ export function TopBar(props: Props) {
   );
 }
 
-function MoreMenu({ opponentModel, muse, onRestart, onMuse, onPrint, onLog, onResults }: Props) {
+function MoreMenu({ opponentModel, muse, onRestart, onMuse, onPrint, onResults }: Props) {
   const [open, setOpen] = useState(false);
   const { hints, battles } = usePrefs();
   const root = useRef<HTMLDivElement>(null);
@@ -143,7 +142,6 @@ function MoreMenu({ opponentModel, muse, onRestart, onMuse, onPrint, onLog, onRe
             title: "Off: a battle's dice and knocked-off pieces are skipped and play goes straight on",
           })}
           <hr />
-          {item(<ScrollText size={15} />, "Game log", onLog)}
           {item(<Printer size={15} />, "Print and play", onPrint, { title: "Rules, board and cards on A4, to play on a real table" })}
           <hr />
           {item(<BarChart3 size={15} />, "Behind the scenes", onResults, { title: "How every game is tested, and the benchmarks" })}

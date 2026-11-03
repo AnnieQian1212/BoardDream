@@ -6051,3 +6051,18 @@ a.quiet {
   fill: inherit;
   animation: none;
 }
+
+/* The art panel's two parts, the board and the cards, each under its own heading. */
+.art-part {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.art-part:first-of-type {
+  margin-top: 4px;
+}

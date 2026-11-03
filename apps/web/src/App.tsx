@@ -470,7 +470,6 @@ export function App() {
         onRestart={() => setMatch(restartMatch(match))}
         onMuse={setMuse}
         onPrint={() => setPrinting(true)}
-        onLog={() => openDesigner("log")}
         onResults={() => setResults(true)}
         onInvite={invite}
       />
