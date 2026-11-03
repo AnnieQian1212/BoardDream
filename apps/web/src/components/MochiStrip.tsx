@@ -1,7 +1,39 @@
-import { ChevronDown, Heart, Star } from "lucide-react";
+import { Check, ChevronDown, Coins, Heart, Lock, Star, X } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useEscape } from "../escape";
-import { AUTO_STEAM, empties, FRIENDS, pair, press, revive, SPOTS, start, steam, TOP, type Patch } from "../mochi";
+import {
+  BASKET_ODDS,
+  buyGolden,
+  capacity,
+  COMBO_GAP,
+  empties,
+  FRIENDS,
+  give,
+  goldenCost,
+  goldenFriend,
+  MAX_LEVEL,
+  ORDER_SLOTS,
+  pair,
+  press,
+  ready,
+  revive,
+  serve,
+  SPOTS,
+  start,
+  steam,
+  stoveGap,
+  STOVE_GAPS,
+  THIRD_GUEST,
+  tick,
+  TOP,
+  turnAway,
+  unlock,
+  unlockCost,
+  upgrade,
+  upgradeCost,
+  type Patch,
+  type Upgrade,
+} from "../mochi";
 import { MochiArt, SteamerBase, SteamerLid } from "./MochiArt";
 
 const KEY = "boarddream.mochi";
@@ -63,13 +95,14 @@ export const STRIP_HEIGHT = 200;
 /** Seconds without a move before two alike are pointed out. */
 const HINT_AFTER = 9;
 
-/** How a friend came to sit on its spot, for the way it appears. */
+/** How a friend came to sit on its tile, for the way it appears. */
 type Arrival = "here" | "steam" | "merge" | "move";
 
 interface Burst {
   id: number;
   spot: number;
-  kind: "hearts" | "star" | "puff";
+  kind: "hearts" | "star" | "puff" | "text";
+  text?: string;
 }
 
 interface Drag {
@@ -79,13 +112,26 @@ interface Drag {
   y: number;
   el: HTMLElement;
   rects: DOMRect[];
+  orders: (DOMRect | null)[];
   moved: boolean;
 }
+
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+/** What a basket of a level brings, in words. */
+const basketSays = (level: number) =>
+  BASKET_ODDS[level - 1]
+    .slice(1)
+    .map((chance, k) => `${pct(chance)} ${FRIENDS[k + 1].name.toLowerCase()}`)
+    .join(", ");
+
+const inRect = (r: DOMRect | null, x: number, y: number) => !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 
 /**
  * Something to play while a game is made: a steamer at the foot of the page sets fresh dewdrops on
  * a picnic blanket, and two friends alike, dragged or clicked together, become the next friend up
- * the line, from a dewdrop to the moon. It is kept in this browser between games.
+ * the line, from a dewdrop to the moon. Guests leave order cards asking for friends and pay coins
+ * for them; coins open locked tiles and buy a bigger basket, a hotter stove and golden batches.
+ * It is kept in this browser between games.
  */
 export function MochiStrip() {
   const open = useStripOpen();
@@ -96,34 +142,66 @@ export function MochiStrip() {
   const [held, setHeld] = useState<number>();
   const [dragFrom, setDragFrom] = useState<number>();
   const [over, setOver] = useState<number>();
+  const [overOrder, setOverOrder] = useState<number>();
   const [hint, setHint] = useState<[number, number]>();
   const [bursts, setBursts] = useState<Burst[]>([]);
+  const [paid, setPaid] = useState<{ id: number; slot: number; coins: number }[]>([]);
   const [news, setNews] = useState<{ id: number; friend?: number }>();
+  const [shop, setShop] = useState(false);
   const [batches, setBatches] = useState(0);
   const [shakes, setShakes] = useState(0);
+  const [nope, setNope] = useState<{ n: number; spot?: number; slot?: number }>({ n: 0 });
   const drag = useRef<Drag | null>(null);
   const dropped = useRef(0);
   const spotEls = useRef<(HTMLButtonElement | null)[]>([]);
+  const orderEls = useRef<(HTMLDivElement | null)[]>([]);
   const clock = useRef(0);
   const lastMove = useRef(Date.now());
+  const lastMerge = useRef(0);
+  const saved = useRef(p);
   const nextId = useRef(1);
-  useEscape(() => setHeld(undefined), held !== undefined);
+  useEscape(() => {
+    setHeld(undefined);
+    setShop(false);
+  }, held !== undefined || shop);
 
+  // A click anywhere outside the shop closes it.
+  useEffect(() => {
+    if (!shop) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest(".mochi-shop")) setShop(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [shop]);
+
+  const later = (ms: number, f: () => void) => setTimeout(f, ms);
   const arrive = (spots: number[], how: Arrival) =>
     setArrivals((a) => a.map((x, i) => (spots.includes(i) ? { n: x.n + 1, how } : x)));
-  const burst = (spot: number, kind: Burst["kind"]) => {
+  const burst = (spot: number, kind: Burst["kind"], text?: string) => {
     const id = nextId.current++;
-    setBursts((b) => [...b, { id, spot, kind }]);
-    setTimeout(() => setBursts((b) => b.filter((x) => x.id !== id)), 1100);
+    setBursts((b) => [...b, { id, spot, kind, text }]);
+    later(1100, () => setBursts((b) => b.filter((x) => x.id !== id)));
+  };
+  const pay = (slot: number, coins: number) => {
+    if (!coins) return;
+    const id = nextId.current++;
+    setPaid((f) => [...f, { id, slot, coins }]);
+    later(1300, () => setPaid((f) => f.filter((x) => x.id !== id)));
   };
   const tell = (friend?: number) => {
     const id = nextId.current++;
     setNews({ id, friend });
-    setTimeout(() => setNews((n) => (n?.id === id ? undefined : n)), 3400);
+    later(3400, () => setNews((n) => (n?.id === id ? undefined : n)));
   };
+  const refuse = (where: { spot?: number; slot?: number }) => setNope((n) => ({ n: n.n + 1, ...where }));
   const commit = (next: Patch) => {
     current.current = next;
     setP(next);
+  };
+  const moved = () => {
+    lastMove.current = Date.now();
+    setHint(undefined);
   };
 
   /** A batch from the steamer, by a click or by itself; a click on a full blanket shakes it. */
@@ -131,22 +209,25 @@ export function MochiStrip() {
     const { patch, at } = steam(current.current);
     if (at === undefined) {
       if (!byItself) setShakes((s) => s + 1);
-      return false;
+      return;
     }
     commit(patch);
     arrive([at], "steam");
     burst(at, "puff");
     setBatches((b) => b + 1);
     clock.current = 0;
-    return true;
   };
 
   const act = (from: number, to: number) => {
-    const { patch, outcome } = press(current.current, from, to);
-    lastMove.current = Date.now();
-    setHint(undefined);
+    const chained = Date.now() - lastMerge.current <= COMBO_GAP * 1000;
+    const { patch, outcome } = press(current.current, from, to, chained);
+    moved();
     if (outcome.kind === "none") return;
     commit(patch);
+    if (outcome.kind === "merge" || outcome.kind === "rise") {
+      lastMerge.current = Date.now();
+      if (outcome.combo > 1) burst(to, "text", `Combo ×${outcome.combo} +${outcome.bonus}`);
+    }
     if (outcome.kind === "merge") {
       arrive([to], "merge");
       burst(to, "hearts");
@@ -157,31 +238,85 @@ export function MochiStrip() {
     } else arrive(outcome.kind === "swap" ? [from, to] : [to], "move");
   };
 
-  // The steamer makes a batch by itself now and then, and a player who has stopped is shown a pair.
+  /** The friend on `from` handed to the guest in `slot`, who must want one like it. */
+  const hand = (from: number, slot: number) => {
+    const r = give(current.current, from, slot);
+    moved();
+    if (!r.gave) return refuse({ slot });
+    commit(r.patch);
+    burst(from, "hearts");
+    pay(slot, r.paid);
+  };
+
+  /** A click on a guest's card: the friend picked up goes to the guest, or all it wants that are on the blanket. */
+  const onOrder = (slot: number) => {
+    if (held !== undefined) {
+      hand(held, slot);
+      setHeld(undefined);
+      return;
+    }
+    const r = serve(current.current, slot);
+    moved();
+    if (!r.spots.length) return refuse({ slot });
+    commit(r.patch);
+    for (const s of r.spots) burst(s, "hearts");
+    pay(slot, r.paid);
+  };
+
+  const buy = (what: Upgrade | "golden") => {
+    if (what === "golden") {
+      const { patch, at } = buyGolden(current.current);
+      if (at === undefined) return;
+      commit(patch);
+      arrive([at], "steam");
+      burst(at, "puff");
+      return;
+    }
+    commit(upgrade(current.current, what));
+  };
+
+  const openTile = (spot: number) => {
+    const next = unlock(current.current, spot);
+    if (next === current.current) return refuse({ spot });
+    commit(next);
+    burst(spot, "puff");
+  };
+
+  // The steamer makes a batch by itself now and then, guests come to empty places, and a player
+  // who has stopped is shown a pair.
   useEffect(() => {
+    let beat = 0;
     const timer = setInterval(() => {
-      clock.current = Math.min(AUTO_STEAM, clock.current + 0.25);
-      if (clock.current >= AUTO_STEAM && empties(current.current).length) steamOne(true);
+      const gap = stoveGap(current.current);
+      clock.current = Math.min(gap, clock.current + 0.25);
+      if (clock.current >= gap && empties(current.current).length) steamOne(true);
+      if (++beat % 2 === 0) {
+        const next = tick(current.current, 0.5);
+        if (next !== current.current) commit(next);
+      }
       if (Date.now() - lastMove.current > HINT_AFTER * 1000 && !drag.current) {
         lastMove.current = Date.now();
         const two = pair(current.current);
         if (two) {
           setHint(two);
-          setTimeout(() => setHint(undefined), 2600);
+          later(2600, () => setHint(undefined));
         }
       }
     }, 250);
     return () => clearInterval(timer);
   }, []);
 
+  // Kept every few seconds when something has changed, and when the page goes.
   useEffect(() => {
-    const timer = setTimeout(() => save(p), 400);
-    return () => clearTimeout(timer);
-  }, [p]);
-  useEffect(() => {
-    const keep = () => save(current.current);
+    const keep = () => {
+      if (saved.current === current.current) return;
+      saved.current = current.current;
+      save(current.current);
+    };
+    const timer = setInterval(keep, 3000);
     window.addEventListener("pagehide", keep);
     return () => {
+      clearInterval(timer);
       window.removeEventListener("pagehide", keep);
       keep();
     };
@@ -190,7 +325,7 @@ export function MochiStrip() {
   if (!open) {
     return (
       <button type="button" className="mochi-tab" onClick={() => setOpen(true)} title="Mochi friends to make while you wait">
-        <MochiArt friend={p.best} className="mochi-tab-art" /> Mochi steamer · {p.best + 1}/{FRIENDS.length} friends
+        <MochiArt friend={p.best} className="mochi-tab-art" /> Mochi steamer · {p.best + 1}/{FRIENDS.length} friends · <Coins size={13} className="mochi-coin-icon" /> {p.coins.toLocaleString()}
         {p.stars > 0 && (
           <>
             {" "}
@@ -206,9 +341,18 @@ export function MochiStrip() {
     const el = e.currentTarget.querySelector<HTMLElement>(".mochi-lift");
     if (!el) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { from: i, pointer: e.pointerId, x: e.clientX, y: e.clientY, el, rects: spotEls.current.map((s) => s!.getBoundingClientRect()), moved: false };
+    drag.current = {
+      from: i,
+      pointer: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      el,
+      rects: spotEls.current.map((s) => s!.getBoundingClientRect()),
+      orders: orderEls.current.map((o) => o?.getBoundingClientRect() ?? null),
+      moved: false,
+    };
   };
-  const spotAt = (d: Drag, x: number, y: number) => d.rects.findIndex((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom);
+  const targetAt = (d: Drag, x: number, y: number) => ({ spot: d.rects.findIndex((r) => inRect(r, x, y)), slot: d.orders.findIndex((r) => inRect(r, x, y)) });
   const onMove = (e: ReactPointerEvent) => {
     const d = drag.current;
     if (!d || e.pointerId !== d.pointer) return;
@@ -222,8 +366,9 @@ export function MochiStrip() {
       setDragFrom(d.from);
     }
     d.el.style.transform = `translate(${dx}px, ${dy}px) scale(1.12)`;
-    const at = spotAt(d, e.clientX, e.clientY);
-    setOver(at >= 0 && at !== d.from ? at : undefined);
+    const { spot, slot } = targetAt(d, e.clientX, e.clientY);
+    setOver(spot >= 0 && spot !== d.from ? spot : undefined);
+    setOverOrder(slot >= 0 && current.current.orders[slot] ? slot : undefined);
   };
   const onUp = (e: ReactPointerEvent, cancelled = false) => {
     const d = drag.current;
@@ -234,12 +379,16 @@ export function MochiStrip() {
     d.el.style.transform = "";
     setDragFrom(undefined);
     setOver(undefined);
-    const to = spotAt(d, e.clientX, e.clientY);
-    if (!cancelled && to >= 0 && to !== d.from) act(d.from, to);
+    setOverOrder(undefined);
+    if (cancelled) return;
+    const { spot, slot } = targetAt(d, e.clientX, e.clientY);
+    if (spot >= 0 && spot !== d.from) act(d.from, spot);
+    else if (slot >= 0 && current.current.orders[slot]) hand(d.from, slot);
   };
-  /** A click picks a friend up, and a second click sets it down: on one alike, an empty spot, or picks up another. */
+  /** A click picks a friend up, and a second click sets it down: on one alike, an empty tile, or picks up another. */
   const onClick = (i: number) => {
     if (Date.now() - dropped.current < 300) return;
+    if (p.locked[i]) return openTile(i);
     const f = p.spots[i];
     if (held === undefined || held === i) return setHeld(held === i || f === null ? undefined : i);
     if (f !== null && f !== p.spots[held]) return setHeld(i);
@@ -249,7 +398,15 @@ export function MochiStrip() {
 
   const full = empties(p).length === 0;
   const moving = dragFrom ?? held;
-  const tip = full ? "The blanket is full: put two alike together to make room" : "Drag a friend onto one just like it, or click them both";
+  const movingFriend = moving === undefined ? undefined : p.spots[moving];
+  const tip =
+    moving !== undefined
+      ? "Drop it on one just like it, on an empty tile, or on a guest's card that asks for it"
+      : full
+        ? "The blanket is full: merge two alike, or hand friends to the guests"
+        : "Merge two alike to meet the next friend. Guests pay coins for the friends on their cards";
+  const cap = capacity(p);
+  const tileCost = unlockCost(p);
 
   return (
     <section className="mochi" aria-label="Mochi friends to make while your game is made">
@@ -261,6 +418,7 @@ export function MochiStrip() {
               <span>
                 <small>Two moons rose</small>
                 <strong>A new star in the sky</strong>
+                <em>And 200 coins from the guests who watched.</em>
               </span>
             </>
           ) : (
@@ -277,14 +435,23 @@ export function MochiStrip() {
       )}
       <header className="mochi-head">
         <strong>Mochi steamer</strong>
-        <span className="mochi-badge" title={`${p.best + 1} of ${FRIENDS.length} friends met`}>
+        <span className="mochi-badge mochi-friends" title={`${p.best + 1} of ${FRIENDS.length} friends met`}>
           Friends {p.best + 1}/{FRIENDS.length}
+        </span>
+        <span className="mochi-badge" title="Coins, from the guests">
+          <Coins size={13} className="mochi-coin-icon" /> {p.coins.toLocaleString()}
         </span>
         {p.stars > 0 && (
           <span className="mochi-badge dark" title="Moons risen to the sky">
             <Star size={13} className="mochi-star-icon" /> {p.stars}
           </span>
         )}
+        <span className="mochi-shop">
+          <button type="button" className="mochi-badge mochi-shop-open" onClick={() => setShop(!shop)} aria-expanded={shop}>
+            Shop
+          </button>
+          {shop && <Shop p={p} onBuy={buy} />}
+        </span>
         <span className="mochi-tip">{tip}</span>
         <span className="mochi-gap" />
         <button type="button" className="quiet icon-only" onClick={() => setOpen(false)} aria-label="Fold the steamer away" title="Fold away">
@@ -306,14 +473,15 @@ export function MochiStrip() {
               <SteamerBase />
             </span>
           </button>
-          <span className="mochi-timer" title="The steamer makes one by itself every few seconds" aria-hidden>
-            <i key={batches} style={{ "--steam": `${AUTO_STEAM}s` } as CSSProperties} />
+          <span className="mochi-timer" title={`The steamer makes one by itself every ${stoveGap(p)} s`} aria-hidden>
+            <i key={batches} style={{ "--steam": `${stoveGap(p)}s` } as CSSProperties} />
           </span>
         </div>
         <div className="mochi-board" aria-label="Picnic blanket">
           {p.spots.map((f, i) => {
             const arrival = arrivals[i];
             const lifted = moving === i;
+            const locked = p.locked[i];
             return (
               <button
                 key={i}
@@ -324,10 +492,12 @@ export function MochiStrip() {
                 className={[
                   "mochi-spot",
                   f !== null && "taken",
+                  locked && "locked",
+                  locked && tileCost !== undefined && p.coins >= tileCost && "affordable",
                   lifted && "lifted",
                   dragFrom === i && "dragged",
-                  over === i && "over",
-                  moving !== undefined && moving !== i && f !== null && f === p.spots[moving] && "match",
+                  over === i && !locked && "over",
+                  moving !== undefined && moving !== i && f !== null && f === movingFriend && "match",
                   hint?.includes(i) && "hint",
                 ]
                   .filter(Boolean)
@@ -337,9 +507,17 @@ export function MochiStrip() {
                 onPointerUp={(e) => onUp(e)}
                 onPointerCancel={(e) => onUp(e, true)}
                 onClick={() => onClick(i)}
-                aria-label={f === null ? "Empty spot" : `${FRIENDS[f].name}${held === i ? ", picked up" : ""}`}
+                aria-label={locked ? `Locked tile: open it for ${tileCost} coins` : f === null ? "Empty tile" : `${FRIENDS[f].name}${held === i ? ", picked up" : ""}`}
                 aria-pressed={f === null ? undefined : held === i}
               >
+                {locked && (
+                  <span key={nope.spot === i ? nope.n : 0} className={["mochi-lock", nope.spot === i && nope.n > 0 && "shake"].filter(Boolean).join(" ")} aria-hidden>
+                    <Lock size={15} />
+                    <small>
+                      <Coins size={10} /> {tileCost}
+                    </small>
+                  </span>
+                )}
                 {f !== null && (
                   <span className="mochi-lift" style={{ "--f": f } as CSSProperties}>
                     <span key={arrival.n} className={`mochi-friend ${arrival.how}`} style={{ "--delay": `${-((i * 0.37) % 2.8)}s` } as CSSProperties}>
@@ -354,12 +532,79 @@ export function MochiStrip() {
                       {b.kind === "hearts" && [0, 1, 2, 3].map((k) => <Heart key={k} size={14} style={{ "--k": k } as CSSProperties} />)}
                       {b.kind === "star" && <Star size={30} />}
                       {b.kind === "puff" && [0, 1, 2].map((k) => <i key={k} style={{ "--k": k } as CSSProperties} />)}
+                      {b.kind === "text" && <b>{b.text}</b>}
                     </span>
                   ))}
               </button>
             );
           })}
         </div>
+        <aside className="mochi-orders" aria-label="Guests' orders">
+          {Array.from({ length: ORDER_SLOTS }, (_, s) => {
+            if (s >= cap)
+              return s === cap ? (
+                <div key={s} className="mochi-order later">
+                  A third guest comes once you meet the {FRIENDS[THIRD_GUEST].name.toLowerCase()}
+                </div>
+              ) : null;
+            const o = p.orders[s];
+            const wanted = movingFriend !== undefined && movingFriend !== null && !!o?.want.some((w, k) => w === movingFriend && !o.got[k]);
+            return (
+              <div
+                key={s}
+                className="mochi-order-slot"
+                ref={(el) => {
+                  orderEls.current[s] = el;
+                }}
+              >
+                {o ? (
+                  <div
+                    key={nope.slot === s ? nope.n : 0}
+                    className={["mochi-order", ready(p, s) && "ready", wanted && "wanted", overOrder === s && "over", nope.slot === s && nope.n > 0 && "shake"].filter(Boolean).join(" ")}
+                  >
+                    <button
+                      type="button"
+                      className="mochi-order-main"
+                      onClick={() => onOrder(s)}
+                      aria-label={`${o.from}: ${o.want.map((w, k) => `${FRIENDS[w].name}${o.got[k] ? " (given)" : ""}`).join(", ")}, pays ${o.coins} coins`}
+                      title={held !== undefined ? "Hand the friend you picked up to this guest" : "Hand over the friends this guest wants that are on the blanket"}
+                    >
+                      <span className="mochi-wants">
+                        {o.want.map((w, k) => (
+                          <span key={k} className={["mochi-want", o.got[k] && "got"].filter(Boolean).join(" ")}>
+                            <MochiArt friend={w} />
+                            {o.got[k] && <Check size={13} strokeWidth={3} />}
+                          </span>
+                        ))}
+                      </span>
+                      <span className="mochi-order-text">
+                        <strong title={o.from}>
+                          {o.from.split("'s ")[0]}
+                          <span className="mochi-meal">'s {o.from.split("'s ")[1]}</span>
+                        </strong>
+                        <small>
+                          <Coins size={11} className="mochi-coin-icon" /> {o.coins.toLocaleString()}
+                        </small>
+                      </span>
+                    </button>
+                    <button type="button" className="quiet icon-only mochi-order-x" onClick={() => (moved(), commit(turnAway(current.current, s)))} aria-label={`Send ${o.from} away`} title="Send this guest away">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mochi-order waiting">A guest is on the way · {Math.ceil(p.due[s])} s</div>
+                )}
+                {paid
+                  .filter((x) => x.slot === s)
+                  .map((x) => (
+                    <span key={x.id} className="mochi-paid" aria-hidden>
+                      +{x.coins} <Coins size={12} />
+                    </span>
+                  ))}
+              </div>
+            );
+          })}
+        </aside>
         <aside className="mochi-shelf" aria-label="Friends met">
           <h3>Friends met</h3>
           <div className="mochi-shelf-grid">
@@ -379,5 +624,65 @@ export function MochiStrip() {
         </aside>
       </div>
     </section>
+  );
+}
+
+/** What coins buy: a bigger basket, a hotter stove, golden batches; locked tiles open on the blanket. */
+function Shop({ p, onBuy }: { p: Patch; onBuy: (what: Upgrade | "golden") => void }) {
+  const items: { what: Upgrade | "golden"; name: string; level?: number; now: string; next?: string; cost?: number; why?: string }[] = [
+    {
+      what: "basket",
+      name: "Bigger basket",
+      level: p.basket,
+      now: `Batches: ${basketSays(p.basket)}`,
+      next: p.basket < MAX_LEVEL ? `Next: ${basketSays(p.basket + 1)}` : undefined,
+      cost: upgradeCost(p, "basket"),
+    },
+    {
+      what: "stove",
+      name: "Hotter stove",
+      level: p.stove,
+      now: `Steams one by itself every ${STOVE_GAPS[p.stove - 1]} s`,
+      next: p.stove < MAX_LEVEL ? `Next: every ${STOVE_GAPS[p.stove]} s` : undefined,
+      cost: upgradeCost(p, "stove"),
+    },
+    {
+      what: "golden",
+      name: "Golden batch",
+      now: `A ${FRIENDS[goldenFriend(p)].name.toLowerCase()} straight onto the blanket`,
+      cost: goldenCost(p),
+      why: empties(p).length ? undefined : "No room on the blanket",
+    },
+  ];
+  const tile = unlockCost(p);
+  return (
+    <div className="mochi-shop-menu" role="menu">
+      {items.map((it) => (
+        <button key={it.what} type="button" role="menuitem" disabled={it.cost === undefined || p.coins < it.cost || !!it.why} onClick={() => onBuy(it.what)}>
+          <span className="mochi-shop-name">
+            <strong>{it.name}</strong>
+            {it.level !== undefined && (
+              <span className="mochi-levels" aria-label={`Level ${it.level} of ${MAX_LEVEL}`}>
+                {Array.from({ length: MAX_LEVEL }, (_, k) => (
+                  <i key={k} className={k < it.level! ? "on" : undefined} />
+                ))}
+              </span>
+            )}
+          </span>
+          <small>{it.why ?? it.now}</small>
+          {it.next && <small>{it.next}</small>}
+          <b>
+            {it.cost === undefined ? (
+              "Done"
+            ) : (
+              <>
+                <Coins size={12} className="mochi-coin-icon" /> {it.cost.toLocaleString()}
+              </>
+            )}
+          </b>
+        </button>
+      ))}
+      <p>{tile === undefined ? "Every tile of the blanket is open." : `Click a locked tile on the blanket to open it: ${tile} coins.`}</p>
+    </div>
   );
 }
