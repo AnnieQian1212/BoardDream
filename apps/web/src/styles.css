@@ -3349,13 +3349,15 @@ button.pile-count.target {
   gap: 4px;
 }
 
+/* The question and the shelf sit in the middle of the page's height, not under its top edge. */
 .home-main {
   flex: 1;
   width: min(1180px, 100%);
   margin: 0 auto;
-  padding: clamp(16px, 6vh, 72px) 20px 56px;
+  padding: clamp(16px, 4vh, 48px) 20px clamp(40px, 9vh, 96px);
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: clamp(40px, 8vh, 80px);
 }
 
