@@ -3,7 +3,7 @@ import { PencilLine } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { DesignEvent, PlayStats, ReviseReply } from "../../../server/src/agent/protocol";
 import { generatedSource, loadGeneratedGame } from "../generated";
-import { revisionStatus } from "../generation";
+import { DESIGN_SILENCE_MS, revisionStatus } from "../generation";
 import { readEvents } from "../sse";
 
 /** What the change did, kept until another game is revised. */
@@ -43,13 +43,17 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
       let result: ReviseReply | undefined;
       let failure: string | undefined;
-      await readEvents(res, (event, data) => {
-        if (event === "design") {
-          const status = revisionStatus(JSON.parse(data) as DesignEvent);
-          if (status) setStatus(status);
-        } else if (event === "result") result = JSON.parse(data) as ReviseReply;
-        else if (event === "error") failure = data;
-      });
+      await readEvents(
+        res,
+        (event, data) => {
+          if (event === "design") {
+            const status = revisionStatus(JSON.parse(data) as DesignEvent);
+            if (status) setStatus(status);
+          } else if (event === "result") result = JSON.parse(data) as ReviseReply;
+          else if (event === "error") failure = data;
+        },
+        DESIGN_SILENCE_MS,
+      );
       if (!result) throw new Error(failure ?? "the server closed the connection");
       if (!result.ok) {
         setStatus(`The change still fails playtesting after ${result.attempts.length} rounds; the game is unchanged.`);

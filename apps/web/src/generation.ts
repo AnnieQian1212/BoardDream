@@ -178,6 +178,12 @@ export function progressOf(g: Generation, now: number): number {
 }
 
 /**
+ * A design under way sends a heartbeat every 15 s (apps/server/src/index.ts); this long without a
+ * word, the server is gone (stopped, or restarted under it) and the page says so.
+ */
+export const DESIGN_SILENCE_MS = 60_000;
+
+/**
  * Makes a game from an idea, following each step as the server reports it. Cancelling, or leaving
  * the page, closes the stream, and the server stops the work.
  */
@@ -217,11 +223,15 @@ export function useGeneration(onReady: (game: GameModule) => void) {
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
         let result: GenerateReply | undefined;
         let failure: string | undefined;
-        await readEvents(res, (event, data) => {
-          if (event === "design") update(apply(g, JSON.parse(data) as DesignEvent));
-          else if (event === "result") result = JSON.parse(data) as GenerateReply;
-          else if (event === "error") failure = data;
-        });
+        await readEvents(
+          res,
+          (event, data) => {
+            if (event === "design") update(apply(g, JSON.parse(data) as DesignEvent));
+            else if (event === "result") result = JSON.parse(data) as GenerateReply;
+            else if (event === "error") failure = data;
+          },
+          DESIGN_SILENCE_MS,
+        );
         if (!result) throw new Error(failure ?? "the server closed the connection");
         if (!result.ok) return update({ ...g, done: { ok: false, title: result.spec.title } });
         const game = loadGeneratedGame(result.source, result.id, result.spec.rules);

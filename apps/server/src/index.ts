@@ -220,6 +220,9 @@ app.delete("/api/games/:id", (c) => {
  * rules are sent in batches and check progress a few times a second, so a fast stream does not
  * flood the page. When the player leaves, the work stops: no more model calls.
  */
+/** How often a design under way says it is still there (the page gives up after DESIGN_SILENCE_MS, apps/web/src/generation.ts). */
+const HEARTBEAT_MS = 15_000;
+
 function designStream(stream: SSEStreamingApi, label: string) {
   const controller = new AbortController();
   stream.onAbort(() => {
@@ -229,6 +232,8 @@ function designStream(stream: SSEStreamingApi, label: string) {
   let code = "";
   let lastCheck = 0;
   const send = (event: DesignEvent) => void stream.writeSSE({ event: "design", data: JSON.stringify(event) });
+  // A beat while the model thinks in silence, so the page can tell a quiet server from a lost one.
+  const heartbeat = setInterval(() => void stream.writeSSE({ event: "ping", data: "" }), HEARTBEAT_MS);
   const flush = () => {
     if (code) send({ type: "code", text: code });
     code = "";
@@ -246,6 +251,7 @@ function designStream(stream: SSEStreamingApi, label: string) {
     },
     close: () => {
       clearInterval(timer);
+      clearInterval(heartbeat);
       flush();
     },
   };
