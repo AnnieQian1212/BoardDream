@@ -1,13 +1,12 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type DesignerTab = "rules" | "balance" | "art" | "log";
+export type DesignerTab = "rules" | "balance" | "art";
 
 const TABS: { id: DesignerTab; label: string }[] = [
   { id: "rules", label: "Rules" },
   { id: "balance", label: "Balance" },
   { id: "art", label: "Art" },
-  { id: "log", label: "Log" },
 ];
 
 interface Props {
@@ -21,7 +20,8 @@ interface Props {
 
 /**
  * The designer's bench, a drawer at the table's right that stays shut while playing: the rule
- * dials and plain-words changes, the balance and the measured profile, the art, and the game log.
+ * dials and plain-words changes, the balance and the measured profile, and the art. The game log is
+ * part of playing and opens from the turn bar (MoveLog).
  */
 export function Designer({ open, tab, onTab, onClose, panels }: Props) {
   const tabs = TABS.filter((t) => panels[t.id]);

@@ -6162,3 +6162,28 @@ a.quiet {
   color: var(--muted);
   margin: 10px 0;
 }
+
+/* The game log, opened from the turn bar: the moves so far above the bar, newest first. */
+.move-log {
+  position: relative;
+}
+
+.move-log-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 14px);
+  z-index: 30;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: var(--edge);
+  box-shadow: var(--lift-panel);
+  text-align: left;
+}
+
+.move-log-pop .hint {
+  margin: 0;
+}

@@ -1,4 +1,5 @@
 import { fitBounds, type CardView, type GameModule, type ResourceSpec } from "@boarddream/engine";
+import { MoveLog, type LogEntry } from "../components/LogPanel";
 import { unlit } from "../instructions";
 import { usePrefs } from "../prefs";
 import { Canvas } from "@react-three/fiber";
@@ -41,6 +42,8 @@ interface Props {
   names?: (string | undefined)[];
   /** The model playing the other seats, when one does, named while it thinks. */
   rivalModel?: string;
+  /** The moves so far, opened from the turn bar. */
+  log?: LogEntry[];
 }
 
 export interface Guide {
@@ -105,7 +108,7 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
-export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names, rivalModel }: Props) {
+export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names, rivalModel, log }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
   const [tier, setTier] = useState(START.tier);
@@ -270,6 +273,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
                 {button.label}
               </button>
             ))}
+            {log && <MoveLog entries={log} human={human} names={names} />}
           </div>
         </div>
       )}

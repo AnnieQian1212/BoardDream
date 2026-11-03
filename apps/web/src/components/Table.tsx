@@ -1,4 +1,5 @@
 import { fitBounds, type GameModule, type Panel, type ResourceSpec } from "@boarddream/engine";
+import { MoveLog, type LogEntry } from "./LogPanel";
 import { Trophy } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { playerColor } from "../colors";
@@ -24,6 +25,8 @@ interface Props {
   names?: (string | undefined)[];
   /** The model playing the other seats, when one does, named while it thinks. */
   rivalModel?: string;
+  /** The moves so far, opened from the turn bar. */
+  log?: LogEntry[];
 }
 
 interface Menu {
@@ -35,7 +38,7 @@ interface Menu {
 }
 
 /** The play area: rival mats, board and market, your mat and hand, and the moves you can make. */
-export function Table({ game, state, numPlayers, human, onMove, onRestart, names, rivalModel }: Props) {
+export function Table({ game, state, numPlayers, human, onMove, onRestart, names, rivalModel, log }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null);
   useEffect(() => setMenu(null), [state]);
   const { hint, ask } = useHint(game, state, human);
@@ -127,6 +130,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart, names
               {button.label}
             </button>
           ))}
+          {log && <MoveLog entries={log} human={human} names={names} />}
         </div>
       )}
 

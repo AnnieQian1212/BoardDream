@@ -8,7 +8,6 @@ import { GameLibrary } from "./components/GameLibrary";
 import { GenerationStage } from "./components/GenerationStage";
 import { GenerationSteps } from "./components/GenerationSteps";
 import { MochiStrip, stripHeight, useStripOpen } from "./components/MochiStrip";
-import { LogPanel } from "./components/LogPanel";
 import { Table } from "./components/Table";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { PrintSheet } from "./components/PrintSheet";
@@ -326,6 +325,7 @@ export function App() {
         onMove: (move: unknown) => setMatch(playMove(match, HUMAN, move)),
         onRestart: () => setMatch(restartMatch(match)),
         rivalModel: muse && opponentModel ? modelName(opponentModel) : undefined,
+        log: match.log,
       };
   const tableKey = preview ? `draft-${preview.match.game.meta.id}` : `${games.indexOf(game)}-${numPlayers}-${match.id}`;
   // A draft with a fault (the playtest failed it, it threw while bots played it, or the table could
@@ -532,7 +532,6 @@ export function App() {
                   board={hasBoard ? { report: board?.report, step: boardStep, onPaint: () => void paintBoard() } : undefined}
                 />
               ) : undefined,
-            log: <LogPanel entries={match.log} human={HUMAN} />,
           }}
         />
       )}
