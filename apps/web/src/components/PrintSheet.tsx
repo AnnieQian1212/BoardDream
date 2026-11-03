@@ -1,6 +1,6 @@
 import { randomPlayout, type CardView, type GameModule, type Geometry, type Params } from "@boarddream/engine";
 import { Printer, X } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { startingGeometry } from "../art";
 import { useEscape } from "../escape";
 import { resourceById } from "../icons";
@@ -37,11 +37,56 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
   return [...views.entries()].map(([design, card]) => ({ card, copies: ids.get(design)!.size }));
 }
 
+/** Widest a card's painting is printed: 63 mm at 300 dpi is about 750 pixels. */
+const PRINT_ART_WIDTH = 800;
+
+/**
+ * Card paintings shrunk for paper. They are 1920 pixels wide, and a browser printing them to PDF
+ * stores each one uncompressed: Waxbloom Valley's 24 paintings (21 MB) made a 120 MB kit. Each is
+ * drawn at most PRINT_ART_WIDTH wide and kept as a JPEG. Undefined until every one is ready; a
+ * painting that cannot be read (a server without art) is printed as it was.
+ */
+function usePrintArt(art: Map<string, string> | undefined): Map<string, string> | undefined {
+  const [small, setSmall] = useState<Map<string, string>>();
+  useEffect(() => {
+    let alive = true;
+    const shrink = (url: string) =>
+      new Promise<string>((done) => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => {
+          const scale = Math.min(1, PRINT_ART_WIDTH / image.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(image.width * scale);
+          canvas.height = Math.round(image.height * scale);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return done(url);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          try {
+            done(canvas.toDataURL("image/jpeg", 0.85));
+          } catch {
+            done(url);
+          }
+        };
+        image.onerror = () => done(url);
+        image.src = url;
+      });
+    void Promise.all([...(art ?? new Map<string, string>()).entries()].map(async ([title, url]) => [title, await shrink(url)] as const)).then((entries) => {
+      if (alive) setSmall(new Map(entries));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [art]);
+  return small;
+}
+
 /** A print-and-play kit: the rules, the components, the board and every card, laid out for A4 with cut lines. */
 export function PrintSheet({ game, params, art, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; onClose(): void }) {
   useEscape(onClose);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
-  const inventory = useMemo(() => cardInventory(game, art), [game, art]);
+  const printArt = usePrintArt(art);
+  const inventory = useMemo(() => cardInventory(game, printArt), [game, printArt]);
   // The board as printed: its spaces and labels, without the pieces of one particular opening.
   const geometry = useMemo<Geometry | undefined>(() => {
     const start = startingGeometry(game);
@@ -59,8 +104,8 @@ export function PrintSheet({ game, params, art, onClose }: { game: GameModule; p
         <span>
           Print and play <b>{game.meta.name}</b>: the rules{geometry ? ", the board" : ""} and {cards.length} cards on A4. Cut along the dashed lines.
         </span>
-        <button type="button" className="action" onClick={() => window.print()}>
-          <Printer size={16} /> Print or save as PDF
+        <button type="button" className="action" onClick={() => window.print()} disabled={!printArt}>
+          <Printer size={16} /> {printArt ? "Print or save as PDF" : "Preparing the card art…"}
         </button>
         <button type="button" className="ghost" onClick={onClose} aria-label="Close the print kit">
           <X size={16} /> Close
