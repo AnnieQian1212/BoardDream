@@ -761,8 +761,10 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
   // bright board read as all alike otherwise.
   const spotTarget = target && SPOTS.has(cell.kind ?? "");
   const base = useMemo(
-    () => (spotTarget ? new Color(TARGET_SPOT) : groundMap ? tint : new Color(shore ? SHORE : tileColor(cell))),
-    [cell, shore, groundMap, tint, spotTarget],
+    // A spot that can be clicked is painted teal, unless the glow is switched off (prefs): then only
+    // while the pointer is on it.
+    () => (spotTarget && (hints || hovered) ? new Color(TARGET_SPOT) : groundMap ? tint : new Color(shore ? SHORE : tileColor(cell))),
+    [cell, shore, groundMap, tint, spotTarget, hints, hovered],
   );
   const highlight = useMemo(() => new Color(HIGHLIGHT), []);
   const glowColor = useMemo(() => (cell.glow ? new Color(cell.glow) : undefined), [cell.glow]);
@@ -849,7 +851,8 @@ function Tile({ cell, path, reach, outline: tileOutline, k, at, target, low, isl
           <meshStandardMaterial map={print.texture} transparent roughness={0.8} depthWrite={false} />
         </mesh>
       )}
-      {halo && (
+      {/* With the glow switched off (prefs) the teal ring shows only under the pointer. */}
+      {halo && (hints || hovered) && (
         <mesh geometry={halo} position={[0, 0.004, 0]} raycast={noRaycast}>
           <meshBasicMaterial color={HIGHLIGHT} transparent opacity={0.85} />
         </mesh>

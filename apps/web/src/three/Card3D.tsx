@@ -216,6 +216,7 @@ function deckGeometry(height: number): BufferGeometry {
 
 /** A face-down draw pile whose height follows its size. */
 export function Deck3D({ item, onPick }: { item: DeckItem; onPick(id: string, x: number, y: number): void }) {
+  const { hints } = usePrefs();
   const height = deckHeight(item.count);
   const [x, y, z] = item.position;
   return (
@@ -250,7 +251,7 @@ export function Deck3D({ item, onPick }: { item: DeckItem; onPick(id: string, x:
           </mesh>
         </>
       )}
-      {item.target && (
+      {item.target && hints && (
         <mesh geometry={SHARED.glow} position={[0, 0.12, 0]} raycast={noRaycast}>
           <meshBasicMaterial map={SHARED.glowMap} color={HIGHLIGHT} transparent opacity={0.95} depthWrite={false} toneMapped={false} />
         </mesh>
