@@ -50,7 +50,7 @@ What each key turns on:
 Around the app:
 
 - The home page asks what you want to play. Type an idea, pick an example or press **Surprise me**, then **Dream it up**; the dials, and how hard Muse Spark thinks (**Model effort**, with the wait each means), are under **Advanced settings**. Below are the four demo games and your newest one.
-- A first game opens with a short note on how to win. The bar at the bottom says what to do each turn, what you can click glows, and **Hint** marks the bot's move on the table. **Rules** has the full rules.
+- A first game opens with a short note on how to win. The bar at the bottom says what to do each turn, what you can click glows, and **Hint** marks the bot's move on the table. **Rules** has the full rules, and a switch explains the game in Chinese: the rules, how a turn goes, every card and the table's English words.
 - **Invite friends** (on the table's bar) opens a table for the game and gives you a link. Friends sign in with a name and a password and take a seat; seats nobody takes are played by bots, and the server referees every move. It needs the full server, not the static demo.
 - **Print and play** (in the `…` menu) makes an A4 kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
