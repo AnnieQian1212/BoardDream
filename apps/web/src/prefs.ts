@@ -10,10 +10,12 @@ export interface Prefs {
   hints: boolean;
   /** A battle plays out on the board before the next move. */
   battles: boolean;
+  /** The language the rules card explains a game in (translation.ts); the table stays in English. */
+  language: "en" | "zh";
 }
 
 const KEY = "boarddream.prefs";
-const DEFAULTS: Prefs = { hints: true, battles: true };
+const DEFAULTS: Prefs = { hints: true, battles: true, language: "en" };
 const listeners = new Set<() => void>();
 
 function read(): Prefs {
@@ -22,6 +24,7 @@ function read(): Prefs {
     return {
       hints: typeof stored.hints === "boolean" ? stored.hints : DEFAULTS.hints,
       battles: typeof stored.battles === "boolean" ? stored.battles : DEFAULTS.battles,
+      language: stored.language === "zh" ? "zh" : "en",
     };
   } catch {
     return DEFAULTS;

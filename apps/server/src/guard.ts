@@ -24,6 +24,8 @@ export const LIMITS = {
   opponent: { perClient: 120, windowMs: 10 * 60_000, perDay: 5000 },
   /** A deck or a board painted by Muse Image, checked by SAM. */
   art: { perClient: 2, windowMs: 60 * 60_000, perDay: 20 },
+  /** A game's rules and cards put into another language: one call, kept once made. */
+  translate: { perClient: 20, windowMs: 60 * 60_000, perDay: 300 },
 } satisfies Record<string, Limit>;
 
 export class RateLimiter {

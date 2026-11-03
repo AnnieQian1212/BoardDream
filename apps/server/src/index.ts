@@ -14,6 +14,7 @@ import { boardReport, paintBoard, type BoardRequest } from "./art/board";
 import { artFile, deckRequest, paintDeck, paintDeckLater, plannerFrom, readManifest, type ArtRequest } from "./art/cards";
 import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
 import type { Effort } from "./agent/protocol";
+import { cleanRequest, savedTranslation, translateGame } from "./agent/translate";
 import type { GameRequest } from "./agent/spec";
 import { config, hasOpenModel } from "./config";
 import { clientAddress, LIMITS, opponentRequestProblem, RateLimiter, type Limit } from "./guard";
@@ -154,6 +155,24 @@ app.post("/api/art/:game", async (c) => {
       await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
     }
   });
+});
+
+// A game's rules, cards and table words in another language, for a player who reads little English.
+app.post("/api/translate/:game", async (c) => {
+  const req = cleanRequest(await c.req.json().catch(() => null));
+  if (typeof req === "string") return c.json({ error: req }, 400);
+  const game = c.req.param("game");
+  if (!/^[a-z0-9-]+$/.test(game)) return c.json({ error: "bad game id" }, 400);
+  const saved = savedTranslation(game, req);
+  if (saved) return c.json(saved);
+  if (!config.meta.apiKey) return c.json({ error: "MODEL_API_KEY is not set" }, 503);
+  const limited = overLimit(c, "translate");
+  if (limited) return limited;
+  try {
+    return c.json(await translateGame(designer, game, req));
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
+  }
 });
 
 // One decision for a Muse Spark opponent: a legal move index and a line of table talk.
