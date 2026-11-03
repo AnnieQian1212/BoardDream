@@ -162,12 +162,15 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     columns around it, none longer than the side it lies along, and width and height just covering the
     cells; never a long column of spaces beside a small grid. A "label" cell (status text such as the
     round) lies on free board, never over a place; a place players must read is large enough to carry
-    its name (about a tenth of the board's width or more). A cell may lie wholly inside
-    a larger one (a sea around its harbors), drawn beneath it; otherwise cells never overlap: a bridge
-    is an "edge" cell between two places, not a tile laid across a river.
+    its name (about a tenth of the board's width or more). Cells never overlap: a bridge is an "edge"
+    cell between two places, not a tile laid across a river.
     Make a map look like a landscape: give its places varied ground (set terrain where the kind does not
-    say it), with water somewhere (a lake, a river bend, a harbor) when the theme allows. Water or scenery
-    no rule uses can be extra cells in geometry only, never in the rules' map, as long as no move targets them.
+    say it), with water somewhere when the theme allows. Water is tiles of the board like any other
+    place, the same shape and size as their neighbours, as on a hex map whose lagoon and fishing hexes sit
+    among the forest and grain: a lake is a few water tiles side by side, a river a line of them, a coast
+    a row of them along the board's edge, a harbor a place beside a water tile. Never one large sea or
+    bay cell with places set inside it, or small islands floating in it. Water no rule uses can be extra
+    tiles in geometry only, never in the rules' map, as long as no move targets them.
     A map cell's label is the place's name as players would say it ("Copper Steps", "Emberfall", "Lamp
     Quay"), each different, never an id or code like "E1" or "T12". A number players read off the cell
     (an elevation, a yield, a cost) goes in badge (1-3 characters), printed on a round token under the name.
