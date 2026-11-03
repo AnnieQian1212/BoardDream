@@ -1,3 +1,4 @@
+import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
 import { pieceForm, pieceForms, pieceTurn } from "./pieces";
 
@@ -28,6 +29,30 @@ describe("the wooden pieces", () => {
       expect(b.min.y, name).toBeCloseTo(0, 5);
       expect(Math.max(-b.min.x, b.max.x, -b.min.z, b.max.z), name).toBeCloseTo(1, 5);
       expect(form.height, name).toBeGreaterThan(0.4);
+    }
+  });
+
+  test("a label printed on a piece sits on its face, with no part of the piece over it", () => {
+    for (const [name, form] of Object.entries(pieceForms())) {
+      const mark = form.mark;
+      if (!mark) continue;
+      const mesh = new Mesh(form.geometry, new MeshBasicMaterial({ side: DoubleSide }));
+      const ray = new Raycaster();
+      const half = mark.size / 2;
+      let over = -Infinity;
+      // Rays onto the face across the label (its round middle, where the text is drawn): the piece's
+      // surface must lie under the label everywhere, not only at its corners.
+      for (let i = -4; i <= 4; i++) {
+        for (let j = -4; j <= 4; j++) {
+          const [u, v] = [(i / 4) * half * 0.9, (j / 4) * half * 0.9];
+          if (Math.hypot(u, v) > half * 0.9) continue;
+          if (mark.facing === "up") ray.set(new Vector3(u, 10, v), new Vector3(0, -1, 0));
+          else ray.set(new Vector3(u, mark.y + v, 10), new Vector3(0, 0, -1));
+          const [hit] = ray.intersectObject(mesh);
+          if (hit) over = Math.max(over, mark.facing === "up" ? hit.point.y - mark.y : hit.point.z - mark.z);
+        }
+      }
+      expect(over, name).toBeLessThanOrEqual(1e-6);
     }
   });
 

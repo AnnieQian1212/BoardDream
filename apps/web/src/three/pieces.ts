@@ -135,11 +135,15 @@ function robot(): BufferGeometry {
     0.1,
   ).toNonIndexed();
   const knob = new BoxGeometry(0.28, 0.2, 0.28).toNonIndexed();
-  knob.translate(0, 2.36, 0.33);
+  knob.translate(0, 2.36, 0);
   return mergeGeometries([body, knob]);
 }
 
-/** A round wooden token with a raised rim round a sunken top. */
+/**
+ * A round wooden token with a raised rim round a sunken top. The sunken top is flat: a label is
+ * printed on it as a flat sheet, and where the top rose toward the rim it hid the label's edges.
+ */
+const TOKEN_TOP = 0.47;
 const token = () =>
   lathe([
     [0, 0],
@@ -150,8 +154,8 @@ const token = () =>
     [0.97, 0.54],
     [0.88, 0.58],
     [0.8, 0.56],
-    [0.74, 0.49],
-    [0, 0.47],
+    [0.74, TOKEN_TOP],
+    [0, TOKEN_TOP],
   ]);
 
 /** A house: walls and a pitched roof, its gable to the front. */
@@ -167,7 +171,8 @@ const house = () =>
     0.1,
   );
 
-/** A tower: a round keep on a footing, battlements round its sunken top. */
+/** A tower: a round keep on a footing, battlements round its sunken top, which is flat (as a token's). */
+const TOWER_TOP = 1.48;
 function tower(): BufferGeometry {
   const keep = lathe([
     [0, 0],
@@ -179,7 +184,8 @@ function tower(): BufferGeometry {
     [0.74, 1.4],
     [0.76, 1.56],
     [0.56, 1.56],
-    [0, 1.48],
+    [0.54, TOWER_TOP],
+    [0, TOWER_TOP],
   ]).toNonIndexed();
   const merlons = Array.from({ length: 6 }, (_, i) => {
     const angle = (i / 6) * Math.PI * 2;
@@ -237,10 +243,11 @@ export function pieceForms(): Record<PieceForm, FormShape> {
   forms ??= {
     figure: form(figure(), true, { at: 0.42, size: 0.62, facing: "front" }),
     robot: form(robot(), true, { at: 0.34, size: 0.6, facing: "front" }),
-    token: form(token(), false, { at: 0.47 / 0.58 + 0.01, size: 1.3, facing: "up" }),
+    // Printed a hair above the flat sunken top (heights as shares of the whole piece's).
+    token: form(token(), false, { at: (TOKEN_TOP + 0.006) / 0.58, size: 1.3, facing: "up" }),
     cube: form(new RoundedBoxGeometry(1.8, 1.8, 1.8, 3, 0.16), true, { at: 1.004, size: 1.4, facing: "up" }),
     house: form(house(), true, { at: 0.3, size: 0.8, facing: "front" }),
-    tower: form(tower(), false, { at: 1.49 / 1.8, size: 0.9, facing: "up" }),
+    tower: form(tower(), false, { at: (TOWER_TOP + 0.006) / 1.8, size: 0.9, facing: "up" }),
     ship: form(ship(), true, { at: 0.56, size: 0.5, facing: "front" }),
     tree: form(tree(), true),
   };
