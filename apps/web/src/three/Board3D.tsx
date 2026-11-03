@@ -892,7 +892,7 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
   const ref = useRef<Group>(null!);
   const r = piece.r * k;
   const color = piece.owner === undefined ? NEUTRAL_PIECE : playerColor(piece.owner);
-  const mark = pieceMark(piece.label);
+  const mark = pieceMark(piece.label, color);
   const { geometry, mark: printed, turns } = pieceForms()[pieceForm(piece, mark !== undefined)];
   const turn = turns ? pieceTurn(piece.id) : 0;
   const invalidate = useThree((s) => s.invalidate);
@@ -940,7 +940,8 @@ function Piece({ piece, k, at, base, exit }: { piece: GeometryPiece; k: number; 
             raycast={noRaycast}
           >
             <planeGeometry args={[printed.size * r, printed.size * r]} />
-            <meshBasicMaterial map={mark} transparent depthWrite={false} />
+            {/* Lit like the wood it is printed on, so it darkens with the piece's shaded side. */}
+            <meshStandardMaterial map={mark} transparent depthWrite={false} roughness={0.6} />
           </mesh>
         )}
       </group>

@@ -1045,28 +1045,37 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
 
 const pieceLabels = new Map<string, CanvasTexture>();
 
+/** The ink a mark is printed in on a piece painted `color`: cream on a dark or bright paint, brown on a pale one. */
+export function printInk(color: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return luminance > 0.33 ? "#3a2618" : "#fbf3e1";
+}
+
 /**
- * What is printed on a piece's top: a short label (a number, initials) as large as the top allows,
- * or for a word the motif it names (a cap for a student, a briefcase for a commuter). A word itself
- * would be a few unreadable pixels; a word with no motif prints nothing, and the cell's hover tip
- * names the piece.
+ * What is printed on a piece: a short label (a number, initials) as large as its face allows, or for
+ * a word the motif it names (a cap for a student, a briefcase for a commuter). A word itself would
+ * be a few unreadable pixels; a word with no motif prints nothing, and the cell's hover tip names the
+ * piece. It is printed as a game's wooden pieces are, in one flat ink that suits the paint under it
+ * (printInk) and a plain heavy sans, with no outline: the display face with a white rim read as a
+ * sticker on the wood.
  */
-export function pieceMark(label: string | undefined): CanvasTexture | undefined {
+export function pieceMark(label: string | undefined, color: string): CanvasTexture | undefined {
   if (!label) return undefined;
   const short = label.length <= 3;
   const motif = short ? undefined : motifFor(label);
   if (!short && !motif) return undefined;
-  return cached(pieceLabels, label, () => {
+  const ink = printInk(color);
+  return cached(pieceLabels, `${label}|${ink}`, () => {
     const [canvas, ctx] = canvas2d(128, 128);
-    if (motif) {
-      // Ink with a pale halo, legible on any seat's color and on ivory.
-      drawIcon(ctx, motif, 64, 64, 100, alpha(TOKEN, 0.95), 5);
-      drawIcon(ctx, motif, 64, 64, 100, INK, 2.4);
-    } else {
+    if (motif) drawIcon(ctx, motif, 64, 64, 96, ink, 3.2);
+    else {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      fitFont(ctx, label, 104, 92, 30, (size) => `700 ${size}px ${FONT_DISPLAY}`);
-      inkedText(ctx, label, 64, 70, 12);
+      ctx.fillStyle = ink;
+      fitFont(ctx, label, 104, 84, 30, (size) => `800 ${size}px ${FONT_UI}`);
+      ctx.fillText(label, 64, 68);
     }
     return texture(canvas);
   });
