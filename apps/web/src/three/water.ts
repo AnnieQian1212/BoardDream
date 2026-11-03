@@ -24,7 +24,7 @@ export const isWaterCell = (cell: GeometryCell): boolean => (cell.terrain ? cell
  * and `tile` how much the tile it lies in fills (Board3D's TILE_SHARE), so the shore is the band
  * between them.
  */
-export function waterPolygons(cell: GeometryCell, share: number, wedge: number, tile = 0.9, reach = Infinity): Polygon[] {
+export function waterPolygons(cell: GeometryCell, share: number, wedge: number, tile = 0.9, reach = Infinity, tileOutline?: [number, number][]): Polygon[] {
   const n = cell.polygon.length;
   const cx = cell.polygon.reduce((sum, [x]) => sum + x, 0) / n;
   const cy = cell.polygon.reduce((sum, [, y]) => sum + y, 0) / n;
@@ -35,7 +35,7 @@ export function waterPolygons(cell: GeometryCell, share: number, wedge: number, 
     // one distance, the shore a cell of the board's usual size would have. Scaled toward its middle
     // instead, a long sea kept a wide shore at its ends and a thin one along its sides.
     const narrow = Math.min(inradius(cell.polygon), reach);
-    const outline = evenOutline(cell.polygon, tile, reach);
+    const outline = tileOutline ?? evenOutline(cell.polygon, tile, reach);
     const even = share < tile ? insetConvex(outline, narrow * (tile - share), [cx, cy]) : undefined;
     return [even ? even.map(([x, y]): [number, number] => [x - cx, y - cy]) : cell.polygon.map((_, i) => corner(i, share))];
   }
@@ -81,6 +81,69 @@ export function evenOutline(polygon: [number, number][], share: number, reach = 
   const cy = polygon.reduce((sum, [, y]) => sum + y, 0) / n;
   const d = (1 - share) * Math.min(inradius(polygon), reach);
   return insetConvex(polygon, d, [cx, cy]) ?? polygon.map(([x, y]): [number, number] => [cx + (x - cx) * share, cy + (y - cy) * share]);
+}
+
+const areaOf = (polygon: [number, number][]) =>
+  Math.abs(polygon.reduce((sum, [x, y], i) => {
+    const [nx, ny] = polygon[(i + 1) % polygon.length];
+    return sum + x * ny - nx * y;
+  }, 0)) / 2;
+
+/**
+ * Every tile's outline (evenOutline), with a large tile drawn back from smaller ones that lie across
+ * its edge: a sea whose cell runs a little under the places beside it would otherwise stand under
+ * them. The edge of the large tile facing the smaller one moves in until it clears it by the gap
+ * tiles keep. A smaller tile wholly inside (an island in a sea) is left to stand in it.
+ */
+export function tileOutlines(cells: { id: string; polygon: [number, number][] }[], share: number, reach: number): Map<string, [number, number][]> {
+  const out = new Map(cells.map((c) => [c.id, evenOutline(c.polygon, share, reach)]));
+  const area = new Map(cells.map((c) => [c.id, areaOf(c.polygon)]));
+  for (const a of cells) {
+    const n = a.polygon.length;
+    const ax = a.polygon.reduce((sum, [x]) => sum + x, 0) / n;
+    const ay = a.polygon.reduce((sum, [, y]) => sum + y, 0) / n;
+    const gap = (1 - share) * Math.min(inradius(a.polygon), reach);
+    for (const b of cells) {
+      if (b === a || area.get(b.id)! >= area.get(a.id)!) continue;
+      const over = clipConvex(b.polygon, a.polygon);
+      if (over.length < 3 || areaOf(over) < 1e-4) continue;
+      // Wholly inside: an island, not a neighbour.
+      if (Math.abs(areaOf(over) - area.get(b.id)!) < 1e-4) continue;
+      const bx = b.polygon.reduce((sum, [x]) => sum + x, 0) / b.polygon.length;
+      const by = b.polygon.reduce((sum, [, y]) => sum + y, 0) / b.polygon.length;
+      // Its middle on this tile: it crosses it (a bridge over a river) and stands on it, not beside it.
+      if (inside(a.polygon, bx, by)) continue;
+      // The edge of `a` that faces `b`, with its outward normal.
+      let best: { ex: number; ey: number; nx: number; ny: number; score: number } | undefined;
+      for (let i = 0; i < n; i++) {
+        const [ex, ey] = a.polygon[i];
+        const [fx, fy] = a.polygon[(i + 1) % n];
+        const len = Math.hypot(fx - ex, fy - ey) || 1;
+        let [nx, ny] = [(fy - ey) / len, -(fx - ex) / len];
+        const [mx, my] = [(ex + fx) / 2, (ey + fy) / 2];
+        if (nx * (mx - ax) + ny * (my - ay) < 0) [nx, ny] = [-nx, -ny];
+        const score = nx * (bx - mx) + ny * (by - my);
+        if (!best || score > best.score) best = { ex, ey, nx, ny, score };
+      }
+      if (!best) continue;
+      const { ex, ey, nx, ny } = best;
+      const depth = Math.max(0, ...b.polygon.map(([x, y]) => -(nx * (x - ex) + ny * (y - ey))));
+      // Keep the part of a's outline at least depth + gap inside that edge.
+      const limit = -(depth + gap);
+      const far = 1e4;
+      const [tx, ty] = [-ny, nx];
+      const [px, py] = [ex + nx * limit, ey + ny * limit];
+      const half: [number, number][] = [
+        [px + tx * far, py + ty * far],
+        [px - tx * far, py - ty * far],
+        [px - tx * far - nx * far, py - ty * far - ny * far],
+        [px + tx * far - nx * far, py + ty * far - ny * far],
+      ];
+      const cut = clipConvex(out.get(a.id)!, half);
+      if (cut.length >= 3) out.set(a.id, cut);
+    }
+  }
+  return out;
 }
 
 /** The part of `subject` inside the convex `clip` (Sutherland-Hodgman); empty when they do not meet. */

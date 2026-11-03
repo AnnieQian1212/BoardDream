@@ -1,6 +1,6 @@
 import type { GeometryCell } from "@boarddream/engine";
 import { describe, expect, it, test } from "vitest";
-import { clipConvex, insetConvex, isWaterCell, isWaterKind, WaterGrid, waterPolygons } from "./water";
+import { clipConvex, insetConvex, isWaterCell, isWaterKind, tileOutlines, WaterGrid, waterPolygons } from "./water";
 
 const square = (x: number, z: number, size: number): [number, number][] => [
   [x, z],
@@ -135,5 +135,17 @@ describe("an even shore", () => {
     const ell: [number, number][] = [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]];
     expect(insetConvex(ell, 0.1, [1.5, 1.5])).toBeUndefined();
     expect(insetConvex([[0, 0], [1, 0], [1, 1], [0, 1]], 0.6, [0.5, 0.5])).toBeUndefined();
+  });
+});
+
+describe("tiles that overlap", () => {
+  test("a large tile is drawn back from a smaller one across its edge, but not from one inside it", () => {
+    const sea = { id: "sea", polygon: [[0, 4], [20, 4], [20, 8], [0, 8]] as [number, number][] };
+    const shore = { id: "shore", polygon: [[2, 1], [5, 1], [5, 4.5], [2, 4.5]] as [number, number][] };
+    const island = { id: "island", polygon: [[10, 5.5], [12, 5.5], [12, 7], [10, 7]] as [number, number][] };
+    const out = tileOutlines([sea, shore, island], 0.9, 1);
+    const top = Math.min(...out.get("sea")!.map(([, y]) => y));
+    expect(top).toBeGreaterThan(4.5);
+    expect(Math.max(...out.get("sea")!.map(([, y]) => y))).toBeCloseTo(7.9);
   });
 });
