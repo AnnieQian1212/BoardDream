@@ -157,7 +157,10 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     island "Emberfall") can say what its ground is with terrain: water, grass, forest, grain or stone.
     Draw the board the spec's board field describes; it need not be hexes. A track or river is a line or
     bend of square spaces, action spaces a grid of labelled rectangles, regions irregular polygons, a
-    network round places with "edge" cells as the routes between them. A cell may lie wholly inside
+    network round places with "edge" cells as the routes between them. Lay it out as one compact block
+    with no large empty part: the main area in the middle, side areas (action spaces, tracks) in rows or
+    columns around it, none longer than the side it lies along, and width and height just covering the
+    cells; never a long column of spaces beside a small grid. A cell may lie wholly inside
     a larger one (a sea around its harbors), drawn beneath it; otherwise cells never overlap: a bridge
     is an "edge" cell between two places, not a tile laid across a river.
     Make a map look like a landscape: give its places varied ground (set terrain where the kind does not
@@ -304,13 +307,13 @@ export function designRepairMessages(spec: DesignBrief, source: string, issues: 
     { role: "system", content: `You improve board game rules for the BoardDream engine.\n\n${CODE_RULES}` },
     {
       role: "user",
-      content: `These rules pass automated testing, but statistics from random play show design problems:
+      content: `These rules pass automated testing, but random play and a look at the board show design problems:
 ${issues.map((issue) => `- ${issue}`).join("\n")}
 
 Fix them with small rule changes that keep the game's identity (for example a longer round limit, more
 choices each turn, compensation for later seats, or, when decisions barely matter, scarcer actions,
-bigger rewards for planning ahead and less luck), keep everything that already works, and return the
-full corrected module.
+bigger rewards for planning ahead and less luck); fix a board problem by moving cells in geometry(),
+keeping their ids. Keep everything that already works, and return the full corrected module.
 
 ## Game spec
 ${JSON.stringify(spec, null, 2)}

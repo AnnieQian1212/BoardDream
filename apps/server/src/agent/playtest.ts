@@ -1,4 +1,4 @@
-import { heuristicBot, plannerResult, randomBot, randomPlayout, sampleSeats, simulate, type GameModule } from "@boarddream/engine";
+import { createRng, heuristicBot, largestGap, plannerResult, randomBot, randomPlayout, resolveParams, sampleSeats, simulate, type GameModule } from "@boarddream/engine";
 import type { PlayStats } from "./protocol";
 
 /**
@@ -105,4 +105,30 @@ export function playIssues(stats: PlayStats, mode: GameModule["meta"]["mode"]): 
     );
   }
   return issues;
+}
+
+/** An empty block larger than this share of the board reads as a board laid out lopsided. */
+export const GAP_SHARE = 0.2;
+
+/**
+ * Layout problems in the board the table draws at the start of a game, in words the designer model
+ * can act on. Drawing code that throws is the fuzzer's to report, not this.
+ */
+export function boardIssues(game: GameModule): string[] {
+  if (!game.geometry) return [];
+  let gap;
+  try {
+    const numPlayers = playtestPlayers(game);
+    const state = game.setup({ numPlayers, params: resolveParams(game.params), rng: createRng(1) });
+    gap = largestGap(game.geometry(state, 0));
+  } catch {
+    return [];
+  }
+  if (gap.area <= GAP_SHARE) return [];
+  const pct = (share: number) => `${Math.round(share * 100)}%`;
+  return [
+    `the board is lopsided: an empty block ${gap.where} covers ${pct(gap.area)} of it (${pct(gap.width)} of its width, ${pct(gap.height)} of its height); ` +
+      "in geometry(), lay the board out as one compact block, the main area in the middle and side areas (action spaces, tracks, supplies) " +
+      "in rows or columns around it, none longer than the side it lies along, and set width and height to just cover the cells",
+  ];
 }

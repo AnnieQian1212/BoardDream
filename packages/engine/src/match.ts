@@ -1,3 +1,4 @@
+import { insidePolygon } from "./geometry";
 import { resolveParams } from "./params";
 import { createRng, type Rng } from "./rng";
 import type { GameModule, Geometry, Outcome, Panel, Params, PlayerId } from "./types";
@@ -205,17 +206,6 @@ function checkGeometry(geometry: Geometry): string | null {
 const OVERLAP_EVERY = 10;
 /** Cells drawn as small markers between tiles (building spots, roads) or as text: they may overlap tiles. */
 const MARKERS = new Set(["vertex", "edge", "label"]);
-
-/** Ray casting: whether a point lies inside a polygon. */
-function insidePolygon(x: number, y: number, polygon: [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
 
 /**
  * Whether every corner of `inner`, pulled a hair toward its middle, lies inside `outer`: scenery

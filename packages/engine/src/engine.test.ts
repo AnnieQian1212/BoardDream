@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { fitBounds, fuzz, isDeck, isScore, overlappingCells, plannerResult, playMatch, randomBot, randomPlayout, rectPolygon, sampleSeats, scoreOf, simulate, squareGridGeometry, type BalanceStats, type Bot, type Counter, type GameModule } from "./index";
+import { fitBounds, fuzz, largestGap, isDeck, isScore, overlappingCells, plannerResult, playMatch, randomBot, randomPlayout, rectPolygon, sampleSeats, scoreOf, simulate, squareGridGeometry, type BalanceStats, type Bot, type Counter, type GameModule } from "./index";
 
 type NimState = { pile: number; toMove: number; numPlayers: number; lastTaker: number | null };
 
@@ -193,6 +193,40 @@ describe("board cells that cover each other", () => {
 
   test("building spots, roads and labels may sit on tiles", () => {
     expect(overlappingCells([square("tile", 0, 0, 2), square("v1", 0.9, 0.9, 0.2, "vertex"), square("e1", 0.5, 0.5, 0.2, "edge"), square("name", 0, 0, 2, "label")])).toBeNull();
+  });
+});
+
+describe("empty parts of a board", () => {
+  const rect = (id: string, x: number, y: number, w: number, h: number, kind?: string) => ({
+    id,
+    kind,
+    polygon: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]] as [number, number][],
+  });
+  const grid = (n: number) => Array.from({ length: n * n }, (_, i) => rect(`g${i}`, i % n, Math.floor(i / n), 1, 1));
+
+  test("a full grid, and a grid with its spaces in a block beside it as tall as it, leave nothing empty", () => {
+    expect(largestGap({ width: 5, height: 5, cells: grid(5), pieces: [] }).area).toBe(0);
+    const beside = Array.from({ length: 8 }, (_, i) => rect(`s${i}`, 5.6 + (i % 2) * 2.5, (i >> 1) * 1.25, 2.4, 1));
+    expect(largestGap({ width: 10.6, height: 5, cells: [...grid(5), ...beside], pieces: [] }).area).toBeLessThan(0.05);
+  });
+
+  test("a small grid beside a long column of spaces leaves a block under the grid", () => {
+    const column = Array.from({ length: 9 }, (_, i) => rect(`s${i}`, 5.6, 0.3 + i * 1.15, 2.4, 1));
+    const gap = largestGap({ width: 8.4, height: 10.65, cells: [...grid(5), ...column], pieces: [] });
+    expect(gap.area).toBeGreaterThan(0.25);
+    expect(gap.where).toBe("at the bottom left");
+  });
+
+  test("a board sized larger than its cells leaves a band along one edge", () => {
+    const gap = largestGap({ width: 5, height: 8, cells: grid(5), pieces: [] });
+    expect(gap.where).toBe("along the bottom");
+    expect(gap.height).toBeCloseTo(3 / 8 - 0.5 / 8, 1);
+  });
+
+  test("the routes and spaces between round places count as used", () => {
+    const places = [rect("a", 0, 0, 1, 1), rect("b", 3, 0, 1, 1), rect("c", 0, 3, 1, 1), rect("d", 3, 3, 1, 1)];
+    const routes = [rect("ab", 1, 0.4, 2, 0.2, "edge"), rect("cd", 1, 3.4, 2, 0.2, "edge"), rect("ac", 0.4, 1, 0.2, 2, "edge"), rect("bd", 3.4, 1, 0.2, 2, "edge")];
+    expect(largestGap({ width: 4, height: 4, cells: [...places, ...routes], pieces: [] }).area).toBeLessThan(0.2);
   });
 });
 
