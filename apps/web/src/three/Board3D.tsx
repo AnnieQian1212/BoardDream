@@ -1,4 +1,5 @@
 import { containsCell, type Geometry, type GeometryBattle, type GeometryCell, type GeometryPiece } from "@boarddream/engine";
+import { ART_CROP, sourceFor, type BoardPaint } from "../paintSource";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { easing } from "maath";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -134,12 +135,7 @@ const centroid = (polygon: [number, number][]): [number, number] => [
 ];
 
 /** A painted board (Muse Image, checked by SAM 3.1): the image, and per tile kind the centers of painted tiles. */
-export interface BoardPaint {
-  url: string;
-  width: number;
-  height: number;
-  sources: Record<string, [number, number][]>;
-}
+export type { BoardPaint } from "../paintSource";
 
 interface Props {
   board: BoardItem;
@@ -152,11 +148,6 @@ interface Props {
   onPick(id: string, x: number, y: number): void;
 }
 
-/**
- * Share of a painted tile a tile's top shows: the painter draws thick inked gaps between tiles,
- * which the board's own gaps and outlines already draw, so a tile shows its painting without them.
- */
-const ART_CROP = 0.84;
 
 /** Maps a tile's top onto its source tile in the painting (board units, flipped for the texture). */
 function paintUvs(g: BufferGeometry, painted: { paint: BoardPaint; source: [number, number] }, k: number) {
@@ -265,32 +256,6 @@ function useWater(
   return useMemo(() => surface && { uniforms: surface.uniforms, id: surface.id, wake, splash }, [surface, wake, splash]);
 }
 
-/**
- * Where a tile's painting comes from: a painted tile of its kind, picked stably by the tile's id, as
- * large as this tile or larger. A tile's top samples the painting around the source's middle, so a
- * source smaller than the tile showed the bare board past its edge: Highsail's Mistwood hex, painted
- * from a small action space the color check had judged green, showed a cream band. With no source
- * that large, the tile shows its own place in the painting.
- */
-function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell, cells: GeometryCell[]): [number, number] | undefined {
-  // Edge-matched tiles show their terrain segments, never painted art.
-  if (cell.segments) return undefined;
-  const sources = paint?.sources[cell.kind ?? "plain"];
-  if (!sources?.length) return undefined;
-  const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
-  const extent = (polygon: [number, number][]) => [spread(polygon.map(([x]) => x)), spread(polygon.map(([, y]) => y))];
-  const [w, h] = extent(cell.polygon);
-  const large = sources.filter(([x, y]) => {
-    const from = cells.find((c) => {
-      const [cx, cy] = centroid(c.polygon);
-      return Math.hypot(cx - x, cy - y) < 0.05;
-    });
-    if (!from) return true;
-    const [fw, fh] = extent(from.polygon);
-    return fw >= w * 0.95 && fh >= h * 0.95;
-  });
-  return large.length ? large[hash(cell.id) % large.length] : centroid(cell.polygon);
-}
 
 /** The engine's board geometry as raised tiles on a slab, with pieces that slide between cells. */
 export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Props) {

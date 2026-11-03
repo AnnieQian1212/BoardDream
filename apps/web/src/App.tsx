@@ -535,7 +535,7 @@ export function App() {
       )}
       {rulesOpen && !results && !library && !generation && <RulesCard game={game} params={params} onClose={closeRules} />}
       {overlays}
-      {printing && <PrintSheet game={game} params={params} art={art} onClose={() => setPrinting(false)} />}
+      {printing && <PrintSheet game={game} params={params} art={art} boardPaint={board?.paint} onClose={() => setPrinting(false)} />}
     </div>
   );
 }

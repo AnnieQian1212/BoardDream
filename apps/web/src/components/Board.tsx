@@ -1,4 +1,5 @@
 import type { Geometry, GeometryCell, GeometryPiece } from "@boarddream/engine";
+import { ART_CROP, sourceFor, type BoardPaint } from "../paintSource";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { NEUTRAL_PIECE, PLAYER_COLORS, TILE_COLORS } from "../colors";
 import { useFontsReady } from "../fonts";
@@ -8,6 +9,8 @@ import { sizeGroups, uniformSizes } from "../sizeGroups";
 
 interface Props {
   geometry: Geometry;
+  /** A painted board: each tile shows its painting (sourceFor), as on the 3D table. */
+  paint?: BoardPaint;
   /** Cells the human can play on right now. */
   targets: Set<string>;
   onCell(id: string, event: React.MouseEvent): void;
@@ -26,7 +29,7 @@ const centroid = (polygon: [number, number][]) => [
 ];
 
 /** SVG render of the engine geometry. Painted art (day 6) is layered over this same layout. */
-export function Board({ geometry, targets, onCell }: Props) {
+export function Board({ geometry, paint, targets, onCell }: Props) {
   const pad = 0.4;
   const { width, height } = geometry;
   const zones = zoneColors(geometry.cells);
@@ -68,7 +71,15 @@ export function Board({ geometry, targets, onCell }: Props) {
         filter="url(#board-shadow)"
       />
       {geometry.cells.map((cell) => (
-        <Cell key={cell.id} cell={cell} zone={zones.get(cell.id)} target={targets.has(cell.id)} fit={fits.get(cell.id)} onClick={(event) => onCell(cell.id, event)} />
+        <Cell
+          key={cell.id}
+          cell={cell}
+          zone={zones.get(cell.id)}
+          target={targets.has(cell.id)}
+          fit={fits.get(cell.id)}
+          painted={paint && sourceFor(paint, cell, geometry.cells) ? { paint, source: sourceFor(paint, cell, geometry.cells)! } : undefined}
+          onClick={(event) => onCell(cell.id, event)}
+        />
       ))}
       {geometry.pieces.map((piece) => (
         <Piece key={piece.id} piece={piece} />
@@ -232,10 +243,12 @@ interface CellProps {
   target: boolean;
   /** Where its name and token go, once measured. */
   fit?: Fit;
+  /** Its painting and the painted tile it comes from, on a painted board. */
+  painted?: { paint: BoardPaint; source: [number, number] };
   onClick(event: React.MouseEvent): void;
 }
 
-function Cell({ cell, zone, target, fit, onClick }: CellProps) {
+function Cell({ cell, zone, target, fit, painted, onClick }: CellProps) {
   const [cx, cy] = centroid(cell.polygon);
   const isLabel = cell.kind === "label";
   const className = ["cell", cell.kind, target && "target"].filter(Boolean).join(" ");
@@ -245,6 +258,24 @@ function Cell({ cell, zone, target, fit, onClick }: CellProps) {
   return (
     <g>
       <polygon points={cell.polygon.map((p) => p.join(",")).join(" ")} className={className} style={fill} onClick={onClick} />
+      {painted && !isLabel && (
+        <>
+          <clipPath id={`paint-${cell.id}`}>
+            <polygon points={cell.polygon.map((p) => p.join(",")).join(" ")} />
+          </clipPath>
+          {/* The middle of its source tile, the painter's inked gaps cropped off, scaled to fill this tile.
+              The clip sits on a group round the moved image: on the image itself it would move too. */}
+          <g clipPath={`url(#paint-${cell.id})`} pointerEvents="none">
+            <image
+              href={painted.paint.url}
+              width={painted.paint.width}
+              height={painted.paint.height}
+              preserveAspectRatio="none"
+              transform={`translate(${cx} ${cy}) scale(${1 / ART_CROP}) translate(${-painted.source[0]} ${-painted.source[1]})`}
+            />
+          </g>
+        </>
+      )}
       {zone && <polygon points={inset(0.86)} className="cell-rim" style={{ stroke: zone }} />}
       {cell.segments && <Wedges cell={cell} center={[cx, cy]} />}
       {/* Name and token wait for their measured places, so nothing is drawn out of its cell first. */}

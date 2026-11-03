@@ -5,6 +5,7 @@ import { startingGeometry } from "../art";
 import { useEscape } from "../escape";
 import { resourceById } from "../icons";
 import { rulesFor } from "../rules";
+import type { BoardPaint } from "../paintSource";
 import { Board } from "./Board";
 import { Card } from "./Card";
 
@@ -46,32 +47,34 @@ const PRINT_ART_WIDTH = 800;
  * drawn at most PRINT_ART_WIDTH wide and kept as a JPEG. Undefined until every one is ready; a
  * painting that cannot be read (a server without art) is printed as it was.
  */
+/** An image drawn at most `widest` pixels wide and kept as a JPEG; as it was if it cannot be read. */
+const paperImage = (url: string, widest: number) =>
+  new Promise<string>((done) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const scale = Math.min(1, widest / image.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return done(url);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      try {
+        done(canvas.toDataURL("image/jpeg", 0.85));
+      } catch {
+        done(url);
+      }
+    };
+    image.onerror = () => done(url);
+    image.src = url;
+  });
+
 function usePrintArt(art: Map<string, string> | undefined): Map<string, string> | undefined {
   const [small, setSmall] = useState<Map<string, string>>();
   useEffect(() => {
     let alive = true;
-    const shrink = (url: string) =>
-      new Promise<string>((done) => {
-        const image = new Image();
-        image.crossOrigin = "anonymous";
-        image.onload = () => {
-          const scale = Math.min(1, PRINT_ART_WIDTH / image.width);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(image.width * scale);
-          canvas.height = Math.round(image.height * scale);
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return done(url);
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-          try {
-            done(canvas.toDataURL("image/jpeg", 0.85));
-          } catch {
-            done(url);
-          }
-        };
-        image.onerror = () => done(url);
-        image.src = url;
-      });
-    void Promise.all([...(art ?? new Map<string, string>()).entries()].map(async ([title, url]) => [title, await shrink(url)] as const)).then((entries) => {
+    void Promise.all([...(art ?? new Map<string, string>()).entries()].map(async ([title, url]) => [title, await paperImage(url, PRINT_ART_WIDTH)] as const)).then((entries) => {
       if (alive) setSmall(new Map(entries));
     });
     return () => {
@@ -81,11 +84,31 @@ function usePrintArt(art: Map<string, string> | undefined): Map<string, string> 
   return small;
 }
 
+/**
+ * A painted board as it is printed: the painting as a JPEG at most 2,400 pixels wide (an A4
+ * landscape page at about 200 dpi). Undefined until ready; with no painting, null.
+ */
+function usePrintBoard(paint: BoardPaint | undefined): BoardPaint | null | undefined {
+  const [ready, setReady] = useState<BoardPaint | null>();
+  useEffect(() => {
+    if (!paint) return setReady(null);
+    let alive = true;
+    void paperImage(paint.url, 2400).then((url) => alive && setReady({ ...paint, url }));
+    return () => {
+      alive = false;
+    };
+  }, [paint]);
+  return ready;
+}
+
 /** A print-and-play kit: the rules, the components, the board and every card, laid out for A4 with cut lines. */
-export function PrintSheet({ game, params, art, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; onClose(): void }) {
+export function PrintSheet({ game, params, art, boardPaint, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; boardPaint?: BoardPaint; onClose(): void }) {
   useEscape(onClose);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
   const printArt = usePrintArt(art);
+  // A board that has been painted prints painted, as the table shows it.
+  const printBoard = usePrintBoard(boardPaint);
+  const ready = printArt !== undefined && printBoard !== undefined;
   const inventory = useMemo(() => cardInventory(game, printArt), [game, printArt]);
   // The board as printed: its spaces and labels, without the pieces of one particular opening.
   const geometry = useMemo<Geometry | undefined>(() => {
@@ -104,8 +127,8 @@ export function PrintSheet({ game, params, art, onClose }: { game: GameModule; p
         <span>
           Print and play <b>{game.meta.name}</b>: the rules{geometry ? ", the board" : ""} and {cards.length} cards on A4. Cut along the dashed lines.
         </span>
-        <button type="button" className="action" onClick={() => window.print()} disabled={!printArt}>
-          <Printer size={16} /> {printArt ? "Print or save as PDF" : "Preparing the card art…"}
+        <button type="button" className="action" onClick={() => window.print()} disabled={!ready}>
+          <Printer size={16} /> {ready ? "Print or save as PDF" : "Preparing the art…"}
         </button>
         <button type="button" className="ghost" onClick={onClose} aria-label="Close the print kit">
           <X size={16} /> Close
@@ -141,7 +164,7 @@ export function PrintSheet({ game, params, art, onClose }: { game: GameModule; p
 
       {geometry && (
         <section className="print-page print-board">
-          <Board geometry={geometry} targets={new Set()} onCell={() => {}} />
+          <Board geometry={geometry} paint={printBoard ?? undefined} targets={new Set()} onCell={() => {}} />
         </section>
       )}
 
