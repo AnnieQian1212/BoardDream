@@ -160,7 +160,9 @@ const CODE_RULES = `Write the rules as one JavaScript module in a single \`\`\`j
     network round places with "edge" cells as the routes between them. Lay it out as one compact block
     with no large empty part: the main area in the middle, side areas (action spaces, tracks) in rows or
     columns around it, none longer than the side it lies along, and width and height just covering the
-    cells; never a long column of spaces beside a small grid. A cell may lie wholly inside
+    cells; never a long column of spaces beside a small grid. A "label" cell (status text such as the
+    round) lies on free board, never over a place; a place players must read is large enough to carry
+    its name (about a tenth of the board's width or more). A cell may lie wholly inside
     a larger one (a sea around its harbors), drawn beneath it; otherwise cells never overlap: a bridge
     is an "edge" cell between two places, not a tile laid across a river.
     Make a map look like a landscape: give its places varied ground (set terrain where the kind does not

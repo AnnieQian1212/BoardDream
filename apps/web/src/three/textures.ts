@@ -946,6 +946,15 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
   for (const cell of geometry.cells) {
     const isLabel = cell.kind === "label";
     if (!cell.label) continue;
+    // Status text set over a place (Rustspire's round, on top of a wreck) would print over that
+    // place's name; it is left off the board, and the panels carry it.
+    if (isLabel) {
+      const xs = cell.polygon.map(([x]) => x);
+      const ys = cell.polygon.map(([, y]) => y);
+      const box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+      const own = (box.x1 - box.x0) * (box.y1 - box.y0);
+      if (places.some((p) => p.cell.kind !== "edge" && p.cell.kind !== "vertex" && overlap(p, box as never) > 0.2 * own)) continue;
+    }
     const label = cell.label;
     // The text stays inside the cell's own shape (a wedge, a hex), not merely its bounding box, and
     // inside its color: the tile as drawn (`outlines`: already drawn in from the cell, and drawn back
@@ -1003,7 +1012,10 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
     // A first guess at the size: the name across the whole of its color (grass and trees keep clear of it).
     const width = span(shape.map(([x]) => x)) * share * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
-    const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.22 * unit) * scale;
+    // A tile name's cap follows the usual tile, but never less than an eighth of the board's long
+    // side: on a board of many small places (Saffron Wake's twelve harbors) the usual tile set every
+    // name, the bays' too, at the smallest size that can be read.
+    const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.22 * Math.max(unit, Math.max(geometry.width, geometry.height) / 8)) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
     ctx.font = `600 100px ${FONT_DISPLAY}`;
     const guess = (lines: string[]) => Math.min(cap, (width / Math.max(1, ...lines.map((line) => ctx.measureText(line).width))) * 100);
@@ -1046,8 +1058,13 @@ export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<st
   // room, unless one name has far less than the rest (under three quarters of the middle one): that
   // name alone is printed smaller, rather than all of them.
   const groupSize = uniformSizes(plans.flatMap((p) => (p.group ? [{ group: p.group, size: p.size }] : [])));
+  // A name smaller than this (on the 2048 px print, about 12 screen pixels on a laptop) cannot be
+  // read: it is left off, and the place's hover tip names it (Saffron Wake's harbors, a fifth of a
+  // bay across).
+  const smallest = 24 * (Math.max(canvas.width, canvas.height) / 2048);
   for (const { cell, isLabel, px, py, lines, drop, group, size: own } of plans) {
     const size = group ? Math.min(own, groupSize.get(group)!) : own;
+    if (!isLabel && size < smallest) continue;
     const half = ((lines.length - 1) * LINE * size) / 2 + 0.42 * size;
     ctx.font = `600 ${size}px ${FONT_DISPLAY}`;
     lines.forEach((line, i) => {
