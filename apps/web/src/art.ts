@@ -197,7 +197,8 @@ export function useArt(game: GameModule) {
       }
       if (!res.ok) throw new Error(res.statusText);
       await readEvents(res, (event, data) => {
-        if (event === "step") updatePaintings(started, { board: stepLabel(data) });
+        // Steps still on their way when it was stopped do not undo the "Stopping…".
+        if (event === "step" && !paintingsOf(started).board?.startsWith("Stopping")) updatePaintings(started, { board: stepLabel(data) });
         if (event === "error") updatePaintings(started, { boardError: data });
         if (event === "done" && current.current === started) setBoard(boardArt(started, JSON.parse(data) as BoardReport, String(Date.now())));
       });
@@ -205,6 +206,17 @@ export function useArt(game: GameModule) {
       reading.delete(`${started}:board`);
       updatePaintings(started, { board: undefined });
       if (elsewhere && current.current === started) follow.current();
+    }
+  }
+
+  /** Stops the board being painted (from this page or another); the board keeps what it had. */
+  async function cancelBoard() {
+    if (!paintingsOf(id).board) return;
+    updatePaintings(id, { board: stepLabel("stopping") });
+    try {
+      await fetch(`/api/art/${id}/board`, { method: "DELETE", headers: { "Content-Type": "application/json" } });
+    } catch {
+      // The server is gone; so is its painting.
     }
   }
 
@@ -218,6 +230,7 @@ export function useArt(game: GameModule) {
     boardStep: paintings.board ?? null,
     boardError: paintings.boardError,
     paintBoard,
+    cancelBoard,
     shown,
     show,
     onTable,

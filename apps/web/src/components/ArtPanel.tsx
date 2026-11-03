@@ -1,4 +1,4 @@
-import { Brush, Map as MapIcon, Palette, ScanSearch } from "lucide-react";
+import { Brush, Map as MapIcon, Palette, ScanSearch, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { BoardReport } from "../art";
 import type { ArtShown } from "../artShown";
@@ -15,7 +15,7 @@ interface Props {
   shown: ArtShown;
   onShow(part: keyof ArtShown, on: boolean): void;
   /** Board art: present when the game has a board. */
-  board?: { report?: BoardReport; step: string | null; error?: string; onPaint(): void };
+  board?: { report?: BoardReport; step: string | null; error?: string; onPaint(): void; onCancel(): void };
 }
 
 /** A switch for whether the table shows one part of the art. */
@@ -79,6 +79,7 @@ function BoardArt({
   step,
   error,
   onPaint,
+  onCancel,
   available,
   shown,
   onShow,
@@ -88,6 +89,8 @@ function BoardArt({
   /** Why the last painting was not kept. */
   error?: string;
   onPaint(): void;
+  /** Stops the painting under way; the board keeps what it had. */
+  onCancel(): void;
   available: boolean;
   shown: boolean;
   onShow(on: boolean): void;
@@ -96,7 +99,12 @@ function BoardArt({
     <>
       <p className="hint">Muse Image paints the board over its tile layout; SAM 3.1 then checks every tile against where it should be.</p>
       {step ? (
-        <BoardProgress key={stageOf(step).from} step={step} />
+        <>
+          <BoardProgress key={stageOf(step).from} step={step} />
+          <button type="button" className="ghost wide" onClick={onCancel} disabled={step.startsWith("Stopping")}>
+            <X size={16} /> {step.startsWith("Stopping") ? "Stopping…" : "Cancel"}
+          </button>
+        </>
       ) : (
         <>
           {error && (
@@ -128,6 +136,7 @@ function BoardArt({
  */
 const STAGES: { match: RegExp; from: number; to: number; seconds: number }[] = [
   { match: /^Starting/, from: 0, to: 4, seconds: 2 },
+  { match: /^Stopping/, from: 0, to: 0, seconds: 1 },
   // A painting with most tiles off is painted afresh, in the repaint's place.
   { match: /^Painting the board again/, from: 64, to: 86, seconds: 24 },
   { match: /^Painting the board/, from: 4, to: 52, seconds: 24 },

@@ -1,6 +1,8 @@
 import { regularPolygon, type Geometry, type GeometryCell } from "@boarddream/engine";
 import { describe, expect, it } from "vitest";
-import { framed, guideColors, intoBoard, legend, outlineIoUs, paintFrame, rowsOf } from "./board";
+import { existsSync, rmSync } from "node:fs";
+import type { ModelClient } from "../meta/client";
+import { framed, guideColors, intoBoard, legend, outlineIoUs, paintBoard, paintFrame, rowsOf } from "./board";
 import { decodePng, encodePng } from "./png";
 
 const tile = (id: string, kind: string, terrain?: GeometryCell["terrain"], x = 0): GeometryCell => ({
@@ -167,5 +169,38 @@ describe("reading a painted space off the painter's gaps", () => {
   it("scores a card the painter moved or stretched low", () => {
     const moved = outlineIoUs(painting(where.map(([x, y]) => [x + 14, y + 12])), where.map(([x, y]) => square(x, y)));
     for (const iou of moved) expect(iou).toBeLessThan(0.6);
+  });
+});
+
+describe("stopping a board being painted", () => {
+  it("cuts off the model call under way and saves nothing", async () => {
+    const id = "zz-test-stopped-board";
+    const dir = new URL(`../../../../data/art/${id}/`, import.meta.url);
+    // A painter that never answers on its own: it only ends when it is stopped.
+    let calls = 0;
+    const painter = {
+      post: (_path: string, _body: unknown, _attempts: number, signal?: AbortSignal) =>
+        new Promise((_, reject) => {
+          calls++;
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        }),
+    } as unknown as ModelClient;
+    const stop = new AbortController();
+    const steps: string[] = [];
+    const cells = Array.from({ length: 4 }, (_, i) => ({ id: `t${i}`, kind: "field", polygon: [[i, 0], [i + 0.9, 0], [i + 0.9, 0.9], [i, 0.9]] as [number, number][] }));
+    try {
+      const painting = paintBoard(painter, { image: "image", sam: "sam" }, id, { game: "Test", summary: "a test", geometry: { width: 4, height: 1, cells, pieces: [] } }, (step) => {
+        steps.push(step);
+        // Stopped while the painter is at work.
+        setTimeout(() => stop.abort(), 5);
+      }, stop.signal);
+      await expect(painting).rejects.toThrow();
+      expect(steps).toEqual(["painting the board"]);
+      expect(calls).toBe(1);
+      expect(existsSync(new URL("board.json", dir))).toBe(false);
+      expect(existsSync(new URL("board.png", dir))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

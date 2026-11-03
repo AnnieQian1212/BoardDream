@@ -300,15 +300,16 @@ interface ImageReply {
   data?: { b64_json?: string }[];
 }
 
-async function edit(client: ModelClient, model: string, prompt: string, images: Buffer[], size: Scaled): Promise<Buffer> {
-  const reply = (await client.post("/images/edits", {
+async function edit(client: ModelClient, model: string, prompt: string, images: Buffer[], size: Scaled, signal?: AbortSignal): Promise<Buffer> {
+  const body = {
     model,
     prompt,
     images: images.map((png) => ({ image_url: `data:image/png;base64,${png.toString("base64")}` })),
     n: 1,
     size: `${size.width}x${size.height}`,
     output_format: "png",
-  })) as ImageReply;
+  };
+  const reply = (await client.post("/images/edits", body, 4, signal)) as ImageReply;
   const b64 = reply.data?.[0]?.b64_json;
   if (!b64) throw new Error("Muse Image returned no image");
   return Buffer.from(b64, "base64");
@@ -465,7 +466,7 @@ export function outlineIoUs(picture: { width: number; height: number; rgba: Uint
  * Segments every tile of a painted board with SAM 3.1 and scores it against the geometry: the
  * better of SAM's IoU and the one read off the painter's gaps (outlineIoUs).
  */
-export async function checkAlignment(client: ModelClient, samModel: string, geometry: Geometry, painted: Buffer): Promise<TileScore[]> {
+export async function checkAlignment(client: ModelClient, samModel: string, geometry: Geometry, painted: Buffer, signal?: AbortSignal): Promise<TileScore[]> {
   const size = pngSize(painted);
   if (!size) throw new Error("expected a PNG");
   const sx = size.width / geometry.width;
@@ -484,7 +485,7 @@ export async function checkAlignment(client: ModelClient, samModel: string, geom
   const masks = new Map<number, { raster: Uint8Array; left: number; top: number; width: number; height: number }>();
   await Promise.all(
     batches.map(async (start) => {
-      const text = await segment(client, samModel, image, boxPrompt(boxes.slice(start, start + SAM_OBJECTS), size.width, size.height));
+      const text = await segment(client, samModel, image, boxPrompt(boxes.slice(start, start + SAM_OBJECTS), size.width, size.height), signal);
       for (const record of recordsOfKind(await parseSam(text), "mask")) {
         // boxPrompt numbers objects from 1 within each batch.
         masks.set(start + Number(record.objectId) - 1, {
@@ -562,7 +563,7 @@ export interface BoardRequest {
  * is painted afresh once, one with a few off has those tiles repainted once. A board whose tiles
  * fill only part of it is painted in a frame round them (paintFrame) and set back in place after.
  * A painting with most tiles still off is not saved: the error says so, and the table keeps what
- * it had.
+ * it had. `signal` stops it at once, in the middle of a model call too, and nothing is saved.
  */
 export async function paintBoard(
   client: ModelClient,
@@ -570,8 +571,13 @@ export async function paintBoard(
   gameId: string,
   req: BoardRequest,
   onStep: (step: string) => void,
+  signal?: AbortSignal,
 ): Promise<BoardReport> {
   if (!/^[a-z0-9-]+$/.test(gameId)) throw new Error(`bad game id: ${gameId}`);
+  const step = (text: string) => {
+    signal?.throwIfAborted();
+    onStep(text);
+  };
   const dir = new URL(`${gameId}/`, ROOT);
   mkdirSync(dir, { recursive: true });
   // Everything below works in the frame's units; the report and the saved painting are the board's.
@@ -580,39 +586,39 @@ export async function paintBoard(
   const { png: guide, size } = renderGuide(geometry);
   writeFileSync(new URL("board-guide.png", dir), guide);
 
-  onStep("painting the board");
+  step("painting the board");
   const rows = rowsOf(geometry);
   const prompt = `Repaint this game board guide as an illustrated board for "${req.game}", a board game where ${req.summary.replace(/\.$/, "")}. In the guide, ${legend(geometry)}; paint each tile as that terrain or space. Keep every tile exactly where it is with the same shape and outline${rows ? ` (${rows})` : ""}, and keep the dark gaps between tiles as borders: do not move, add, remove or spread out any tile. ${HOUSE_STYLE}.`;
-  const raw = await edit(client, models.image, prompt, [guide], size);
+  const raw = await edit(client, models.image, prompt, [guide], size, signal);
   writeFileSync(new URL("board-first.png", dir), raw);
   // Lined up with the geometry before SAM checks it and before tiles are cut from it.
   let { png: painted, registration } = lineUp(raw, geometry);
 
-  onStep("checking every tile with SAM 3.1");
-  let scores = await checkAlignment(client, models.sam, geometry, painted);
+  step("checking every tile with SAM 3.1");
+  let scores = await checkAlignment(client, models.sam, geometry, painted, signal);
   const first = summarize(scores);
   let repainted = false;
 
   // Most tiles off: the painter laid the board out its own way, which touching up tiles cannot
   // mend (Farlight Reefs' rearranged coast, patched, lost its wrecks). It is painted afresh once.
   if (first.alignedShare < 0.5) {
-    onStep("painting the board again");
-    const again = lineUp(await edit(client, models.image, prompt, [guide], size), geometry);
-    onStep("checking the new painting");
-    const againScores = await checkAlignment(client, models.sam, geometry, again.png);
+    step("painting the board again");
+    const again = lineUp(await edit(client, models.image, prompt, [guide], size, signal), geometry);
+    step("checking the new painting");
+    const againScores = await checkAlignment(client, models.sam, geometry, again.png, signal);
     if (summarize(againScores).meanIoU > first.meanIoU) {
       [painted, registration, scores, repainted] = [again.png, again.registration, againScores, true];
     }
   } else if (first.misaligned.length > 0) {
-    onStep(`repainting ${first.misaligned.length} misaligned tile${first.misaligned.length === 1 ? "" : "s"}`);
+    step(`repainting ${first.misaligned.length} misaligned tile${first.misaligned.length === 1 ? "" : "s"}`);
     const spots = first.misaligned
       .slice(0, 8)
       .map((s) => whereIs(geometry, s.id))
       .join("; ");
     const fixPrompt = `The first image is a painted game board; the second is its layout guide. Some painted tiles drifted from the guide's outlines, around: ${spots}. Repaint those tiles so their shapes and borders match the guide exactly, and keep everything else unchanged. ${HOUSE_STYLE}.`;
-    const fixed = lineUp(await edit(client, models.image, fixPrompt, [painted, guide], size), geometry);
-    onStep("checking the repaint");
-    const fixedScores = await checkAlignment(client, models.sam, geometry, fixed.png);
+    const fixed = lineUp(await edit(client, models.image, fixPrompt, [painted, guide], size, signal), geometry);
+    step("checking the repaint");
+    const fixedScores = await checkAlignment(client, models.sam, geometry, fixed.png, signal);
     if (summarize(fixedScores).meanIoU > first.meanIoU) {
       [painted, registration, scores, repainted] = [fixed.png, fixed.registration, fixedScores, true];
     }
@@ -634,7 +640,7 @@ export async function paintBoard(
     const chosen = aligned.length > 0 ? aligned : [ofKind.reduce((a, b) => ((iouOf.get(b.id) ?? 0) > (iouOf.get(a.id) ?? 0) ? b : a))];
     sources[kind] = chosen.map((c) => centroid(c.polygon));
   }
-  onStep("checking what every tile shows");
+  step("checking what every tile shows");
   const content = relabelSources(decodePng(painted), geometry.width, geometry.height, sources);
   // Back in the board's units.
   const onBoard = ([x, y]: [number, number]): [number, number] => [x + frame.x, y + frame.y];
@@ -648,6 +654,7 @@ export async function paintBoard(
     repainted,
     registration,
   };
+  signal?.throwIfAborted();
   writeFileSync(new URL("board.png", dir), intoBoard(painted, frame, req.geometry));
   writeFileSync(new URL("board.json", dir), JSON.stringify(report, null, 2) + "\n");
   return report;

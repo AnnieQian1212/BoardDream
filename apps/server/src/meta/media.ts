@@ -37,7 +37,7 @@ export function boxPrompt(boxes: readonly PixelBox[], width: number, height: num
  * 314-wide, 325-tall box) before the one_bit payload.
  * TODO(day 6): decode masks to rasters (see /docs/sam "read segmentation output").
  */
-export async function segment(client: ModelClient, model: string, imageDataUrl: string, prompt: string): Promise<string> {
+export async function segment(client: ModelClient, model: string, imageDataUrl: string, prompt: string, signal?: AbortSignal): Promise<string> {
   const data = (await client.post("/responses", {
     model,
     input: [
@@ -51,6 +51,6 @@ export async function segment(client: ModelClient, model: string, imageDataUrl: 
       },
     ],
     metadata: { mask_encoding: "one_bit", include_confidence: "true" },
-  })) as { output_text?: string; output?: { content?: { text?: string }[] }[] };
+  }, 4, signal)) as { output_text?: string; output?: { content?: { text?: string }[] }[] };
   return data.output_text ?? data.output?.flatMap((o) => o.content ?? []).map((c) => c.text ?? "").join("") ?? "";
 }

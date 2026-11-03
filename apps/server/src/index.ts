@@ -105,6 +105,8 @@ interface Underway {
   cards?: { done: number; total: number };
 }
 const underway = new Map<string, Underway>();
+/** How to stop each board being painted, by game. */
+const boardStops = new Map<string, AbortController>();
 function progress(game: string, change: Underway) {
   const next = { ...underway.get(game), ...change };
   if (next.board === undefined && next.cards === undefined) underway.delete(game);
@@ -144,19 +146,41 @@ app.post("/api/art/:game/board", async (c) => {
   if (underway.get(game)?.board) return c.json({ error: "this board is already being painted" }, 409);
   const request = await c.req.json<BoardRequest>();
   progress(game, { board: "starting" });
+  const stop = new AbortController();
+  boardStops.set(game, stop);
   return streamSSE(c, async (stream) => {
     try {
-      const report = await paintBoard(painter, { image: config.models.image, sam: config.models.sam }, game, request, (step) => {
-        progress(game, { board: step });
-        void stream.writeSSE({ event: "step", data: step });
-      });
+      const report = await paintBoard(
+        painter,
+        { image: config.models.image, sam: config.models.sam },
+        game,
+        request,
+        (step) => {
+          progress(game, { board: step });
+          void stream.writeSSE({ event: "step", data: step });
+        },
+        stop.signal,
+      );
       await stream.writeSSE({ event: "done", data: JSON.stringify(report) });
     } catch (err) {
-      await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
+      if (stop.signal.aborted) await stream.writeSSE({ event: "cancelled", data: "" });
+      else await stream.writeSSE({ event: "error", data: err instanceof Error ? err.message : String(err) });
     } finally {
+      boardStops.delete(game);
       progress(game, { board: undefined });
     }
   });
+});
+
+// Stops a board being painted, from any page: its model call is cut off and nothing is saved, so
+// the board keeps the painting it had.
+app.delete("/api/art/:game/board", (c) => {
+  const game = c.req.param("game");
+  const stop = boardStops.get(game);
+  if (!stop) return c.json({ error: "this board is not being painted" }, 404);
+  stop.abort();
+  progress(game, { board: "stopping" });
+  return c.json({ ok: true });
 });
 
 app.get("/api/art/:game/:file", (c) => {

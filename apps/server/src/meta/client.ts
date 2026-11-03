@@ -136,9 +136,9 @@ export class ModelClient {
     return JSON.parse(await this.chat(messages, { ...options, schema })) as T;
   }
 
-  /** POSTs JSON and reads the JSON reply, retrying as `send` does. */
-  async post(path: string, body: unknown, attempts = 4): Promise<unknown> {
-    return (await this.send(path, body, undefined, attempts)).json();
+  /** POSTs JSON and reads the JSON reply, retrying as `send` does; `signal` stops it midway. */
+  async post(path: string, body: unknown, attempts = 4, signal?: AbortSignal): Promise<unknown> {
+    return (await this.send(path, body, signal, attempts)).json();
   }
 
   /** POSTs JSON, retrying network errors, rate limits and server errors with backoff; returns the response once it is OK. */
