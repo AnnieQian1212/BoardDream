@@ -41,8 +41,6 @@ export interface TargetMark {
   kind: TargetKind;
   /** The hinted move acts on it. */
   hint: boolean;
-  /** Pulses: a board spot, which has no glow of its own that reads at a glance. */
-  ring: boolean;
 }
 
 /**
@@ -161,7 +159,7 @@ export function Labels({ layout, marks = [], resources, layer, targets, speech, 
   return (
     <div className="labels" ref={layer} style={{ "--chip-scale": chipScale } as CSSProperties}>
       {marks
-        .filter((mark) => mark.ring || mark.hint)
+        .filter((mark) => mark.hint)
         .map((mark) => (
           <div key={`mark:${mark.id}`} className="label mark" data-anchor={`mark:${mark.id}`} data-span={`markspan:${mark.id}`}>
             <span className={mark.hint ? "target-ring hint" : "target-ring"} />

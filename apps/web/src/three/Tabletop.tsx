@@ -141,13 +141,13 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
   const hasSeats = panels.some((p) => p.zone === "players");
   const { hint, ask } = useHint(game, state, human);
   const hinted = hint && hint !== "thinking" ? game.moveTarget?.(state, hint.move) : undefined;
-  // Board spots (corners, roads) that can be clicked pulse: they are small and alike, where a space
-  // shows its own teal rim. The hinted target is flagged, whatever it is.
+  // What can be clicked glows on the table itself (spots turn teal, spaces light up); no ring is drawn
+  // round them, which crowded the board with circles. Only the hinted target is flagged, in gold.
   const marks = useMemo(() => {
     const out: TargetMark[] = [];
     for (const id of targets) {
       const kind = turn.kindOf(id);
-      if (kind) out.push({ id, kind, hint: id === hinted, ring: kind === "corner" || kind === "edge" });
+      if (kind) out.push({ id, kind, hint: id === hinted });
     }
     return out;
   }, [turn, targets, hinted]);
