@@ -1071,14 +1071,19 @@ export function pieceMark(label: string | undefined, color: string): CanvasTextu
       draw(alpha(shade, 0.55), -1.6);
       draw(deep, 0);
     };
-    if (motif) stamp((fill, dy) => drawIcon(ctx, motif, 64, 64 + dy, 86, fill, 4));
+    if (motif) stamp((fill, dy) => drawIcon(ctx, motif, 64, 64 + dy, 64, fill, 4));
     else {
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      fitFont(ctx, label, 92, 74, 30, (size) => `600 ${size}px ${FONT_DISPLAY}`);
+      // One size for every label (smaller only when three letters would not fit), centred on the
+      // letters' own outline rather than the font's line box.
+      fitFont(ctx, label, 112, 64, 30, (size) => `600 ${size}px ${FONT_DISPLAY}`);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      const m = ctx.measureText(label);
+      const x = 64 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+      const y = 64 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
       stamp((fill, dy) => {
         ctx.fillStyle = fill;
-        ctx.fillText(label, 64, 68 + dy);
+        ctx.fillText(label, x, y + dy);
       });
     }
     return texture(canvas);

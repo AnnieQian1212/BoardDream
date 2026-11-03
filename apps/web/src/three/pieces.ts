@@ -236,19 +236,27 @@ const tree = () =>
     24,
   );
 
+/**
+ * Every mark is printed on a sheet this many radii across, whatever the form, so a label is the same
+ * size on every piece of a radius: sheets sized to each face made a token's number twice a figure's.
+ */
+export const MARK_SIZE = 1;
+
 let forms: Record<PieceForm, FormShape> | undefined;
 
 /** Every form's shape, made on first use and shared by every piece drawn in it. */
 export function pieceForms(): Record<PieceForm, FormShape> {
   forms ??= {
-    figure: form(figure(), true, { at: 0.42, size: 0.62, facing: "front" }),
-    robot: form(robot(), true, { at: 0.34, size: 0.6, facing: "front" }),
-    // Printed a hair above the flat sunken top (heights as shares of the whole piece's).
-    token: form(token(), false, { at: (TOKEN_TOP + 0.006) / 0.58, size: 1.3, facing: "up" }),
-    cube: form(new RoundedBoxGeometry(1.8, 1.8, 1.8, 3, 0.16), true, { at: 1.004, size: 1.4, facing: "up" }),
-    house: form(house(), true, { at: 0.3, size: 0.8, facing: "front" }),
-    tower: form(tower(), false, { at: (TOWER_TOP + 0.006) / 1.8, size: 0.9, facing: "up" }),
-    ship: form(ship(), true, { at: 0.56, size: 0.5, facing: "front" }),
+    // Marks sit in the middle of the face they are printed on, as shares of the piece's height: the
+    // figure's chest (1.1 of its 2.59 outline units with the bevel), the robot's body, the house's
+    // gable wall, the ship's hull; on a token and a tower a hair above the flat sunken top.
+    figure: form(figure(), true, { at: (1.1 + 0.13) / 2.59, size: MARK_SIZE, facing: "front" }),
+    robot: form(robot(), true, { at: (0.92 + 0.1) / 2.56, size: MARK_SIZE, facing: "front" }),
+    token: form(token(), false, { at: (TOKEN_TOP + 0.006) / 0.58, size: MARK_SIZE, facing: "up" }),
+    cube: form(new RoundedBoxGeometry(1.8, 1.8, 1.8, 3, 0.16), true, { at: 1.004, size: MARK_SIZE, facing: "up" }),
+    house: form(house(), true, { at: (0.6 + 0.1) / 1.88, size: MARK_SIZE, facing: "front" }),
+    tower: form(tower(), false, { at: (TOWER_TOP + 0.006) / 1.8, size: MARK_SIZE, facing: "up" }),
+    ship: form(ship(), true, { at: (0.3 + 0.1) / 2.36, size: MARK_SIZE, facing: "front" }),
     tree: form(tree(), true),
   };
   return forms;
