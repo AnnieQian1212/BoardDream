@@ -6,8 +6,10 @@ import type { ModelClient } from "../meta/client";
  * Card illustrations from Muse Image, in a style chosen for the game: a cozy game as a storybook, a
  * game of secrets as a woodcut, a voyage of trade as a copper engraving, a space game as a retro
  * poster, a myth in watercolor. The first card sets the look; every later card is painted with that
- * first image as a style reference, so a whole deck reads as one illustrated set. Images are saved
- * under data/art/<game id>/ with a manifest from card title to file, and the style in style.json.
+ * first image as a style reference, so a whole deck reads as one illustrated set. Each card's picture
+ * is written first, for the whole deck at once, so no two cards show the same thing. Images are saved
+ * under data/art/<game id>/ with a manifest from card title to file, the style in style.json and the
+ * pictures in scenes.json.
  */
 
 const ROOT = new URL("../../../../data/art/", import.meta.url);
@@ -45,10 +47,10 @@ export const ART_STYLES: Record<ArtStyle, { paint: string; suits: string }> = {
 /**
  * What every painting keeps whatever its style: a card is small, so one clear subject on a quiet
  * ground (the first woodcut and engraving samples, busy with whole scenes, blurred at card size),
- * and no lettering, which the painter otherwise adds.
+ * and no lettering, which the painter otherwise adds. Where the subject stands and how near it is
+ * are left to each card's picture: always in the middle, every card looked alike.
  */
-const COMPOSITION =
-  "one clear subject in the middle with breathing room and a simple background, readable at a small size, no text, no letters, no numbers, no border, no frame";
+const COMPOSITION = "one clear subject, readable at a small size, an uncluttered background, no text, no letters, no numbers, no border, no frame";
 
 const styleWords = (style: ArtStyle) => `${ART_STYLES[style].paint}, ${COMPOSITION}`;
 
@@ -116,6 +118,91 @@ export function styleByWords(req: Pick<ArtRequest, "game" | "summary" | "mode" |
   return "storybook";
 }
 
+/** Card title to the picture its painting shows (cardScenes). */
+export type Scenes = Record<string, string>;
+
+export function readScenes(gameId: string): Scenes {
+  const file = new URL("scenes.json", folder(gameId));
+  return existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Scenes) : {};
+}
+
+/**
+ * What each card's painting shows, written by Muse Spark for the whole deck at once so the cards can
+ * be told apart. Painted from its title and the game's summary alone, every card of Farlight Reefs
+ * came out as the same keeper crouched by a barrel on the shore: the summary outweighed a title like
+ * "Deep to Gullrest". Cards that share a word share what it names (every wreck card shows a wreck)
+ * and differ by the rest. An empty answer when the call fails: the cards are then painted from their
+ * titles, as before.
+ */
+export async function cardScenes(llm: Pick<ModelClient, "chatJson">, req: ArtRequest, style: ArtStyle): Promise<Scenes> {
+  const cards = [...new Map(req.cards.map((c) => [c.title, c])).values()];
+  if (cards.length === 0) return {};
+  try {
+    const { scenes } = await llm.chatJson<{ scenes: { title: string; picture: string }[] }>(
+      [
+        {
+          role: "system",
+          content: [
+            "You art-direct the paintings on a board game's cards. Each card gets one painting, and players must tell the cards apart at a glance by their pictures.",
+            "For every card, write the one picture it shows, in at most 30 words: a concrete subject, where it is, and how near we are.",
+            "- Show what the card's title names. Cards whose titles share a word all show that thing (every 'Wreck ...' card shows a wreck), and the rest of the title (a place, a person, a good) makes each one different.",
+            "- Vary the deck: people at work, animals, objects up close, buildings and places, weather and events; close-ups, middle views and wide views; dawn, day, dusk, night and storm.",
+            "- No two pictures share a subject or a composition, and no person appears in more than two.",
+            "- Nothing written anywhere in a picture: no signs, letters, numbers or labels.",
+            "- Keep every picture fit for all ages: a struggle or a danger is shown by its moment (a storm, a chase, a standoff), never by blood, wounds, bodies or a weapon striking.",
+            `- Stay in the game's world and period. The cards are painted as: ${ART_STYLES[style].paint}.`,
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            game: req.game,
+            summary: req.summary,
+            cards: cards.map(({ title, tags, text }) => ({ title, tags, text: text?.slice(0, 200) })),
+          }),
+        },
+      ],
+      {
+        name: "CardScenes",
+        schema: {
+          type: "object",
+          properties: {
+            scenes: {
+              type: "array",
+              items: { type: "object", properties: { title: { type: "string" }, picture: { type: "string" } }, required: ["title", "picture"], additionalProperties: false },
+            },
+          },
+          required: ["scenes"],
+          additionalProperties: false,
+        },
+      },
+      { reasoningEffort: "low" },
+    );
+    const titles = new Set(cards.map((c) => c.title));
+    return Object.fromEntries(scenes.filter((s) => titles.has(s.title) && s.picture.trim()).map((s) => [s.title, s.picture.trim()]));
+  } catch (err) {
+    console.warn(`[art] scenes: ${err instanceof Error ? err.message : String(err)}`);
+    return {};
+  }
+}
+
+/**
+ * How a deck's paintings are planned: the style for the whole deck, and each card's picture. Muse
+ * Spark plans them (plannerFrom); without it, words pick the style and cards are painted from their
+ * titles.
+ */
+export interface DeckPlanner {
+  style(req: ArtRequest): Promise<ArtStyle>;
+  scenes(req: ArtRequest, style: ArtStyle): Promise<Scenes>;
+}
+
+export const plannerFrom = (llm: Pick<ModelClient, "chatJson">): DeckPlanner => ({
+  style: (req) => chooseStyle(llm, req),
+  scenes: (req, style) => cardScenes(llm, req, style),
+});
+
+const byWords: DeckPlanner = { style: async (req) => styleByWords(req), scenes: async () => ({}) };
+
 /** Muse Spark picks the style that suits a game; words decide when it cannot be asked. */
 export async function chooseStyle(llm: Pick<ModelClient, "chatJson">, req: ArtRequest): Promise<ArtStyle> {
   const styles = Object.keys(ART_STYLES) as ArtStyle[];
@@ -144,15 +231,17 @@ export function artFile(gameId: string, name: string): Buffer | undefined {
   return existsSync(file) ? readFileSync(file) : undefined;
 }
 
-/** What to paint for one card: its name, in the game's world, without any rules text. */
 /**
- * What a card's painting shows: its subject as a scene or a character from the game's world. Given
- * as "Name (tags): an illustration for this card", the painter letters the name across the top;
- * told it is "a card", it paints cards and maps. So the subject is described, never framed.
+ * What a card's painting shows: its picture (cardScenes), or else its subject as a scene or a
+ * character from the game's world. Given as "Name (tags): an illustration for this card", the
+ * painter letters the name across the top; told it is "a card", it paints cards and maps. So the
+ * subject is described, never framed.
  */
-export function subjectFor(req: ArtRequest, card: ArtCard): string {
+export function subjectFor(req: ArtRequest, card: ArtCard, scene?: string): string {
+  const never = "never as a playing card, a game board, a map or a diagram. The picture carries no caption, title, name, label or lettering of any kind";
+  if (scene) return `An illustration from the world of ${req.game}: ${scene.replace(/\.$/, "")}. Paint it as one scene; ${never}`;
   const tags = card.tags?.length ? ` (${card.tags.join(", ").toLowerCase()})` : "";
-  return `An illustration of ${card.title}${tags} from the world of ${req.game}, where ${req.summary.replace(/\.$/, "")}. Show it as one scene, a character at work or an object in its place; never as a playing card, a game board, a map or a diagram. The picture carries no caption, title, name, label or lettering of any kind`;
+  return `An illustration of ${card.title}${tags} from the world of ${req.game}, where ${req.summary.replace(/\.$/, "")}. Show it as one scene, a character at work or an object in its place; ${never}`;
 }
 
 interface ImageReply {
@@ -166,7 +255,7 @@ async function paint(client: ModelClient, model: string, subject: string, style:
     anchor
       ? await client.post("/images/edits", {
           ...common,
-          prompt: `Paint a new illustration in exactly the same art style, palette and paper texture as the reference image: ${subject}. ${styleWords(style)}.`,
+          prompt: `Paint a new, completely different illustration in exactly the same art style as the reference image (its drawing technique, line, palette and paper texture): ${subject}. Take only the style from the reference: none of its figures, objects, setting or composition. ${styleWords(style)}.`,
           images: [{ image_url: anchor }],
         })
       : await client.post("/images/generations", { ...common, prompt: `${subject}. ${styleWords(style)}.` })
@@ -178,8 +267,9 @@ async function paint(client: ModelClient, model: string, subject: string, style:
 
 /**
  * Paints every card that has no art yet and reports each finished card. A deck's first painting
- * picks its style (`choose`), kept in style.json for the cards painted later. Cards that fail (for
- * example a safety filter) are skipped, so one bad card never blocks the deck.
+ * picks its style, kept in style.json for the cards painted later, and the pictures of the cards
+ * still to paint, kept in scenes.json (`planner`). Cards that fail (for example a safety filter) are
+ * skipped, so one bad card never blocks the deck.
  */
 export async function paintDeck(
   client: ModelClient,
@@ -187,19 +277,26 @@ export async function paintDeck(
   gameId: string,
   req: ArtRequest,
   onCard: (title: string, file: string) => void,
-  choose: (req: ArtRequest) => Promise<ArtStyle> = async (r) => styleByWords(r),
+  planner: DeckPlanner = byWords,
 ): Promise<Manifest> {
   const dir = folder(gameId);
   mkdirSync(dir, { recursive: true });
   const manifest = readManifest(gameId);
   let style = readStyle(gameId);
   if (!style) {
-    style = await choose(req);
+    style = await planner.style(req);
     writeFileSync(new URL("style.json", dir), JSON.stringify({ style }) + "\n");
   }
   const save = () => writeFileSync(new URL("manifest.json", dir), JSON.stringify(manifest, null, 2) + "\n");
   const unique = [...new Map(req.cards.map((c) => [c.title, c])).values()];
   const todo = unique.filter((c) => !manifest[c.title]);
+  // Pictures for the cards still to paint, written with the whole deck in view.
+  let scenes = readScenes(gameId);
+  if (todo.some((c) => !scenes[c.title])) {
+    const fresh = await planner.scenes(req, style);
+    scenes = { ...fresh, ...Object.fromEntries(Object.entries(scenes).filter(([title]) => manifest[title])) };
+    if (Object.keys(fresh).length > 0) writeFileSync(new URL("scenes.json", dir), JSON.stringify(scenes, null, 2) + "\n");
+  }
 
   const store = (card: ArtCard, image: { bytes: Buffer; format: string }) => {
     const name = `${slug(card.title)}.${image.format}`;
@@ -215,11 +312,19 @@ export async function paintDeck(
   if (existing) {
     const format = existing.split(".").pop();
     anchor = `data:image/${format};base64,${readFileSync(new URL(existing, dir)).toString("base64")}`;
-  } else if (todo.length > 0) {
-    const first = todo.shift()!;
-    const image = await paint(client, model, subjectFor(req, first), style);
-    store(first, image);
-    anchor = `data:image/${image.format};base64,${image.bytes.toString("base64")}`;
+  } else {
+    // The first card the painter accepts sets the look: Galebound Mutiny's first picture was turned
+    // down by the content filter, and the whole deck with it.
+    while (!anchor && todo.length > 0) {
+      const first = todo.shift()!;
+      try {
+        const image = await paint(client, model, subjectFor(req, first, scenes[first.title]), style);
+        store(first, image);
+        anchor = `data:image/${image.format};base64,${image.bytes.toString("base64")}`;
+      } catch (err) {
+        console.warn(`[art] ${first.title}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
   }
 
   let next = 0;
@@ -228,7 +333,7 @@ export async function paintDeck(
       while (next < todo.length) {
         const card = todo[next++];
         try {
-          store(card, await paint(client, model, subjectFor(req, card), style, anchor));
+          store(card, await paint(client, model, subjectFor(req, card, scenes[card.title]), style, anchor));
         } catch (err) {
           console.warn(`[art] ${card.title}: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -253,9 +358,9 @@ export function deckRequest(game: GameModule): ArtRequest {
  * Paints a new game's whole deck in the background, as its cover is, so a game opens with its cards
  * painted rather than waiting for the art panel's button. Cards that fail are tried once more.
  */
-export function paintDeckLater(client: ModelClient, model: string, gameId: string, req: ArtRequest, choose: (req: ArtRequest) => Promise<ArtStyle>): void {
+export function paintDeckLater(client: ModelClient, model: string, gameId: string, req: ArtRequest, planner: DeckPlanner): void {
   if (req.cards.length === 0) return;
-  const run = () => paintDeck(client, model, gameId, req, () => {}, choose);
+  const run = () => paintDeck(client, model, gameId, req, () => {}, planner);
   run()
     .then((manifest) => (req.cards.some((c) => !manifest[c.title]) ? run() : manifest))
     .catch((err: unknown) => console.warn(`[art] ${gameId}: ${err instanceof Error ? err.message : String(err)}`));

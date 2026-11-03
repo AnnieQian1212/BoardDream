@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ART_STYLES, chooseStyle, HOUSE_STYLE, styleByWords } from "./cards";
+import { ART_STYLES, cardScenes, chooseStyle, HOUSE_STYLE, styleByWords, subjectFor } from "./cards";
 
 describe("a deck's painting style", () => {
   const game = (summary: string, extra: { mode?: string; family?: string } = {}) => ({ game: "Test", summary, cards: [], ...extra });
@@ -26,5 +26,48 @@ describe("a deck's painting style", () => {
     expect(HOUSE_STYLE).toContain(ART_STYLES.storybook.paint);
     expect(HOUSE_STYLE).toMatch(/one clear subject/);
     expect(HOUSE_STYLE).toMatch(/no text, no letters/);
+  });
+});
+
+describe("each card's picture", () => {
+  const deck = {
+    game: "Farlight Reefs",
+    summary: "Rival keepers light a wrecking coast and guide schooners home.",
+    cards: [{ title: "Wreck to Gullrest" }, { title: "Deep to Gullrest" }, { title: "Wreck to Gullrest" }],
+  };
+
+  test("is written for the whole deck at once, one per card, unknown titles dropped", async () => {
+    let asked: unknown;
+    const llm = {
+      chatJson: async (messages: { content: string }[]) => {
+        asked = JSON.parse(messages[1].content);
+        return {
+          scenes: [
+            { title: "Wreck to Gullrest", picture: "A gull-covered hull on the skerries at noon." },
+            { title: "Deep to Gullrest", picture: "Gannets diving into a navy channel at dawn." },
+            { title: "Somewhere else", picture: "A picture for no card." },
+          ],
+        };
+      },
+    } as never;
+    const scenes = await cardScenes(llm, deck, "engraving");
+    expect(Object.keys(scenes).sort()).toEqual(["Deep to Gullrest", "Wreck to Gullrest"]);
+    // Each card once, however many copies the deck has.
+    expect((asked as { cards: unknown[] }).cards).toHaveLength(2);
+  });
+
+  test("is left to the card's title when Muse Spark cannot be asked", async () => {
+    const failing = { chatJson: async () => Promise.reject(new Error("down")) } as never;
+    expect(await cardScenes(failing, deck, "engraving")).toEqual({});
+  });
+
+  test("is painted without the game's summary, which made every card the same scene", () => {
+    const card = { title: "Wreck to Gullrest" };
+    const subject = subjectFor(deck, card, "A gull-covered hull on the skerries at noon.");
+    expect(subject).toContain("A gull-covered hull on the skerries at noon");
+    expect(subject).not.toContain("Rival keepers");
+    expect(subject).toMatch(/no caption, title, name, label or lettering/);
+    // With no picture, the title and the summary as before.
+    expect(subjectFor(deck, card)).toContain("Wreck to Gullrest");
   });
 });

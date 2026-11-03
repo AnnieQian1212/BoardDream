@@ -11,7 +11,7 @@ import { cleanDials, cleanEffort } from "./agent/dials";
 import { inventIdea } from "./agent/idea";
 import { chooseMove, type OpponentRequest } from "./agent/opponent";
 import { boardReport, paintBoard, type BoardRequest } from "./art/board";
-import { artFile, chooseStyle, deckRequest, paintDeck, paintDeckLater, readManifest, type ArtRequest } from "./art/cards";
+import { artFile, deckRequest, paintDeck, paintDeckLater, plannerFrom, readManifest, type ArtRequest } from "./art/cards";
 import { copyCover, listCovers, paintCover, paintCoverLater, type CoverRequest } from "./art/cover";
 import type { Effort } from "./agent/protocol";
 import type { GameRequest } from "./agent/spec";
@@ -147,7 +147,7 @@ app.post("/api/art/:game", async (c) => {
         game,
         request,
         (title, file) => void stream.writeSSE({ event: "card", data: JSON.stringify({ title, file }) }),
-        (req) => chooseStyle(designer, req),
+        plannerFrom(designer),
       );
       await stream.writeSSE({ event: "done", data: "" });
     } catch (err) {
@@ -251,7 +251,7 @@ app.post("/api/generate", async (c) => {
       if (saved) {
         paintCoverLater(painter, config.models.image, saved.id, { game: saved.title, summary: saved.pitch });
         // The cards too, in the background: a game should open with its deck painted.
-        paintDeckLater(painter, config.models.image, saved.id, deckRequest(loadGameFromSource(result.source)), (req) => chooseStyle(designer, req));
+        paintDeckLater(painter, config.models.image, saved.id, deckRequest(loadGameFromSource(result.source)), plannerFrom(designer));
       }
       close();
       await stream.writeSSE({ event: "result", data: JSON.stringify({ ...result, id: saved?.id }) });
