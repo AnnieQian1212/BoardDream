@@ -1,6 +1,6 @@
 import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
-import { pieceForm, pieceForms, pieceTurn } from "./pieces";
+import { grownPieces, pieceForm, pieceForms, pieceTurn, PIECE_GROWTH } from "./pieces";
 
 describe("the wooden pieces", () => {
   test("a piece whose kind names a thing is cut in its shape; others keep their shape's form", () => {
@@ -59,5 +59,17 @@ describe("the wooden pieces", () => {
   test("a piece is turned the same each time it is drawn, by a little", () => {
     expect(pieceTurn("bot-a-1")).toBe(pieceTurn("bot-a-1"));
     expect(Math.abs(pieceTurn("bot-a-1"))).toBeLessThanOrEqual(0.2);
+  });
+
+  test("pieces are drawn larger, as far as they stay apart and on their cells", () => {
+    const cell = (id: string, x: number) => ({ id, polygon: [[x, 0], [x + 2, 0], [x + 2, 1], [x, 1]] as [number, number][] });
+    const small = grownPieces({ width: 4, height: 1, cells: [cell("a", 0), cell("b", 2)], pieces: [{ id: "p", x: 1, y: 0.5, r: 0.2, cellId: "a" }, { id: "q", x: 3, y: 0.5, r: 0.2, cellId: "b" }] });
+    expect(small.pieces[0].r).toBeCloseTo(0.2 * PIECE_GROWTH);
+    // On a cell one unit deep, no piece grows past 0.42.
+    const big = grownPieces({ width: 4, height: 1, cells: [cell("a", 0), cell("b", 2)], pieces: [{ id: "p", x: 1, y: 0.5, r: 0.35, cellId: "a" }] });
+    expect(big.pieces[0].r).toBeCloseTo(0.42);
+    // Two pieces nearly touching keep their gap.
+    const close = grownPieces({ width: 4, height: 1, cells: [], pieces: [{ id: "p", x: 1, y: 0.5, r: 0.2 }, { id: "q", x: 1.5, y: 0.5, r: 0.2 }] });
+    expect(close.pieces[0].r + close.pieces[1].r).toBeLessThan(0.5);
   });
 });

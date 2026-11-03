@@ -31,7 +31,7 @@ import { reducedMotion, step } from "./motion";
 import { hash, INK, mix } from "./paint";
 import { Ink } from "./Ink";
 import { Battle3D, BATTLE_SECONDS, KNOCK_AT } from "./Battle3D";
-import { pieceForm, pieceForms, pieceTurn, woodGrain } from "./pieces";
+import { grownPieces, pieceForm, pieceForms, pieceTurn, woodGrain } from "./pieces";
 import { BOARD, blobTexture, boardPrint, groundTexture, pieceMark } from "./textures";
 import { Chips, useChips } from "./Chips";
 import { glitterCompiler, GRASS_HEIGHT, GrassPatch, useGrassField, type GrassField } from "./Grass";
@@ -274,7 +274,9 @@ function sourceFor(paint: BoardPaint | undefined, cell: GeometryCell): [number, 
 
 /** The engine's board geometry as raised tiles on a slab, with pieces that slide between cells. */
 export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Props) {
-  const { geometry, scale: k, width, depth, position } = board;
+  const { geometry: given, scale: k, width, depth, position } = board;
+  // Pieces drawn larger than the game sizes them, as far as they stay apart (grownPieces).
+  const geometry = useMemo(() => grownPieces(given), [given]);
   const invalidate = useThree((s) => s.invalidate);
   // Plain tiles until the painting has loaded, so a large image never shows as black tiles.
   const [texture, setTexture] = useState<Texture>();
@@ -308,7 +310,16 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
     ...geometry.pieces.filter((p) => p.cellId && named.has(p.cellId)).map((p) => `${p.cellId}@${p.x.toFixed(2)},${p.y.toFixed(2)}:${p.shape ?? ""}`),
   ].join("|");
   const margin = (width - geometry.width * k) / 2 / k;
-  const print = useMemo(() => boardPrint(geometry, margin), [labelKey, geometry.width, geometry.height, margin]);
+  // A usual tile's inradius: tiles draw in from their cells by a gap this size gives, whatever their own.
+  const reach = useMemo(() => {
+    const radii = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")).map((c) => inradius(c.polygon)).sort((a, b) => a - b);
+    return radii.length ? radii[Math.floor(radii.length / 2)] : Infinity;
+  }, [geometry.cells.length, geometry.width, geometry.height]);
+  // Each tile's outline, large tiles drawn back from smaller ones lying across their edges.
+  const outlines = useMemo(() => tileOutlines(geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")), TILE_SHARE, reach), [geometry, reach]);
+  // Names are fitted to the tiles as drawn: a tile drawn back from a smaller neighbour is shorter
+  // than its cell, and a name fitted to the cell ran off it (Moth Landing, in Hollow Manifest).
+  const print = useMemo(() => boardPrint(geometry, margin, outlines), [labelKey, geometry.width, geometry.height, margin, outlines]);
   const labels = print.texture;
   useEffect(() => () => labels.dispose(), [labels]);
   const toWorld = (x: number, y: number): [number, number] => [(x - geometry.width / 2) * k, (y - geometry.height / 2) * k];
@@ -329,13 +340,6 @@ export function Board3D({ board, targets, paint, glowLights, grass, onPick }: Pr
   // Grass: sized from a typical cell, thinned on boards with a lot of green.
   const greenKey = geometry.cells.map((c) => `${c.kind}${c.terrain ?? ""}${c.segments?.join("") ?? ""}`).join("|");
   const zones = useMemo(() => zoneColors(geometry.cells), [greenKey]);
-  // A usual tile's inradius: tiles draw in from their cells by a gap this size gives, whatever their own.
-  const reach = useMemo(() => {
-    const radii = geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")).map((c) => inradius(c.polygon)).sort((a, b) => a - b);
-    return radii.length ? radii[Math.floor(radii.length / 2)] : Infinity;
-  }, [geometry.cells.length, geometry.width, geometry.height]);
-  // Each tile's outline, large tiles drawn back from smaller ones lying across their edges.
-  const outlines = useMemo(() => tileOutlines(geometry.cells.filter((c) => c.kind !== "label" && !SPOTS.has(c.kind ?? "")), TILE_SHARE, reach), [geometry, reach]);
   const water = useWater(geometry, k, position, zones, reach, outlines);
   const exits = useExits(geometry, toWorld);
   const size = useMemo(() => cellSize(geometry.cells), [greenKey]);

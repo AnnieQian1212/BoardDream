@@ -902,7 +902,7 @@ export interface BoardPrint {
  * printed: at the table's size its token could not be read, so the table shows it on hover. Names
  * keep clear of the pieces standing on their cell. `margin` is in geometry units.
  */
-export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
+export function boardPrint(geometry: Geometry, margin: number, outlines?: Map<string, [number, number][]>): BoardPrint {
   const w = geometry.width + 2 * margin;
   const h = geometry.height + 2 * margin;
   const scale = 2048 / Math.max(w, h);
@@ -947,12 +947,15 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
     const isLabel = cell.kind === "label";
     if (!cell.label) continue;
     const label = cell.label;
-    const [cx, cy] = centroid(cell.polygon);
     // The text stays inside the cell's own shape (a wedge, a hex), not merely its bounding box, and
-    // inside its color: the tile, or within a group's rim the field inside the rim's inked line,
-    // with a little margin. Text-only cells are the board itself.
-    const share = isLabel ? 0.95 : TILE_SHARE * (rimmed.has(cell.id) ? RIM_INK : 1) * 0.96;
-    const area = cell.polygon.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
+    // inside its color: the tile as drawn (`outlines`: already drawn in from the cell, and drawn back
+    // from smaller neighbours), or within a group's rim the field inside the rim's inked line, with
+    // a little margin. Text-only cells are the board itself.
+    const drawn = isLabel ? undefined : outlines?.get(cell.id);
+    const shape = drawn ?? cell.polygon;
+    const [cx, cy] = centroid(shape);
+    const share = isLabel ? 0.95 : (drawn ? 1 : TILE_SHARE) * (rimmed.has(cell.id) ? RIM_INK : 1) * 0.96;
+    const area = shape.map(([x, y]): [number, number] => [(cx + (x - cx) * share + margin) * scale, (cy + (y - cy) * share + margin) * scale]);
     const [px, py] = [(cx + margin) * scale, (cy + margin) * scale];
     const within = (x: number, y: number, hw: number, hh: number) => BOX.every(([sx, sy]) => inside(area, x + sx * hw, y + sy * hh));
     // The pieces on this cell, as the ground they cover: a disc its own round, a standing figure
@@ -998,7 +1001,7 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
       return size;
     };
     // A first guess at the size: the name across the whole of its color (grass and trees keep clear of it).
-    const width = widthOf(cell) * share * scale;
+    const width = span(shape.map(([x]) => x)) * share * scale;
     // Status text on the board itself grows more slowly with the cells than tile names do.
     const cap = (isLabel ? 0.42 * Math.sqrt(unit) : 0.22 * unit) * scale;
     // As big as the cap allows inside the cell, on one line or split in two at a space.
@@ -1025,7 +1028,7 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
       // be largest. If nowhere leaves it half its size: under pieces it stays in the middle at full
       // size, partly hidden rather than too small to read; under other places' tiles, which would
       // print one name over another, it is left out (hovering the place still shows it).
-      const tall = span(cell.polygon.map(([, y]) => y)) * scale;
+      const tall = span(shape.map(([, y]) => y)) * scale;
       for (const share of [-0.3, 0.3, -0.2, 0.2, -0.38, 0.38]) {
         const moved = layout(share * tall);
         if (moved.size > best.size) best = moved;
@@ -1071,14 +1074,15 @@ export function boardPrint(geometry: Geometry, margin: number): BoardPrint {
 const pieceLabels = new Map<string, CanvasTexture>();
 
 /**
- * What is pressed into a piece: a short label (a number, initials) or for a word the motif it names
- * (a cap for a student, a briefcase for a commuter). A word itself would be a few unreadable pixels;
+ * What is cut into a piece: a short label (a number, initials) or for a word the motif it names (a
+ * cap for a student, a briefcase for a commuter). A word itself would be a few unreadable pixels;
  * a word with no motif marks nothing, and the cell's hover tip names the piece.
  *
- * It is stamped into the wood as a game's wooden pieces are, not printed on them: the board's own
- * serif, in a deeper tone of the piece's paint, its upper edge in shadow and its lower edge catching
- * the light, as a cut into the surface does under a light from above. A label in a white-rimmed
- * display face, then in a bright flat sans, both read as a sticker on the wood.
+ * It is engraved and filled, as a game's wooden pieces are: the board's own serif cut into the wood,
+ * its upper edge in shadow and its lower edge catching the light, the cut filled with ivory on a
+ * dark or bright paint and with brown on a pale one. A label in a white-rimmed display face, then in
+ * a bright flat sans, read as a sticker on the wood; stamped in a deeper tone of the paint, a blue
+ * cube's "?" was too faint to read.
  */
 export function pieceMark(label: string | undefined, color: string): CanvasTexture | undefined {
   if (!label) return undefined;
@@ -1087,20 +1091,23 @@ export function pieceMark(label: string | undefined, color: string): CanvasTextu
   if (!short && !motif) return undefined;
   return cached(pieceLabels, `${label}|${color}`, () => {
     const [canvas, ctx] = canvas2d(128, 128);
-    const deep = mix(color, "#1c120a", 0.6);
-    const lit = mix(color, "#ffffff", 0.45);
-    const shade = mix(color, "#1c120a", 0.8);
-    // The cut's lower edge in light, its upper edge in shadow, then its floor.
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const pale = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.33;
+    const fill = pale ? "#3a2618" : "#fbf3e1";
+    const lit = mix(color, "#ffffff", 0.5);
+    const shade = mix(color, "#1c120a", 0.75);
+    // The cut's upper edge in shadow and its lower edge in light, then the paint filling it.
     const stamp = (draw: (fill: string, dy: number) => void) => {
-      draw(alpha(lit, 0.75), 2.2);
-      draw(alpha(shade, 0.55), -1.6);
-      draw(deep, 0);
+      draw(alpha(shade, 0.7), -2);
+      draw(alpha(lit, 0.8), 2.2);
+      draw(fill, 0);
     };
     if (motif) stamp((fill, dy) => drawIcon(ctx, motif, 64, 64 + dy, 64, fill, 4));
     else {
       // One size for every label (smaller only when three letters would not fit), centred on the
       // letters' own outline rather than the font's line box.
-      fitFont(ctx, label, 112, 64, 30, (size) => `600 ${size}px ${FONT_DISPLAY}`);
+      fitFont(ctx, label, 112, 80, 30, (size) => `600 ${size}px ${FONT_DISPLAY}`);
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
       const m = ctx.measureText(label);

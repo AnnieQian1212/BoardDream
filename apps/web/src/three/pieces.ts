@@ -1,4 +1,4 @@
-import type { GeometryPiece } from "@boarddream/engine";
+import type { Geometry, GeometryPiece } from "@boarddream/engine";
 import { BoxGeometry, BufferGeometry, CanvasTexture, ExtrudeGeometry, LatheGeometry, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -303,4 +303,37 @@ export function woodGrain(): CanvasTexture | undefined {
   grain.wrapS = grain.wrapT = RepeatWrapping;
   grain.colorSpace = SRGBColorSpace;
   return grain;
+}
+
+/** The most the pieces are drawn larger than their game sizes them. */
+export const PIECE_GROWTH = 1.6;
+
+/**
+ * The board's pieces drawn larger, by one factor for all of them: games size pieces for a flat
+ * diagram, and on the tilted table a figure a quarter of a tile across, and the label on it, were
+ * too small to read (Hollow Manifest). They grow up to PIECE_GROWTH times, as far as pieces that
+ * stood apart still stand apart (pieces the game stacks or overlaps on purpose do not hold the
+ * others back), and no piece grows past 0.42 of its cell's shorter side, so it stays on its cell.
+ */
+export function grownPieces(geometry: Geometry): Geometry {
+  const pieces = geometry.pieces;
+  let grow = PIECE_GROWTH;
+  for (let i = 0; i < pieces.length; i++) {
+    for (let j = i + 1; j < pieces.length; j++) {
+      const [a, b] = [pieces[i], pieces[j]];
+      const room = Math.hypot(a.x - b.x, a.y - b.y) / (a.r + b.r);
+      if (room >= 1) grow = Math.min(grow, room * 0.95);
+    }
+  }
+  const cells = new Map(geometry.cells.map((c) => [c.id, c]));
+  for (const piece of pieces) {
+    const cell = piece.cellId ? cells.get(piece.cellId) : undefined;
+    if (!cell) continue;
+    const xs = cell.polygon.map(([x]) => x);
+    const ys = cell.polygon.map(([, y]) => y);
+    const side = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    if (piece.r < 0.42 * side) grow = Math.min(grow, (0.42 * side) / piece.r);
+  }
+  grow = Math.max(1, grow);
+  return grow === 1 ? geometry : { ...geometry, pieces: pieces.map((p) => ({ ...p, r: p.r * grow })) };
 }
