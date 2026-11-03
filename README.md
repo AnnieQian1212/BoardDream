@@ -4,7 +4,7 @@ Describe a board game in a sentence. BoardDream designs a strategy game for teen
 
 Built for the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/details) (Oct 26 – Nov 4, 2026).
 
-**Play the demo: [boarddream.pages.dev](https://boarddream.pages.dev)**, with the demo games, a game BoardDream made, and Muse Spark Open opponents. Making new games and inviting friends need the full server (see [Try it](#try-it)).
+**Play the demo: [boarddream.pages.dev](https://boarddream.pages.dev)**, with four demo games BoardDream made, the four we made by hand, and Muse Spark Open opponents. Making new games and inviting friends need the full server (see [Try it](#try-it)).
 
 ## How it works
 
@@ -49,14 +49,14 @@ What each key turns on:
 
 Around the app:
 
-- The home page asks what you want to play. Type an idea, pick an example or press **Surprise me**, then **Dream it up**; the dials, and how hard Muse Spark thinks (**Model effort**, with the wait each means), are under **Advanced settings**. Below are the four demo games and your newest one.
+- The home page asks what you want to play. Type an idea, pick an example or press **Surprise me**, then **Dream it up**; the dials, and how hard Muse Spark thinks (**Model effort**, with the wait each means), are under **Advanced settings**. Below are the four demo games, the best BoardDream has made, and your newest one.
 - A first game opens with a short note on how to win. The bar at the bottom says what to do each turn, what you can click glows, and **Hint** marks the bot's move on the table. **Rules** has the full rules, and a switch explains the game in Chinese: the rules, how a turn goes, every card and the table's English words.
 - **Invite friends** (on the table's bar) opens a table for the game and gives you a link. Friends sign in with an email and a password (a code mailed to it checks it is theirs, when the server has SMTP; the table shows only the name they pick) and take a seat; seats nobody takes are played by bots, and the server referees every move. It needs the full server, not the static demo.
 - **Print and play** (in the `…` menu) makes an A4 kit (rules, board, cards with cut lines) to test a game on a real table.
 - On a generated game, **Change the rules** takes a change in plain words; the new rules are tested again and compared with the old ones.
 - `?game=lantern-isles&watch` lets bots play a whole game.
 - **Designer** (or `F`) opens the drawer; `Esc` closes it and any open page.
-- **Games** lists every game with its cover; a generated one can be deleted there, and a newly made one offers **Don't keep it**.
+- **Games** lists every game with its cover: the demo games, yours, and the hand-made ones; one of yours can be deleted there, and a newly made one offers **Don't keep it**.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
 - **Behind the scenes** (or `?results`) shows every benchmark on one page.
 - `?mochi` opens the mochi steamer (the game to play while one is made) with test tools, without making a game.
@@ -74,8 +74,8 @@ npm run eval:generation -- g01    # live calls; all 24 ideas, three at a time, t
 | Folder | Contents |
 | --- | --- |
 | `packages/engine` | Game interface, fuzzer, balance simulator |
-| `packages/library` | Mechanics, the four original demo games (Lantern Isles, Highsail, Wildmere, Fenlight), catalog, and games used only as engine tests and retrieval references (Glasshouse and small classics) |
+| `packages/library` | Mechanics, the four hand-made games (Lantern Isles, Highsail, Wildmere, Fenlight), catalog, and games used only as engine tests and retrieval references (Glasshouse and small classics) |
 | `packages/retrieval` | BM25 search and IR metrics |
 | `apps/server` | Muse Spark pipeline and rules sandbox |
-| `apps/web` | React + three.js app, and the edge functions for the static demo |
+| `apps/web` | React + three.js app, the demo games (`src/demo-games`), and the edge functions for the static demo |
 | `eval/` | Retrieval, generation, opponents and reference-game benchmarks |
