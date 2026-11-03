@@ -37,5 +37,19 @@ describe("ground", () => {
     expect(rims.get("a")).not.toBe(rims.get("b"));
     // One group alone needs no rim to tell it apart.
     expect(zoneColors([cell("a", { kind: "district", terrain: "grass" }), cell("b", { kind: "district", terrain: "water" })]).size).toBe(0);
+    // Two groups on one ground need rims.
+    expect(zoneColors([cell("a", { kind: "north", terrain: "grass" }), cell("b", { kind: "south", terrain: "grass" })]).size).toBe(2);
+  });
+
+  it("leaves rims off when each kind keeps to a ground of its own", () => {
+    // Farlight Reefs: a wreck is water like the coves and reefs beside it, so it takes no rim of its own.
+    const coast = [
+      cell("a", { kind: "headland", terrain: "stone" }),
+      cell("b", { kind: "village", terrain: "grass" }),
+      cell("c", { kind: "cove", terrain: "water" }),
+      cell("d", { kind: "wreck", terrain: "water" }),
+      cell("e", { kind: "reef", terrain: "water" }),
+    ];
+    expect(zoneColors(coast).size).toBe(0);
   });
 });

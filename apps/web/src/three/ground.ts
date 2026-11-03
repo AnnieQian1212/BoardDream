@@ -73,6 +73,12 @@ export function ownColor(cell: GeometryCell): string {
  * Rim colors by cell id, for cells whose terrain hint gives their ground while their kind names a
  * group (borough-1, north-province): the tile shows its ground and the group as a rim. Only on a
  * board with two groups or more, where the rims tell them apart; each group gets its own color.
+ *
+ * Where every group keeps to a ground of its own, the ground already tells them apart and the
+ * board has no rims: Farlight Reefs' wrecks (water), villages (grass) and headlands (stone) are
+ * kinds of place, not groups, and a gold rim round the wrecks alone set them apart from the coves
+ * and reefs around them, whose kinds name their water. Rims show when two groups share a ground
+ * or one group spans grounds.
  */
 export function zoneColors(cells: GeometryCell[]): Map<string, string> {
   const zoned = cells.filter(
@@ -80,5 +86,15 @@ export function zoneColors(cells: GeometryCell[]): Map<string, string> {
   );
   const kinds = [...new Set(zoned.map((c) => c.kind!))].sort();
   if (kinds.length < 2) return new Map();
+  const groundKey = (c: GeometryCell) => groundOf(c) ?? c.terrain;
+  const groundsOf = new Map<string, Set<unknown>>();
+  const kindsOn = new Map<unknown, Set<string>>();
+  for (const c of zoned) {
+    groundsOf.set(c.kind!, (groundsOf.get(c.kind!) ?? new Set()).add(groundKey(c)));
+    kindsOn.set(groundKey(c), (kindsOn.get(groundKey(c)) ?? new Set()).add(c.kind!));
+  }
+  const shared = [...kindsOn.values()].some((on) => on.size > 1);
+  const spread = [...groundsOf.values()].some((on) => on.size > 1);
+  if (!shared && !spread) return new Map();
   return new Map(zoned.map((c) => [c.id, RIMS[kinds.indexOf(c.kind!) % RIMS.length]]));
 }
