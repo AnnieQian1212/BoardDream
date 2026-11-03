@@ -4,7 +4,7 @@ import { fixtureGames, referenceGames } from "@boarddream/library";
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, test } from "vitest";
 import { depthBelow, fitCamera, FOV, screenProjector } from "./camera";
-import { CARD_H, CHIP, fitTable, layoutTable, type Arrangement, type TableLayout } from "./layout";
+import { CARD_H, CARD_W, CHIP, fitTable, layoutTable, type Arrangement, type TableLayout } from "./layout";
 
 const resourcesOf = (game: GameModule) => new Map((game.meta.resources ?? []).map((r) => [r.id, r]));
 
@@ -89,6 +89,24 @@ describe.each([...referenceGames, ...fixtureGames].map((g) => [g.meta.id, g] as 
           const apart = Math.abs(a.x - b.x) >= (a.w + b.w) / 2 - 0.01 || Math.abs(a.z - b.z) >= (a.d + b.d) / 2 - 0.01;
           expect(apart, `${a.id} overlaps ${b.id}`).toBe(true);
         }
+      }
+    }
+  });
+
+  test("a shared supply lays as many cards across as its mat holds", () => {
+    // The mat's padding and the gap between cards, as supplyBlock lays them.
+    const PAD = 1.1;
+    const GAP = 0.6;
+    for (const { layout } of playout(game, 3, 20)) {
+      for (const mat of layout.mats.filter((m) => m.shared)) {
+        const inside = ([x, , z]: number[]) => Math.abs(x - mat.position[0]) < mat.width / 2 && Math.abs(z - mat.position[2]) < mat.depth / 2;
+        const slots = [...layout.decks.map((d) => d.position), ...layout.cards.map((c) => c.position)].filter(inside);
+        if (slots.length < 2) continue;
+        const rows = new Map<number, number>();
+        for (const [, , z] of slots) rows.set(Math.round(z * 10), (rows.get(Math.round(z * 10)) ?? 0) + 1);
+        const first = rows.get(Math.min(...rows.keys()))!;
+        const fit = Math.floor((mat.width - 2 * PAD + GAP) / (CARD_W + GAP) + 1e-6);
+        expect(first, mat.id).toBe(Math.min(slots.length, fit));
       }
     }
   });
@@ -275,5 +293,53 @@ describe("rivals round the table", () => {
     // Across the table: above the board, and the last rival in turn order.
     const across = rivalMats.filter((m) => m.position[2] + m.depth / 2 <= slab.position[2] - slab.depth / 2);
     expect(across.map((m) => m.id)).toEqual(opposite ? [`seat${rivals}`] : []);
+  });
+});
+
+describe("a market that shares a column with a wider supply", () => {
+  // Farlight Reefs: the schooner market stands over the village wharf, whose chips make it wider.
+  const market: Panel = {
+    id: "market",
+    title: "Schooner Anchorage",
+    zone: "shared",
+    counters: [{ id: "deck", label: "Deck", value: 22 }],
+    cards: [1, 2, 3].map((i) => ({ id: `schooner${i}`, title: `Schooner ${i}` })),
+  };
+  const wharf: Panel = {
+    id: "wharf",
+    title: "Village Wharf",
+    zone: "shared",
+    note: "Lamp: - Saltmeadow: - Tidehome: - Gullrest: - Brinehaven: -",
+    counters: ["Lamp Quay", "Saltmeadow", "Tidehome", "Gullrest", "Brinehaven"].map((label, i) => ({ id: `v${i}`, label, value: 0 })),
+  };
+  const seat = (owner: number): Panel => ({ id: `seat${owner}`, title: `Keeper ${owner + 1}`, zone: "players", owner, counters: [] });
+
+  test("is as wide as the column and lays as many cards across as that holds", () => {
+    // Columns twice as tall as the board, so the two supplies stand one over the other.
+    const layout = layoutTable({
+      panels: [market, wharf, seat(0), seat(1), seat(2)],
+      geometry: squareGridGeometry(6, 6),
+      human: 0,
+      active: 0,
+      targets: new Set(),
+      resources: new Map(),
+      arrangement: "sides",
+      supplyHeight: 2,
+    });
+    const mat = layout.mats.find((m) => m.id === "market")!;
+    const other = layout.mats.find((m) => m.id === "wharf")!;
+    // One over the other, and the market widened to the wharf's width.
+    expect(Math.abs(mat.position[0] - other.position[0])).toBeLessThan(0.01);
+    expect(mat.width).toBeCloseTo(other.width, 5);
+    const slots = [...layout.decks, ...layout.cards.filter((c) => c.id.startsWith("schooner"))].map((s) => s.position);
+    const firstRow = slots.filter(([, , z]) => Math.abs(z - Math.min(...slots.map((s) => s[2]))) < 0.01).length;
+    const fit = Math.floor((mat.width - 2 * 1.1 + 0.6) / (CARD_W + 0.6) + 1e-6);
+    expect(fit).toBeGreaterThan(2);
+    expect(firstRow).toBe(Math.min(slots.length, fit));
+    // The cards stay on the market's mat.
+    for (const [x, , z] of slots) {
+      expect(Math.abs(x - mat.position[0]) + CARD_W / 2).toBeLessThanOrEqual(mat.width / 2 + 1e-6);
+      expect(Math.abs(z - mat.position[2]) + CARD_H / 2).toBeLessThanOrEqual(mat.depth / 2 + 1e-6);
+    }
   });
 });

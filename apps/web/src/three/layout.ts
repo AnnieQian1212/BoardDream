@@ -402,7 +402,9 @@ type ChipSizes = ReturnType<typeof chipSizes>;
 
 /**
  * A shared supply standing upright beside the board: its piles in rows under the header, then its
- * deck and cards two to a row, so a market runs down the table instead of across it.
+ * deck and cards. On its own the mat hugs two cards to a row, so a market runs down the table instead
+ * of across it; widened (to line up with the supplies it shares a column with, or by its piles or
+ * chips), it lays as many cards across as its width holds.
  */
 function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidth = 0, minDepth = 0): Block {
   const title = panel.title;
@@ -413,9 +415,6 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidt
   const cards = panel.cards ?? [];
   const gap = 0.6;
   const slots = decks.length + cards.length;
-  // Two cards to a row, then the next row.
-  const cols = slots > 1 ? 2 : 1;
-  const rows = Math.ceil(slots / cols);
   // The header holds the title and, when they fit beside it, the counters' chips and the note.
   // Too many for that, and they wrap in rows across the top of the mat's body instead.
   const titleW = titleEnd(title);
@@ -423,7 +422,8 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidt
   const chipsW = chips.reduce((sum, w) => sum + w + sizes.gap, 0);
   // The mat hugs its cards (or its title and piles, with no cards); chips that do not fit beside the
   // title wrap into the body rather than widen it.
-  const cardsW = slots > 0 ? 2 * PAD + cols * CARD_W + (cols - 1) * gap : 0;
+  const hug = slots > 1 ? 2 : 1;
+  const cardsW = slots > 0 ? 2 * PAD + hug * CARD_W + (hug - 1) * gap : 0;
   const pilesW = 2 * PAD + Math.min(piles.length, 3) * Math.max(PILE, sizes.pile);
   // A supply of counters alone is wide enough for two chips to a row.
   const chipsOnly = slots === 0 && piles.length === 0 && chips.length > 1 ? Math.min(26, 2 * Math.max(...chips) + sizes.gap + 2) : 0;
@@ -433,6 +433,9 @@ function supplyBlock(panel: Panel, input: LayoutInput, sizes: ChipSizes, minWidt
   // with a little to spare for the measure: on a phone the 0.6 units over the room were 1.5 pixels.
   const counterRoom = plain.length > 0 ? Math.max(...plain.map(sizes.counter)) * 1.06 + 2.6 : 0;
   const width = Math.max(cardsW, piles.length > 0 ? pilesW : 0, chipsOnly, titleRoom, counterRoom, 14, minWidth);
+  // As many cards to a row as the width holds, then the next row.
+  const cols = slots > 0 ? Math.min(slots, Math.max(1, Math.floor((width - 2 * PAD + gap) / (CARD_W + gap) + 1e-6))) : 1;
+  const rows = Math.ceil(slots / cols);
   const wrap = chips.length > 0 && titleW + 1 + chipsW > width;
   const chipRows = wrap ? sizes.rows(chips, width - 2) : 0;
   // Wrapped chips start a little way into the body, clear of the header.
@@ -648,20 +651,28 @@ function down(blocks: Block[], gap: number): Block {
 function columns(makers: ((minWidth: number, minDepth: number) => Block)[], height: number): Block | undefined {
   if (makers.length === 0) return undefined;
   const blocks = makers.map((make) => make(0, 0));
+  // A supply as wide as its column: a market widened to its column's width lays more cards to a row
+  // and is shallower, so a column is measured with its supplies at its width.
+  const sized = new Map<string, Block>();
+  const at = (b: number, wide: number): Block => {
+    const key = `${b}|${wide}`;
+    if (!sized.has(key)) sized.set(key, wide > blocks[b].width ? makers[b](wide, 0) : blocks[b]);
+    return sized.get(key)!;
+  };
   const COLUMN_GAP = 2.5;
   const ROW_GAP = 2;
   const options: { width: number; depth: number; waste: number; groups: number[][] }[] = [];
   // Each grouping in turn: block i joins one of the groups so far, or starts a new one.
   const visit = (i: number, groups: number[][]) => {
     if (i === blocks.length) {
-      const depths = groups.map((g) => g.reduce((sum, b) => sum + blocks[b].depth, 0) + ROW_GAP * (g.length - 1));
+      const widths = groups.map((g) => Math.max(...g.map((b) => blocks[b].width)));
+      const depths = groups.map((g, k) => g.reduce((sum, b) => sum + at(b, widths[k]).depth, 0) + ROW_GAP * (g.length - 1));
       // A single supply taller than the limit stands alone; groups may not exceed it.
       if (groups.some((g, k) => g.length > 1 && depths[k] > height)) return;
-      const widths = groups.map((g) => Math.max(...g.map((b) => blocks[b].width)));
       const width = widths.reduce((sum, w) => sum + w, 0) + COLUMN_GAP * (groups.length - 1);
       const depth = Math.max(...depths);
       // Empty mat left by stretching every supply to fill the rectangle.
-      const filled = groups.reduce((sum, g) => sum + g.reduce((s2, b) => s2 + blocks[b].width * blocks[b].depth, 0), 0);
+      const filled = groups.reduce((sum, g, k) => sum + g.reduce((s2, b) => s2 + at(b, widths[k]).width * at(b, widths[k]).depth, 0), 0);
       const waste = widths.reduce((sum, w) => sum + w * depth, 0) - filled;
       options.push({ width, depth, waste, groups: groups.map((g) => [...g]) });
       return;
@@ -688,10 +699,10 @@ function columns(makers: ((minWidth: number, minDepth: number) => Block)[], heig
   return across(
     groups.map((g) => {
       const wide = Math.max(...g.map((b) => blocks[b].width));
-      const used = g.reduce((sum, b) => sum + blocks[b].depth, 0) + ROW_GAP * (g.length - 1);
+      const used = g.reduce((sum, b) => sum + at(b, wide).depth, 0) + ROW_GAP * (g.length - 1);
       const extra = (full - used) / g.length;
       return down(
-        g.map((b) => makers[b](wide, blocks[b].depth + extra)),
+        g.map((b) => makers[b](wide, at(b, wide).depth + extra)),
         ROW_GAP,
       );
     }),
