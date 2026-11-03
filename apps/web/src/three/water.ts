@@ -128,8 +128,11 @@ export function tileOutlines(cells: { id: string; polygon: [number, number][] }[
       if (!best) continue;
       const { ex, ey, nx, ny } = best;
       const depth = Math.max(0, ...b.polygon.map(([x, y]) => -(nx * (x - ex) + ny * (y - ey))));
-      // Keep the part of a's outline at least depth + gap inside that edge.
-      const limit = -(depth + gap);
+      // Keep the part of a's outline at least depth + clearance inside that edge: a clear band of board
+      // between them, wider than the gap between neighbouring tiles, so the place does not seem to sit
+      // on the edge of the sea.
+      const clearance = Math.max(gap, 0.4 * Math.min(inradius(b.polygon), reach));
+      const limit = -(depth + clearance);
       const far = 1e4;
       const [tx, ty] = [-ny, nx];
       const [px, py] = [ex + nx * limit, ey + ny * limit];
