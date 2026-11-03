@@ -6,9 +6,9 @@ Can BoardDream turn a one-sentence idea into rules that work and are worth playi
 
 Each idea goes through the full pipeline: design, retrieval, rules code, then 1,000 strict random games. Failures go back to Muse Spark for repair (up to 4 rounds). Rules that pass get a playtest: 100 random games, plus 30 where a planner (the generic bot with short playouts) takes each seat in turn against random players. Design problems get one improvement round: games over too fast, mostly draws, a seat that never wins, no real choices, or a planner that barely beats random play.
 
-## The player picks the effort (Nov 3, 2026)
+## The player picks the effort (Nov 2, 2026)
 
-Advanced settings now offer low, medium (the default) and high effort for a game, with about how long each takes. Single real generations on Nov 3, when the API was slower than on Nov 1 (planning alone took 2–3 minutes):
+Advanced settings now offer low, medium (the default) and high effort for a game, with about how long each takes. Single real generations on the evening of Nov 2, when the API was slower than on Nov 1 (planning alone took 2–3 minutes):
 
 | | Low | Medium | High |
 | --- | --- | --- | --- |
