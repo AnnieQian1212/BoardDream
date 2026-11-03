@@ -5523,6 +5523,90 @@ a.quiet {
   height: 28px;
 }
 
+/* Test tools (?mochi): a card above the strip's right end, foldable to a badge. */
+.mochi-test,
+.mochi-test-open {
+  position: absolute;
+  right: 16px;
+  bottom: calc(100% + 14px);
+  z-index: 4;
+  border: 2px solid var(--m-edge);
+  background: var(--card);
+  box-shadow: 0 4px 0 var(--m-hard);
+  color: var(--text);
+}
+
+.mochi-test {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 340px;
+  padding: 8px 10px 10px;
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+
+.mochi-test-open {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mochi-test-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mochi-test-head strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-variation-settings: "SOFT" 100;
+}
+
+.mochi-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mochi-test-row button,
+.mochi-test-row select {
+  padding: 3px 9px;
+  border: 1.5px solid var(--m-edge);
+  border-radius: 7px;
+  background: var(--m-tile-a);
+  box-shadow: 0 2px 0 var(--m-hard);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.mochi-test-row button:hover:not(:disabled) {
+  background: var(--m-tile-b);
+}
+
+.mochi-test-row button:disabled {
+  box-shadow: none;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.mochi-test-row button.danger {
+  background: var(--m-rust);
+  color: #fff3dc;
+}
+
+.mochi-test-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
 /* The steps, the design sheet and a draft on the table stop above the open strip. */
 .app.has-mochi :is(.gen-stage, .sidebar.left) {
   bottom: 216px;

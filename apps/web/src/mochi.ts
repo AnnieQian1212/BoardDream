@@ -286,13 +286,20 @@ export const goldenCost = (p: Patch): number => 6 * 2 ** goldenFriend(p);
 
 /** A golden batch bought from the steamer, on an empty tile at random, if there is room and coins. */
 export function buyGolden(p: Patch): { patch: Patch; at?: number } {
+  if (p.coins < goldenCost(p)) return { patch: p };
+  const { patch, at } = place(p, goldenFriend(p));
+  return at === undefined ? { patch: p } : { patch: { ...patch, coins: p.coins - goldenCost(p) }, at };
+}
+
+/** A friend set on an empty tile at random (meeting it, if it is new), when there is room. */
+export function place(p: Patch, friend: number): { patch: Patch; at?: number } {
   const open = empties(p);
-  if (!open.length || p.coins < goldenCost(p)) return { patch: p };
+  if (!open.length) return { patch: p };
   const [where, seed] = roll(p.seed);
   const at = open[Math.floor(where * open.length)];
   const spots = p.spots.slice();
-  spots[at] = goldenFriend(p);
-  return { patch: { ...p, spots, coins: p.coins - goldenCost(p), seed }, at };
+  spots[at] = friend;
+  return { patch: { ...p, spots, best: Math.max(p.best, friend), seed }, at };
 }
 
 /** A locked tile opened, if the coins are there. */

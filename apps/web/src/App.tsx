@@ -45,10 +45,12 @@ const BOT_DELAY = 650;
 const PREVIEW_DELAY = 420;
 
 // ?game=<id> opens a specific game; ?watch lets bots play every seat (screenshots, video b-roll);
-// ?quality=lowest|low|medium|high pins the 3D render quality; ?flat uses the 2D table instead of WebGL.
+// ?quality=lowest|low|medium|high pins the 3D render quality; ?flat uses the 2D table instead of WebGL;
+// ?mochi shows the mochi steamer with its test tools, no game being made.
 const query = new URLSearchParams(window.location.search);
 const WATCH = query.has("watch");
 const FLAT = query.has("flat") || !hasWebGL();
+const MOCHI_TEST = query.has("mochi");
 /** Screen space the steps of a game being made, the designer's drawer, the top bar and the move bar cover. */
 const PANEL_INSET = 326;
 const DRAWER_INSET = 352;
@@ -319,7 +321,7 @@ export function App() {
   const goal = useMemo(() => goalOf(rulesFor(game, params), game.meta.summary), [game, params]);
   const guiding = firstVisit && !rulesOpen && !generation;
   const stripOpen = useStripOpen();
-  const stripShown = generating && stripOpen;
+  const stripShown = (generating || MOCHI_TEST) && stripOpen;
   // On a narrow screen the drawer covers the table instead of pushing it aside.
   const insets = useMemo(
     () => ({
@@ -407,6 +409,7 @@ export function App() {
           accounts={tables}
         />
         {overlays}
+        {MOCHI_TEST && <MochiStrip test />}
       </div>
     );
   }
@@ -455,7 +458,7 @@ export function App() {
       />
 
       {/* Something to tend at the foot of the page while the game is made. */}
-      {generating && <MochiStrip />}
+      {(generating || MOCHI_TEST) && <MochiStrip test={MOCHI_TEST} />}
 
       {generation && (
         <aside className="sidebar left">

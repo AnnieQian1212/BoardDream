@@ -14,6 +14,7 @@ import {
   MOON_COINS,
   ORDER_GAP,
   pair,
+  place,
   press,
   ready,
   revive,
@@ -242,6 +243,17 @@ describe("the mochi steamer", () => {
     const full = blanket(new Array(SPOTS).fill(0), { coins: 999 });
     expect(buyGolden(full)).toEqual({ patch: full });
     expect(goldenFriend(blanket([], { best: 1 }))).toBe(1);
+  });
+
+  it("places a friend on an empty tile, meeting it if it is new", () => {
+    const p = blanket([1], { best: 3 });
+    const { patch, at } = place(p, 6);
+    expect(at).toBeGreaterThan(0);
+    expect(patch.spots[at!]).toBe(6);
+    expect(patch.best).toBe(6);
+    expect(place(patch, 0).patch.best).toBe(6);
+    const full = blanket(new Array(SPOTS).fill(0));
+    expect(place(full, 2)).toEqual({ patch: full });
   });
 
   it("points out the earliest pair, or none", () => {

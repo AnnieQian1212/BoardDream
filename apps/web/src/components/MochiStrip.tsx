@@ -14,6 +14,7 @@ import {
   MAX_LEVEL,
   ORDER_SLOTS,
   pair,
+  place,
   press,
   ready,
   revive,
@@ -131,9 +132,10 @@ const inRect = (r: DOMRect | null, x: number, y: number) => !!r && x >= r.left &
  * a picnic blanket, and two friends alike, dragged or clicked together, become the next friend up
  * the line, from a dewdrop to the moon. Guests leave order cards asking for friends and pay coins
  * for them; coins open locked tiles and buy a bigger basket, a hotter stove and golden batches.
- * It is kept in this browser between games.
+ * It is kept in this browser between games. With `test`, tools to set it up for trying things out
+ * stand above it (the page shows it with ?mochi, no game being made).
  */
-export function MochiStrip() {
+export function MochiStrip({ test = false }: { test?: boolean }) {
   const open = useStripOpen();
   const [p, setP] = useState<Patch>(load);
   const current = useRef(p);
@@ -151,6 +153,9 @@ export function MochiStrip() {
   const [batches, setBatches] = useState(0);
   const [shakes, setShakes] = useState(0);
   const [nope, setNope] = useState<{ n: number; spot?: number; slot?: number }>({ n: 0 });
+  const [fast, setFast] = useState(false);
+  const fastNow = useRef(fast);
+  fastNow.current = fast;
   const drag = useRef<Drag | null>(null);
   const dropped = useRef(0);
   const spotEls = useRef<(HTMLButtonElement | null)[]>([]);
@@ -287,7 +292,7 @@ export function MochiStrip() {
   useEffect(() => {
     let beat = 0;
     const timer = setInterval(() => {
-      const gap = stoveGap(current.current);
+      const gap = fastNow.current ? 1 : stoveGap(current.current);
       clock.current = Math.min(gap, clock.current + 0.25);
       if (clock.current >= gap && empties(current.current).length) steamOne(true);
       if (++beat % 2 === 0) {
@@ -473,8 +478,8 @@ export function MochiStrip() {
               <SteamerBase />
             </span>
           </button>
-          <span className="mochi-timer" title={`The steamer makes one by itself every ${stoveGap(p)} s`} aria-hidden>
-            <i key={batches} style={{ "--steam": `${stoveGap(p)}s` } as CSSProperties} />
+          <span className="mochi-timer" title={`The steamer makes one by itself every ${fast ? 1 : stoveGap(p)} s`} aria-hidden>
+            <i key={batches} style={{ "--steam": `${fast ? 1 : stoveGap(p)}s` } as CSSProperties} />
           </span>
         </div>
         <div className="mochi-board" aria-label="Picnic blanket">
@@ -623,7 +628,125 @@ export function MochiStrip() {
           <p className="mochi-shelf-note">{p.best >= TOP ? "Two moons together rise to the sky as a star." : `Next: put two ${FRIENDS[p.best].many} together.`}</p>
         </aside>
       </div>
+      {test && (
+        <TestTools
+          p={p}
+          fast={fast}
+          onFast={setFast}
+          onChange={(next, placed = []) => {
+            commit(next);
+            if (placed.length) arrive(placed, "steam");
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Tools for trying the steamer out without playing up to it: coins, any friend on the blanket,
+ * friends met, tiles opened, new guests, a fast steamer, and starting over. They change the saved
+ * blanket like play does.
+ */
+function TestTools({ p, fast, onFast, onChange }: { p: Patch; fast: boolean; onFast: (fast: boolean) => void; onChange: (next: Patch, placed?: number[]) => void }) {
+  const [shown, setShown] = useState(true);
+  const [pick, setPick] = useState(4);
+  const [sure, setSure] = useState(false);
+  if (!shown)
+    return (
+      <button type="button" className="mochi-test-open" onClick={() => setShown(true)}>
+        Test tools
+      </button>
+    );
+  const add = (times: number) => {
+    let next = p;
+    const placed: number[] = [];
+    for (let k = 0; k < times; k++) {
+      const r = place(next, pick);
+      if (r.at === undefined) break;
+      next = r.patch;
+      placed.push(r.at);
+    }
+    onChange(next, placed);
+  };
+  const fill = () => {
+    const placed = empties(p);
+    const spots = p.spots.map((f, i) => (placed.includes(i) ? Math.floor(Math.random() * (Math.min(p.best, 4) + 1)) : f));
+    onChange({ ...p, spots }, placed);
+  };
+  return (
+    <div className="mochi-test" role="group" aria-label="Test tools">
+      <div className="mochi-test-head">
+        <strong>Test tools</strong>
+        <button type="button" className="quiet icon-only" onClick={() => setShown(false)} aria-label="Hide the test tools" title="Hide">
+          <ChevronDown size={15} />
+        </button>
+      </div>
+      <div className="mochi-test-row">
+        <button type="button" onClick={() => onChange({ ...p, coins: p.coins + 100 })}>
+          +100 coins
+        </button>
+        <button type="button" onClick={() => onChange({ ...p, coins: p.coins + 1000 })}>
+          +1,000 coins
+        </button>
+      </div>
+      <div className="mochi-test-row">
+        <select value={pick} onChange={(e) => setPick(Number(e.target.value))} aria-label="Friend to put on the blanket">
+          {FRIENDS.map((f, i) => (
+            <option key={f.name} value={i}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={() => add(1)}>
+          Add one
+        </button>
+        <button type="button" onClick={() => add(2)}>
+          Add two
+        </button>
+      </div>
+      <div className="mochi-test-row">
+        <button type="button" onClick={fill}>
+          Fill the blanket
+        </button>
+        <button type="button" onClick={() => onChange({ ...p, spots: p.spots.map(() => null) })}>
+          Clear it
+        </button>
+        <button type="button" onClick={() => onChange({ ...p, locked: p.locked.map(() => false) })}>
+          Open all tiles
+        </button>
+      </div>
+      <div className="mochi-test-row">
+        <button type="button" onClick={() => onChange({ ...p, best: Math.min(TOP, p.best + 1) })} disabled={p.best >= TOP}>
+          Meet the next friend
+        </button>
+        <button type="button" onClick={() => onChange({ ...p, best: TOP })} disabled={p.best >= TOP}>
+          Meet them all
+        </button>
+      </div>
+      <div className="mochi-test-row">
+        <button type="button" onClick={() => onChange({ ...p, orders: p.orders.map(() => null), due: p.due.map(() => 0) })}>
+          New guests now
+        </button>
+        <label>
+          <input type="checkbox" checked={fast} onChange={(e) => onFast(e.target.checked)} /> Steam every second
+        </label>
+      </div>
+      <div className="mochi-test-row">
+        <button
+          type="button"
+          className={sure ? "danger" : undefined}
+          onClick={() => {
+            if (!sure) return setSure(true);
+            setSure(false);
+            onChange(start());
+          }}
+          onBlur={() => setSure(false)}
+        >
+          {sure ? "Click again to start over" : "Start over"}
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -59,6 +59,7 @@ Around the app:
 - **Games** lists every game with its cover; a generated one can be deleted there, and a newly made one offers **Don't keep it**.
 - `?quality=low` helps slow GPUs; `?flat` switches to a 2D table.
 - **Behind the scenes** (or `?results`) shows every benchmark on one page.
+- `?mochi` opens the mochi steamer (the game to play while one is made) with test tools, without making a game.
 - `npm run covers` paints a cover for every game that has none.
 - Deploying: a free static demo with AI opponents on Cloudflare Pages, or the full server in a container ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
