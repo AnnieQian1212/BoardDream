@@ -17,7 +17,7 @@ const CARDS_PER_PAGE = 9;
  * just the title: two cards may share a name and differ (a starting oven and one for sale). Cards
  * nobody ever saw are missing, so the sheet says the counts come from play.
  */
-function cardInventory(game: GameModule, art: Map<string, string> | undefined, games = 8): { card: CardView; copies: number }[] {
+function cardInventory(game: GameModule, art: Map<string, string> | undefined, plain = false, games = 8): { card: CardView; copies: number }[] {
   const ids = new Map<string, Set<string>>();
   const views = new Map<string, CardView>();
   const players = game.meta.maxPlayers;
@@ -28,7 +28,7 @@ function cardInventory(game: GameModule, art: Map<string, string> | undefined, g
           for (const card of panel.cards ?? []) {
             if (card.faceDown) continue;
             const design = JSON.stringify([card.title, card.text, card.cost, card.points, card.tags]);
-            if (!views.has(design)) views.set(design, { ...card, art: card.art ?? art?.get(card.title) });
+            if (!views.has(design)) views.set(design, { ...card, art: plain ? undefined : (card.art ?? art?.get(card.title)) });
             ids.set(design, (ids.get(design) ?? new Set()).add(card.id));
           }
         }
@@ -105,11 +105,15 @@ function usePrintBoard(paint: BoardPaint | undefined): BoardPaint | null | undef
 export function PrintSheet({ game, params, art, boardPaint, onClose }: { game: GameModule; params: Params; art?: Map<string, string>; boardPaint?: BoardPaint; onClose(): void }) {
   useEscape(onClose);
   const resources = useMemo(() => resourceById(game.meta.resources), [game]);
+  // The paintings are printed unless the player leaves them off (to save ink, or to colour in by
+  // hand): the card art, and a painted board, which then prints as its plain tiles.
+  const [withCardArt, setWithCardArt] = useState(true);
+  const [withBoardArt, setWithBoardArt] = useState(true);
   const printArt = usePrintArt(art);
   // A board that has been painted prints painted, as the table shows it.
   const printBoard = usePrintBoard(boardPaint);
   const ready = printArt !== undefined && printBoard !== undefined;
-  const inventory = useMemo(() => cardInventory(game, printArt), [game, printArt]);
+  const inventory = useMemo(() => cardInventory(game, withCardArt ? printArt : undefined, !withCardArt), [game, printArt, withCardArt]);
   // The board as printed: its spaces and labels, without the pieces of one particular opening.
   const geometry = useMemo<Geometry | undefined>(() => {
     const start = startingGeometry(game);
@@ -127,6 +131,16 @@ export function PrintSheet({ game, params, art, boardPaint, onClose }: { game: G
         <span>
           Print and play <b>{game.meta.name}</b>: the rules{geometry ? ", the board" : ""} and {cards.length} cards on A4. Cut along the dashed lines.
         </span>
+        {(art?.size ?? 0) > 0 && (
+          <label className="print-option">
+            <input type="checkbox" checked={withCardArt} onChange={(e) => setWithCardArt(e.target.checked)} /> Card art
+          </label>
+        )}
+        {boardPaint && geometry && (
+          <label className="print-option">
+            <input type="checkbox" checked={withBoardArt} onChange={(e) => setWithBoardArt(e.target.checked)} /> Painted board
+          </label>
+        )}
         <button type="button" className="action" onClick={() => window.print()} disabled={!ready}>
           <Printer size={16} /> {ready ? "Print or save as PDF" : "Preparing the art…"}
         </button>
@@ -164,7 +178,7 @@ export function PrintSheet({ game, params, art, boardPaint, onClose }: { game: G
 
       {geometry && (
         <section className="print-page print-board">
-          <Board geometry={geometry} paint={printBoard ?? undefined} targets={new Set()} onCell={() => {}} />
+          <Board geometry={geometry} paint={withBoardArt ? (printBoard ?? undefined) : undefined} targets={new Set()} onCell={() => {}} />
         </section>
       )}
 

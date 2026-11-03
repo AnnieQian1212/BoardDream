@@ -19,6 +19,13 @@ describe("pages as addresses", () => {
     }
   });
 
+  test("a game's print kit has its own address over the table", () => {
+    const kit = { table: true, game: "highsail", library: false, results: false, print: true };
+    expect(pageAddress(at(""), kit)).toBe("/?game=highsail&print");
+    expect(pageAt("?game=highsail&print")).toMatchObject({ table: true, game: "highsail", print: true });
+    expect(pageAddress(at("?game=highsail&print"), { ...kit, print: false })).toBe("/?game=highsail");
+  });
+
   test("other flags in the address are kept", () => {
     expect(pageAddress(at("?flat&quality=low&game=old"), { table: true, game: "highsail", library: false, results: false })).toBe("/?flat&quality=low&game=highsail");
     expect(pageAddress(at("?bots&game=highsail"), { table: false, library: false, results: false })).toBe("/?bots");

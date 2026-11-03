@@ -101,32 +101,33 @@ export function App() {
   const toHome = useCallback(() => setScreen("home"), []);
   const [results, setResults] = useState(query.has("results"));
   const [library, setLibrary] = useState(query.has("games"));
+  const [printing, setPrinting] = useState(START_AT_TABLE && query.has("print"));
   // The address follows the page (pageAddress): a refresh reopens the page the player was on, and
   // Back and Forward step between pages. Opening a page adds a step; a new game on the table does not.
-  const written = useRef(`${screen}|${library}|${results}`);
+  const written = useRef(`${screen}|${library}|${results}|${printing}`);
   useEffect(() => {
-    const next = pageAddress(window.location, { table: atTable, game: game.meta.id, library, results });
+    const next = pageAddress(window.location, { table: atTable, game: game.meta.id, library, results, print: printing });
     if (next === `${window.location.pathname}${window.location.search}`) return;
-    const key = `${screen}|${library}|${results}`;
+    const key = `${screen}|${library}|${results}|${printing}`;
     if (key !== written.current) window.history.pushState(null, "", next);
     else window.history.replaceState(null, "", next);
     written.current = key;
-  }, [screen, game, library, results]);
+  }, [screen, game, library, results, printing]);
   // Back and Forward: the page the address names, and its game.
   const popped = useRef<(id: string | undefined) => void>(() => {});
   useEffect(() => {
     const onPop = () => {
       const page = pageAt(window.location.search);
-      written.current = `${page.table ? "table" : "home"}|${page.library}|${page.results}`;
+      written.current = `${page.table ? "table" : "home"}|${page.library}|${page.results}|${Boolean(page.print)}`;
       setScreen(page.table ? "table" : "home");
       setLibrary(page.library);
       setResults(page.results);
+      setPrinting(Boolean(page.print));
       popped.current(page.game);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  const [printing, setPrinting] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   // The designer's drawer: shut while playing, opened from the top bar (or F).
   const [designer, setDesigner] = useState<{ open: boolean; tab: DesignerTab }>({ open: false, tab: "rules" });
