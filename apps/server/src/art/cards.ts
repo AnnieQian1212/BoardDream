@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { collectCards, type GameModule } from "@boarddream/engine";
 import type { ModelClient } from "../meta/client";
@@ -299,7 +300,9 @@ export async function paintDeck(
   }
 
   const store = (card: ArtCard, image: { bytes: Buffer; format: string }) => {
-    const name = `${slug(card.title)}.${image.format}`;
+    // Named for its content too: paintings are served to be cached for good, so a card painted again
+    // under its old name kept showing the old picture.
+    const name = `${slug(card.title)}-${createHash("sha1").update(image.bytes).digest("hex").slice(0, 8)}.${image.format}`;
     writeFileSync(new URL(name, dir), image.bytes);
     manifest[card.title] = name;
     save();
