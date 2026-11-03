@@ -137,7 +137,8 @@ export async function deleteGeneratedGame(id: string): Promise<void> {
     // Not remembered here; the server's deletion still holds where it is allowed.
   }
   try {
-    await fetch(`/api/games/${encodeURIComponent(id)}`, { method: "DELETE" });
+    // The server takes changes as JSON only (play.ts), a delete too.
+    await fetch(`/api/games/${encodeURIComponent(id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" } });
   } catch {
     // No server: hidden in this browser only.
   }
