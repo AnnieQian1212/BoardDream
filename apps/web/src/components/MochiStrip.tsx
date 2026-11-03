@@ -277,11 +277,11 @@ export function MochiStrip() {
       )}
       <header className="mochi-head">
         <strong>Mochi steamer</strong>
-        <span className="mochi-chip" title={`${p.best + 1} of ${FRIENDS.length} friends met`}>
-          <Heart size={12} className="mochi-heart-icon" /> {p.best + 1}/{FRIENDS.length} friends
+        <span className="mochi-badge" title={`${p.best + 1} of ${FRIENDS.length} friends met`}>
+          Friends {p.best + 1}/{FRIENDS.length}
         </span>
         {p.stars > 0 && (
-          <span className="mochi-chip" title="Moons risen to the sky">
+          <span className="mochi-badge dark" title="Moons risen to the sky">
             <Star size={13} className="mochi-star-icon" /> {p.stars}
           </span>
         )}
