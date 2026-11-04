@@ -2,7 +2,7 @@
 
 The submission needs a demo video of at most three minutes that shows what was built during the hackathon (all of BoardDream), and judges must be able to tell what that is. Judges score Impact (30%), Use of Meta AI tooling (25%), Technical depth (20%) and Demo (25%: "is the demo video genuinely cool to watch?"), and the finalists' videos are watched live.
 
-## The film (`video/promo`, the one submitted, 1:44)
+## The film (`video/promo`, the one submitted, 1:44): [on YouTube](https://www.youtube.com/watch?v=OwE1u61vDHs)
 
 Made from scratch on Nov 4 with [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft) and Remotion; no earlier footage or cut is used. Following the organizers' guidance (most of the video real screen footage of the working product with the live Meta model calls visible, simulated or sped-up parts labelled, 3:00 at most, in English, an opening line on what existed before the event), the product is shown in two new screen recordings at 60 fps: one game, Clovefire Reach, made for real at the highest settings (High effort, complexity and play time at their top, a map on hexes; 8 min 37 s to ready), then played against Muse Spark Open, given a house rule, painted by Muse Image and checked by SAM 3.1. Every sped-up stretch carries its real duration. It is cut on one music track (five bars of its calm middle left out): the click on Dream it up lands on its first drop, our code on its second. The design spec, storyboard and how to make it again are in [video/promo/SPEC.md](../video/promo/SPEC.md); sources and licences in [video/promo/NOTICE.md](../video/promo/NOTICE.md).
 

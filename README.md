@@ -6,6 +6,7 @@
 
 ### Describe a board game in one sentence. Play it with your friends tonight.
 
+[![Watch the demo video](https://img.shields.io/badge/%E2%96%B6%20Watch%20the%20demo%20video-1%3A44-c4302b?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=OwE1u61vDHs)
 [![Play the demo](https://img.shields.io/badge/%E2%96%B6%20Play%20the%20demo-boarddream.pages.dev-d9a441?style=for-the-badge)](https://boarddream.pages.dev)
 [![Built on Meta models](https://img.shields.io/badge/Built%20on-Muse%20Spark%20%C2%B7%20Muse%20Image%20%C2%B7%20SAM%203.1-1d1611?style=for-the-badge)](#four-meta-models-four-jobs)
 
