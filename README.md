@@ -142,3 +142,7 @@ flowchart LR
 | `video/` | The demo video: the app captured with Playwright, the film made in Remotion (`video/promo`) |
 
 The plan and every decision: [docs/PLAN.md](docs/PLAN.md). What was built, day by day: [docs/BUILT.md](docs/BUILT.md).
+
+## License
+
+[MIT](LICENSE). The demo video's code adapts parts of video-shotcraft (Apache-2.0); its sources and licences are in [video/promo/NOTICE.md](video/promo/NOTICE.md).
