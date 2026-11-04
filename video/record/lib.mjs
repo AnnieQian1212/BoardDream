@@ -4,7 +4,7 @@
 // come straight from Chrome's compositor (CDP screencast) as JPEGs and are encoded into an MP4 at
 // 30 fps with the ffmpeg Remotion ships, sharper than Playwright's own video. A take can slow its
 // frame rate while it waits for a game to be made, and marks the moments the edit cuts on.
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -47,7 +47,39 @@ const CURSOR = `(() => {
  */
 export const SCALE = Number(process.env.SCALE ?? 1.5);
 
+/**
+ * --screen: record Chrome's window instead of the screencast. The screencast tops out near 20
+ * frames a second at these sizes (each frame a JPEG sent over the debugging connection and written
+ * to disk), which shows as judder in a 60 fps film; measured on Tidehearth, the page itself draws 58
+ * a second. With --screen, Chrome runs full screen on the main display (kiosk), the page laid out
+ * at 1920 x 1080 and drawn at the display's 2560 x 1440, and ffmpeg's gfxcapture (Windows graphics
+ * capture) takes that one window at 60 fps without touching the page, whatever lies in front of it.
+ * Chrome is told to keep drawing when covered. Needs an ffmpeg with gfxcapture (SCREEN_FFMPEG) and
+ * the display awake.
+ */
+export const SCREEN = process.argv.includes("--screen");
+const SCREEN_FFMPEG = process.env.SCREEN_FFMPEG ?? "ffmpeg";
+const SCREEN_SCALE = 2560 / SIZE.width;
+
 export async function launch(scale = SCALE) {
+  if (SCREEN)
+    return chromium.launch({
+      channel: "chrome",
+      headless: false,
+      ignoreDefaultArgs: ["--enable-automation"],
+      args: [
+        "--kiosk",
+        "--hide-scrollbars",
+        "--no-default-browser-check",
+        "--disable-infobars",
+        `--force-device-scale-factor=${SCREEN_SCALE}`,
+        // Keep drawing at full rate while another window covers this one.
+        "--disable-features=CalculateNativeWinOcclusion",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling",
+      ],
+    });
   return chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=d3d11", "--hide-scrollbars", `--force-device-scale-factor=${scale}`] });
 }
 
@@ -56,7 +88,10 @@ export async function launch(scale = SCALE) {
  * Every game counts as seen, so no first-game guide covers the table.
  */
 export async function openPage(browser, { storageState, theme = "light", scale = SCALE } = {}) {
-  const context = await browser.newContext({ viewport: SIZE, deviceScaleFactor: scale, storageState, colorScheme: theme });
+  // On screen the page takes the full-screen window as it is.
+  const context = SCREEN
+    ? await browser.newContext({ viewport: null, storageState, colorScheme: theme })
+    : await browser.newContext({ viewport: SIZE, deviceScaleFactor: scale, storageState, colorScheme: theme });
   await context.addInitScript(() => {
     const get = Storage.prototype.getItem;
     Storage.prototype.getItem = function (key) {
@@ -65,6 +100,13 @@ export async function openPage(browser, { storageState, theme = "light", scale =
   });
   await context.addInitScript(CURSOR);
   const page = await context.newPage();
+  if (SCREEN) {
+    // Full screen on the display, so the page is drawn at its 2560 x 1440 (kiosk alone does not hold).
+    const cdp = await context.newCDPSession(page);
+    const { windowId } = await cdp.send("Browser.getWindowForTarget");
+    await cdp.send("Browser.setWindowBounds", { windowId, bounds: { windowState: "fullscreen" } });
+    await wait(800);
+  }
   page.on("pageerror", (err) => log("pageerror:", String(err)));
   page.mouse.at = [SIZE.width / 2, SIZE.height / 2];
   page.scale = scale;
@@ -157,7 +199,7 @@ export async function drift(page, points, { ms = 900, pause = 300 } = {}) {
  * `rate(fps)` caps how many frames a second are kept (a long wait needs few); `mark(label)` notes
  * the take's time for the edit, saved beside the video as <name>.json.
  */
-export class Take {
+class FrameTake {
   constructor(page, name) {
     this.page = page;
     this.name = name;
@@ -228,6 +270,82 @@ export class Take {
     log(`saved ${out} (${end.toFixed(1)} s, ${this.frames.length} frames)`);
   }
 }
+
+/**
+ * Records Chrome's window (--screen): ffmpeg's gfxcapture finds it by a title the page is given for
+ * a moment, then follows that window at 60 fps into an MP4 at its own 2560 x 1440, the system
+ * pointer left out (the page draws its own). The same marks as a screencast take; `rate` does
+ * nothing, as every frame is kept.
+ */
+class ScreenTake {
+  constructor(page, name) {
+    this.page = page;
+    this.name = name;
+    this.marks = [];
+  }
+
+  async start() {
+    if (REHEARSE) return this;
+    await this.page.bringToFront();
+    mkdirSync(FOOTAGE, { recursive: true });
+    this.out = path.join(FOOTAGE, `${this.name}.mp4`);
+    // A title only this window has, for the capture to find it by.
+    const token = `boarddream-take-${this.name}-${Date.now()}`;
+    await this.page.evaluate((t) => (document.title = t), token);
+    await wait(400);
+    const source = `gfxcapture=window_title=${token}:capture_cursor=0:max_framerate=60`;
+    this.ff = spawn(SCREEN_FFMPEG, ["-hide_banner", "-y", "-f", "lavfi", "-i", source, "-vf", "hwdownload,format=bgra", "-fps_mode", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "15", "-pix_fmt", "yuv420p", "-movflags", "+faststart", this.out], { stdio: ["pipe", "ignore", "pipe"] });
+    this.log = "";
+    // The take's clock starts when the first frames are in, worked back to the first one.
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`${this.name}: ffmpeg took no frames: ${this.log.slice(-400)}`)), 15_000);
+      this.ff.stderr.on("data", (d) => {
+        this.log += d;
+        const m = /frame=\s*(\d+)/.exec(String(d));
+        if (this.first === undefined && m && Number(m[1]) > 0) {
+          this.first = Date.now() / 1000 - Number(m[1]) / 60;
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      this.ff.on("exit", (code) => reject(new Error(`${this.name}: ffmpeg stopped (${code}): ${this.log.slice(-400)}`)));
+    });
+    log(`recording ${this.name} (screen)`);
+    return this;
+  }
+
+  rate() {}
+
+  mark(label) {
+    if (REHEARSE || this.first === undefined) return;
+    const t = Date.now() / 1000 - this.first;
+    this.marks.push({ label, t: Math.round(t * 100) / 100 });
+    log(`mark ${label} @ ${t.toFixed(1)}s`);
+  }
+
+  async stop() {
+    if (REHEARSE) return;
+    const end = Date.now() / 1000 - this.first;
+    let exited = false;
+    const done = new Promise((resolve) => this.ff.on("exit", () => resolve((exited = true))));
+    this.ff.stdin.write("q");
+    // The capture only hands on a frame when the window changes, and ffmpeg reads the q between
+    // frames: on a still page, nudge the pointer until it has stopped.
+    for (let i = 0; !exited && i < 100; i++) {
+      await this.page.mouse.move(SIZE.width - 4 - (i % 2), SIZE.height - 4).catch(() => {});
+      await wait(100);
+    }
+    await done;
+    const dropped = /drop=\s*(\d+)/g;
+    let last;
+    for (let m; (m = dropped.exec(this.log)); ) last = m[1];
+    writeFileSync(path.join(FOOTAGE, `${this.name}.json`), JSON.stringify({ duration: Math.round(end * 100) / 100, frames: Math.round(end * 60), marks: this.marks }, null, 2) + "\n");
+    log(`saved ${this.out} (${end.toFixed(1)} s at 60 fps, ${last ?? 0} frames dropped)`);
+  }
+}
+
+/** A take: from the screencast, or from the screen with --screen. */
+export const Take = SCREEN ? ScreenTake : FrameTake;
 
 /**
  * A few moves in the mochi steamer, the game to play while a game is made: steam two friends, then

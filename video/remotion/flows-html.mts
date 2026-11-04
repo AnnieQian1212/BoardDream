@@ -4,7 +4,8 @@
  * template, and the film's fonts embedded so it looks the same anywhere. DashMotion's checker
  * (check_diagram.py) reads this page; the film draws the same geometry in Flows.tsx.
  *
- *   npx tsx video/remotion/flows-html.mts <out.html>
+ *   npx tsx video/remotion/flows-html.mts <out.html>     the page
+ *   npx tsx video/remotion/flows-html.mts <out.svg>      the same as one animated SVG, for the README
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -159,5 +160,55 @@ ${draw(FLOWS.dream)}
 </body>
 </html>
 `;
-writeFileSync(out, html);
+/** A flow moved up by `dy`, every coordinate with it (paths are M x y, H x and V y only). */
+const lift = (flow: Flow, dy: number): Flow => {
+  const path = (d: string) =>
+    d.replace(/([MV])\s*(-?[\d.]+)(?:\s+(-?[\d.]+))?/g, (_, op: string, a: string, b?: string) => (op === "M" ? `M${a} ${Number(b) - dy}` : `V${Number(a) - dy}`));
+  return {
+    ...flow,
+    eyebrowY: flow.eyebrowY - dy,
+    nodes: flow.nodes.map((n) => ({ ...n, y: n.y - dy })),
+    edges: flow.edges.map((e) => ({ ...e, d: path(e.d) })),
+    loop: flow.loop.map((e) => ({ ...e, d: path(e.d) })),
+    loopLabels: flow.loopLabels.map((l) => ({ ...l, y: l.y - dy })),
+    after: { ...flow.after, y: flow.after.y - dy },
+  };
+};
+
+/**
+ * The same flows as one animated SVG for the README: GitHub shows a repository's SVG as an image,
+ * where CSS and SMIL animation still run but scripts and font files are not loaded, so this one
+ * has no script and uses the system's fonts, and carries its own dark ground, cropped to the flows.
+ */
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FRAME.width} 820" role="img" aria-labelledby="t d">
+  <title id="t">Two ways to make a board game</title>
+  <desc id="d">The old way loops through writing rules, a paper prototype and a playtest night, a week a lap, for weeks. BoardDream goes from one sentence through Muse Spark, tested mechanics, rules as code and a thousand bot games, fixing anything that breaks, to a game you play tonight.</desc>
+  <style>
+    .eyebrow { font: 600 ${TYPE.eyebrow}px system-ui, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: 0.22em; fill: var(--stroke); }
+    .label { font: 500 ${TYPE.label}px system-ui, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--text); text-anchor: middle; }
+    .pill-label { font: 650 ${TYPE.pill}px system-ui, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: 0.14em; fill: var(--text); text-anchor: middle; }
+    .note { font: italic 400 ${TYPE.note}px Georgia, "Times New Roman", serif; fill: var(--text); }
+    .after { font: italic 500 ${TYPE.after}px Georgia, "Times New Roman", serif; fill: var(--text); }
+    .dream .pill-label, .dream .note, .dream .after { fill: #f0cf86; }
+    .flow { stroke-dasharray: 10 10; }
+    @media (prefers-reduced-motion: no-preference) {
+      .flow { animation: dashmove 0.75s linear infinite; }
+      .flow.slow { animation-duration: 2.4s; }
+    }
+    @keyframes dashmove { to { stroke-dashoffset: -20; } }
+  </style>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="${INK.grid}" stroke-width="1"/></pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="${FRAME.width}" height="820" rx="24" fill="${INK.ground}"/>
+  <rect x="0" y="0" width="${FRAME.width}" height="820" rx="24" fill="url(#grid)"/>
+${draw(lift(FLOWS.old, 120))}
+${draw(lift(FLOWS.dream, 120))}
+</svg>
+`;
+
+writeFileSync(out, out.endsWith(".svg") ? svg : html);
 console.log(`wrote ${out}`);

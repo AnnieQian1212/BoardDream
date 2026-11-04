@@ -2,7 +2,9 @@
 //   node video/record/takes.mjs <take> [--name=<n>] [--game=<id>] --rehearse   every selector checked, nothing recorded or spent
 //   node video/record/takes.mjs <take> [...]                                   recorded to video/remotion/public/footage
 // Takes: make (a game made on camera from the hero idea; --name=make-1, make-2, ... for candidates),
-// after (that game played on: --game=<id> --rule="..."), rivals, friends, table, cards, painted.
+// after (that game played on: --game=<id> --rule="..."), extras (its turn, rulebook, Balance tab and
+// Behind the scenes: --game=<id>), mochi (the mochi game played through), rivals, friends, table,
+// cards, painted.
 // The local servers must be running (web on :5173, API on :8787). Pages are drawn at SCALE (lib.mjs).
 import { writeFileSync } from "node:fs";
 import path from "node:path";
@@ -230,6 +232,274 @@ const takes = {
     const take = await new Take(page, "table").start();
     await drift(page, [[600, 420], [470, 470], [640, 380], [780, 330], [620, 600], [450, 600], [700, 520]], { ms: 1400, pause: 300 });
     await wait(3000);
+    await take.stop();
+  },
+
+  /**
+   * The made game's own pages, for Part 2: a turn at its table (only legal moves glow), its
+   * rulebook, the designer's Balance tab, and BoardDream's Behind the scenes. Bots in the other
+   * seats, so nothing is spent. --game=<id>, the revised game.
+   */
+  async extras(browser) {
+    const game = arg("game");
+    if (!game) throw new Error("which game? --game=<id>");
+    const page = await openPage(browser);
+    await signIn(page, AICHEN);
+    await page.goto(table(game, "&bots"), { waitUntil: "networkidle" });
+    await wait(3500);
+    const take = await new Take(page, "extras").start();
+    await wait(300);
+    take.mark("turn");
+    await drift(page, [[700, 420], [960, 880]], { ms: 1100, pause: 500 });
+    await moveAndClick(page, 'button:has-text("fell timber")', "fell timber", { after: 2600 });
+    await drift(page, [[900, 880], [1020, 880]], { ms: 900, pause: 400 });
+
+    take.mark("rules");
+    await moveAndClick(page, 'header button:has-text("Rules")', "Rules", { after: 1800 });
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, 60);
+      await wait(60);
+    }
+    await wait(1500);
+    await page.keyboard.press("Escape");
+    await wait(800);
+
+    take.mark("balance");
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1000 });
+    await moveAndClick(page, 'button:text-is("Balance")', "Balance tab", { after: 500 });
+    // The tab plays its games in the page first; the edit starts once its numbers are in.
+    if (!REHEARSE) await until(async () => !(await visible(page, "text=Simulating")) && !(await visible(page, "text=Measuring")), 120_000, 500);
+    take.mark("balance-ready");
+    await drift(page, [[1700, 420], [1740, 620]], { ms: 1200, pause: 1500 });
+    await moveAndClick(page, 'button[aria-label="Close the designer"]', "close the designer", { after: 800 });
+
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await wait(1200);
+    take.mark("behind");
+    await moveAndClick(page, 'button:has-text("Behind the scenes")', "Behind the scenes", { after: 1800 });
+    await glide(page, [960, 600], 500);
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.wheel(0, 40);
+      await wait(70);
+    }
+    await wait(1500);
+    await take.stop();
+  },
+
+  /**
+   * The mochi game played through in one go, for Part 1: steam a friend, put two alike together,
+   * hand the new friend to the guest who asked for it, open the shop and buy a golden batch. Set
+   * up first with the test page's tools, off camera, and the tools folded away before recording;
+   * the edit shows only the strip and the shop.
+   */
+  async mochi(browser) {
+    const page = await openPage(browser);
+    await page.goto(`${BASE}/?mochi`, { waitUntil: "domcontentloaded" });
+    await page.locator(".mochi-steamer").first().waitFor({ timeout: 20_000 });
+    await wait(1000);
+    const tools = page.locator(".mochi-test");
+    const tool = (label) => tools.locator(`button:text-is("${label}")`).first().click();
+    // A clean blanket, coins for the shop, and guests at every place.
+    await tool("Clear it");
+    await tool("+100 coins");
+    await tool("New guests now");
+    await wait(1200);
+    const names = ["Dewdrop", "Mochi", "Sakura mochi", "Matcha mochi", "Chick", "Bunny", "Kitty", "Bear", "Panda", "Moon"];
+    const label = await page.locator(".mochi-order-main").first().getAttribute("aria-label");
+    const want = names.indexOf(label.split(": ")[1].split(",")[0].trim());
+    if (want < 1) throw new Error(`the first guest wants ${label}; start again for a guest who wants more than a dewdrop`);
+    log(`the first guest: ${label}`);
+    // Two of the friend one below what the guest wants, to put together on camera.
+    await tools.locator("select").selectOption(String(want - 1));
+    await tool("Add two");
+    await page.locator('button[aria-label="Hide the test tools"]').click();
+    await wait(800);
+
+    const spotOf = async (name, skip = -1) => {
+      const boxes = await page.$$eval(".mochi-spot", (els) => els.map((el) => [el.getAttribute("aria-label"), el.getBoundingClientRect().toJSON()]));
+      const found = boxes.map(([n, r], i) => ({ n, r, i })).filter(({ n, i }) => n === name && i !== skip);
+      return found.map(({ r, i }) => ({ i, at: [r.x + r.width / 2, r.y + r.height / 2] }));
+    };
+    const drag = async (from, to) => {
+      await glide(page, from, 450);
+      await wait(150);
+      await page.mouse.down();
+      await glide(page, [from[0] + (to[0] - from[0]) * 0.15, from[1] - 6], 140);
+      await glide(page, to, 550);
+      await wait(120);
+      await page.mouse.up();
+    };
+
+    const take = await new Take(page, "mochi").start();
+    await wait(400);
+    take.mark("steam");
+    await moveAndClick(page, ".mochi-steamer", "steam a friend", { settle: 120, after: 700 });
+    take.mark("merge");
+    const pair = await spotOf(names[want - 1]);
+    if (pair.length < 2) throw new Error(`no pair of ${names[want - 1]} on the blanket`);
+    await drag(pair[0].at, pair[1].at);
+    await wait(700);
+    take.mark("serve");
+    const made = (await spotOf(names[want]))[0];
+    const order = await page.locator(".mochi-order-main").first().boundingBox();
+    await drag(made.at, [order.x + order.width / 2, order.y + order.height / 2]);
+    await wait(1100);
+    take.mark("shop");
+    await moveAndClick(page, ".mochi-shop-open", "open the shop", { settle: 120, after: 900 });
+    take.mark("buy");
+    await moveAndClick(page, '.mochi-shop-menu button:has-text("Golden batch")', "buy a golden batch", { settle: 150, after: 1400 });
+    await drift(page, [[760, 960]], { ms: 600, pause: 600 });
+    await take.stop();
+  },
+
+  /**
+   * One merge, for Part 1: the steamer clicked once, then the pointer goes right and puts one mochi
+   * on another, which become a sakura mochi (a new friend met). Set up with the test page's tools,
+   * off camera; the edit shows only the strip.
+   */
+  async merge(browser) {
+    const page = await openPage(browser);
+    await page.goto(`${BASE}/?mochi`, { waitUntil: "domcontentloaded" });
+    await page.locator(".mochi-steamer").first().waitFor({ timeout: 20_000 });
+    await wait(1000);
+    const tools = page.locator(".mochi-test");
+    const tool = (label) => tools.locator(`button:text-is("${label}")`).first().click();
+    await tool("Clear it");
+    await tools.locator("select").selectOption("0");
+    await tool("Add two");
+    await tools.locator("select").selectOption("1");
+    await tool("Add two");
+    await page.locator('button[aria-label="Hide the test tools"]').click();
+    await wait(800);
+    const mochi = await page.$$eval('.mochi-spot[aria-label="Mochi"]', (els) => els.map((el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
+    if (mochi.length < 2) throw new Error("no pair of mochi on the blanket");
+    await glide(page, [430, 900], 300);
+
+    const take = await new Take(page, "merge").start();
+    await wait(500);
+    take.mark("steam");
+    await moveAndClick(page, ".mochi-steamer", "steam a friend", { settle: 150, after: 500 });
+    take.mark("merge");
+    const [from, to] = mochi;
+    await glide(page, from, 700);
+    await wait(150);
+    await page.mouse.down();
+    await glide(page, [from[0] + (to[0] - from[0]) * 0.15, from[1] - 6], 160);
+    await glide(page, to, 650);
+    await wait(120);
+    await page.mouse.up();
+    await wait(1600);
+    await take.stop();
+  },
+
+  /**
+   * Part 1's game being played: Tidehearth with bots in every seat, the pointer drawing slowly
+   * across the water (its tiles near 767,197; 772,324; 617,377) so it ripples as the pieces land.
+   */
+  async play(browser) {
+    const page = await openPage(browser);
+    await page.goto(table(TIDEHEARTH, "&watch&bots"), { waitUntil: "networkidle" });
+    await wait(3000);
+    await glide(page, [600, 520], 300);
+    const take = await new Take(page, "play").start();
+    await wait(400);
+    take.mark("play");
+    await drift(page, [[767, 205], [790, 320], [620, 380], [700, 260], [767, 190], [620, 370], [760, 330]], { ms: 1500, pause: 250 });
+    await wait(1500);
+    await take.stop();
+  },
+
+  /**
+   * Part 2's walk through the made game, in one take for the screen (--screen): its table with bots,
+   * Muse Spark Open in the other seats, a house rule typed (not applied: the version two it makes
+   * is in the after take), then the revised game: its painted table, a turn, its rulebook, its
+   * print-and-play kit, the Balance tab, the invite link, and BoardDream's Behind the scenes.
+   * --game=<id> --revised=<id>.
+   * A rehearsal puts bots in Muse Spark Open's seats, so it spends nothing.
+   */
+  async walk(browser) {
+    const game = arg("game");
+    const revised = arg("revised");
+    const rule = arg("rule", "Every kin starts the game with one extra timber.");
+    if (!game || !revised) throw new Error("which games? --game=<id> --revised=<id>");
+    const page = await openPage(browser);
+    await signIn(page, AICHEN);
+    await page.goto(table(game, "&watch&bots"), { waitUntil: "networkidle" });
+    await wait(3000);
+    const take = await new Take(page, "walk").start();
+    await wait(400);
+    take.mark("table");
+    await drift(page, [[700, 420], [900, 520], [1150, 430]], { ms: 1300, pause: 600 });
+    await wait(3000);
+
+    await page.goto(table(game, REHEARSE ? "&watch&bots" : "&watch"), { waitUntil: "networkidle" });
+    take.mark("rivals");
+    await wait(REHEARSE ? 2000 : 30_000);
+
+    await page.goto(table(game), { waitUntil: "networkidle" });
+    await wait(2500);
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1200 });
+    take.mark("rules");
+    await typeSlowly(page, "textarea", rule, "change the rules");
+    await wait(2500);
+
+    await page.goto(table(revised, "&bots"), { waitUntil: "networkidle" });
+    await wait(2500);
+    take.mark("painted-table");
+    await drift(page, [[600, 420], [900, 520], [1150, 400]], { ms: 1300, pause: 600 });
+    await wait(1500);
+
+    take.mark("turn");
+    await drift(page, [[700, 420], [960, 880]], { ms: 1100, pause: 500 });
+    await moveAndClick(page, 'button:has-text("fell timber")', "fell timber", { after: 2600 });
+    await drift(page, [[900, 880], [1020, 880]], { ms: 900, pause: 400 });
+
+    take.mark("rulebook");
+    await moveAndClick(page, 'header button:has-text("Rules")', "Rules", { after: 1800 });
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, 60);
+      await wait(60);
+    }
+    await wait(1500);
+    await page.keyboard.press("Escape");
+    await wait(800);
+
+    // Print and play: the rules, the board and the cards on A4 (the print button itself would open
+    // the system's dialog, so the kit is only shown).
+    take.mark("print");
+    await moveAndClick(page, 'button[aria-label="More"]', "More", { after: 600 });
+    await moveAndClick(page, '[role="menuitem"]:has-text("Print and play")', "Print and play", { after: 2500 });
+    await glide(page, [960, 640], 400);
+    for (let i = 0; i < 30; i++) {
+      await page.mouse.wheel(0, 70);
+      await wait(60);
+    }
+    await wait(1200);
+    await moveAndClick(page, 'button[aria-label="Close the print kit"]', "close the print kit", { after: 1000 });
+
+    take.mark("balance");
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1000 });
+    await moveAndClick(page, 'button:text-is("Balance")', "Balance tab", { after: 500 });
+    // The tab plays its games in the page first; the edit plays that wait fast.
+    if (!REHEARSE) await until(async () => !(await visible(page, "text=Measuring")), 120_000, 300);
+    take.mark("balance-ready");
+    await drift(page, [[1700, 420], [1740, 620]], { ms: 1200, pause: 1500 });
+    await moveAndClick(page, 'button[aria-label="Close the designer"]', "close the designer", { after: 1500 });
+
+    take.mark("invite");
+    await moveAndClick(page, 'button:has-text("Invite friends")', "Invite friends", { after: 2500 });
+    await moveAndClick(page, 'button:has-text("Copy")', "copy the link", { after: 3000 });
+
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await wait(1200);
+    take.mark("behind");
+    await moveAndClick(page, 'button:has-text("Behind the scenes")', "Behind the scenes", { after: 1800 });
+    await glide(page, [960, 600], 500);
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.wheel(0, 40);
+      await wait(70);
+    }
+    await wait(1500);
     await take.stop();
   },
 

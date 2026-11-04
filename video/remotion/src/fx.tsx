@@ -5,7 +5,7 @@ import { fade } from "@remotion/transitions/fade";
 import { iris } from "@remotion/transitions/iris";
 import { slide } from "@remotion/transitions/slide";
 import React from "react";
-import { AbsoluteFill, Easing, Img, Solid, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, Sequence, Solid, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Handover } from "./timeline";
 import { C, DISPLAY, FPS, HEIGHT, OUT, UI, WIDTH } from "./theme";
 
@@ -141,6 +141,45 @@ export const Footage: React.FC<{
   );
 };
 
+/** A stretch of a take at one speed: `seconds` of the scene showing the take from `from` at `rate`. */
+export type Stretch = { from: number; rate: number; seconds: number };
+
+/**
+ * One take as one continuous shot, its speed changing as it goes (a long wait fast, a moment at
+ * its own pace): each stretch starts in the take where the last one ended, and the camera moves
+ * over the whole without a cut. `lead` is the scene's head start (Timeline), played from earlier
+ * in the first stretch.
+ */
+export const RampFootage: React.FC<{ src: string; stretches: Stretch[]; lead: number; camera: Move[] }> = ({ src, stretches, lead, camera }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = frame / fps - lead;
+  const view = cameraAt(camera, t);
+  const z = Math.max(1, view.zoom * (1 + 0.012 * t));
+  const within = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const x = within(WIDTH / 2 - view.x * z, WIDTH - WIDTH * z, 0);
+  const y = within(HEIGHT / 2 - view.y * z, HEIGHT - HEIGHT * z, 0);
+  let start = -lead;
+  return (
+    <AbsoluteFill style={{ background: C.night, overflow: "hidden" }}>
+      <div style={{ position: "absolute", left: 0, top: 0, width: WIDTH, height: HEIGHT, transformOrigin: "0 0", transform: `translate(${x}px, ${y}px) scale(${z})`, willChange: "transform" }}>
+        {stretches.map((s, i) => {
+          // The first stretch also covers the head start, from that much earlier in the take.
+          const begin = i === 0 ? -lead : start;
+          const length = s.seconds + (i === 0 ? lead : 0);
+          const from = i === 0 ? s.from - lead * s.rate : s.from;
+          start = begin + length;
+          return (
+            <Sequence key={i} from={Math.round((begin + lead) * fps)} durationInFrames={Math.max(1, Math.round(length * fps))} layout="none">
+              <Video src={staticFile(src)} trimBefore={Math.max(0, Math.round(from * fps))} playbackRate={s.rate} muted style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+            </Sequence>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 // ─── Type ───────────────────────────────────────────────────────────────────────────────────────
 
 /** Words that rise into place one after another, each from behind its own line. */
@@ -161,7 +200,8 @@ export const Rise: React.FC<{ text: string; size: number; delay?: number; color?
       {text.split(" ").map((word, i) => {
         const p = ease(Math.min(1, Math.max(0, (frame / fps - delay - i * stagger) / 0.9)));
         return (
-          <span key={i} style={{ display: "inline-block", overflow: "hidden", verticalAlign: "top", paddingBottom: "0.08em", marginRight: "0.24em" }}>
+          // Italic letters lean past their box: a little room on the right keeps them whole.
+          <span key={i} style={{ display: "inline-block", overflow: "hidden", verticalAlign: "top", paddingBottom: "0.08em", paddingRight: italic ? "0.1em" : 0, marginRight: italic ? "0.14em" : "0.24em" }}>
             <span style={{ display: "inline-block", translate: `0px ${(1 - p) * 110}%`, opacity: p }}>{word}</span>
           </span>
         );

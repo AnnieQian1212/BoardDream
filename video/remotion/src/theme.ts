@@ -1,6 +1,6 @@
 import "@fontsource-variable/fraunces/full.css";
 import "@fontsource-variable/inter";
-import { continueRender, delayRender } from "remotion";
+import { continueRender, delayRender, getInputProps } from "remotion";
 
 /**
  * The film's look: the app's storybook palette (apps/web/src/styles.css) for the screen, and for the
@@ -21,7 +21,8 @@ export const C = {
 export const DISPLAY = '"Fraunces Variable", Georgia, serif';
 export const UI = '"Inter Variable", system-ui, sans-serif';
 
-export const FPS = 60;
+/** 60 for the film; a quick look can ask for fewer (render --props='{"fps":30}'). */
+export const FPS = Number((getInputProps() as { fps?: number }).fps ?? 60);
 /** The page size everything is laid out in; renders scale it to 2560 × 1440 (render --scale=1.3333). */
 export const WIDTH = 1920;
 export const HEIGHT = 1080;
