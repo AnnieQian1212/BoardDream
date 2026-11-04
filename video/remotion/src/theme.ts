@@ -21,7 +21,8 @@ export const C = {
 export const DISPLAY = '"Fraunces Variable", Georgia, serif';
 export const UI = '"Inter Variable", system-ui, sans-serif';
 
-export const FPS = 30;
+export const FPS = 60;
+/** The page size everything is laid out in; renders scale it to 2560 × 1440 (render --scale=1.3333). */
 export const WIDTH = 1920;
 export const HEIGHT = 1080;
 

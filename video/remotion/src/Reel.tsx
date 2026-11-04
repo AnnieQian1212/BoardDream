@@ -1,13 +1,17 @@
 import React from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { CoverWall, Eyebrow, Footage, LowerThird, Night, Rise, T, Wordmark, clamp, ease } from "./fx";
+import { CoverWall, Eyebrow, Footage, LowerThird, Night, Rise, T, Wordmark, clamp, ease, type Move } from "./fx";
 import { Timeline, sceneSeconds, type Scene } from "./timeline";
 import { C, DISPLAY, HEIGHT, UI } from "./theme";
+import making from "../public/footage/making.json";
+import after from "../public/footage/after.json";
+import host from "../public/footage/friends-host.json";
+import guest from "../public/footage/friends-friend.json";
 
 /**
  * Part 1, after Figma's launch reels: the real app, every shot filling the frame with the camera
- * moving slowly over it, cards in warm black between, a handover at every cut, and the Meta model
- * at work named in the lower left. Music, no voice.
+ * pushing in and whipping across it, cards in warm black between, a handover at every cut, and the
+ * Meta model at work named in the lower left. Music, no voice.
  */
 
 export const COVERS = [
@@ -15,7 +19,7 @@ export const COVERS = [
   "cloudwaft-harbor-mw0zp3es.webp",
   "saffron-wake-mw0415eq.webp",
   "fogfall-lanterns-mw0zerzb.webp",
-  "copper-grind-mw166meu.webp",
+  "basalt-kin-mw1bm4fr.webp",
   "lantern-isles.webp",
   "highsail.webp",
   "mossbrae-mw0zc2d4.webp",
@@ -25,6 +29,13 @@ export const COVERS = [
   "fenlight.webp",
   "hollow-manifest-mw04cfcn.webp",
 ];
+
+/** When things happen in the takes Part 1 borrows from (video/record/takes.mjs marks them). */
+const at = (take: { marks: { label: string; t: number }[] }, label: string, nth = 0) => {
+  const found = take.marks.filter((m) => m.label === label)[nth];
+  if (!found) throw new Error(`no mark "${label}" #${nth}`);
+  return found.t;
+};
 
 /** "1,000" counting up, and what it counts. */
 const Thousand: React.FC = () => {
@@ -67,8 +78,9 @@ const Friends: React.FC<{ lead: number }> = ({ lead }) => {
   );
   return (
     <AbsoluteFill style={{ background: C.night }}>
-      {side("footage/friends-host.mp4", 0, 4.8, 16.2, "Aichen's screen", C.rust)}
-      {side("footage/friends-friend.mp4", 962, 5.8, 16.2, "Mira's screen", C.teal)}
+      {/* Each screen from just before Mira joins, then from just after both are dealt in. */}
+      {side("footage/friends-host.mp4", 0, at(host, "joined") - 1.2, at(host, "dealt") + 1.5, "Aichen's screen", C.rust)}
+      {side("footage/friends-friend.mp4", 962, at(guest, "joined") - 0.2, at(guest, "dealt") + 1.5, "Mira's screen", C.teal)}
       <div style={{ position: "absolute", left: 958, top: 0, width: 4, height: HEIGHT, background: `linear-gradient(${C.gold}, ${C.goldSoft}, ${C.gold})` }} />
       <LowerThird label="Game night" text="Invite friends with one link" lead={lead} at={0.5} until={5.2} />
     </AbsoluteFill>
@@ -76,16 +88,12 @@ const Friends: React.FC<{ lead: number }> = ({ lead }) => {
 };
 
 /** A shot of the app with what is at work named in the lower left. */
-const shot = (
-  src: string,
-  from: number,
-  opts: { rate?: number; zoom?: [number, number]; focus?: [[number, number], [number, number]]; label?: string; text?: string; at?: number; until?: number },
-) =>
+const shot = (src: string, from: number, opts: { rate?: number; camera: Move[]; label?: string; text?: string; at?: number; until?: number; high?: boolean }) =>
   function Shot(lead: number) {
     return (
       <AbsoluteFill>
-        <Footage src={src} from={from} lead={lead} rate={opts.rate} zoom={opts.zoom} focus={opts.focus} />
-        {opts.label && <LowerThird label={opts.label} text={opts.text ?? ""} lead={lead} at={opts.at ?? 0.5} until={opts.until ?? 99} />}
+        <Footage src={src} from={from} lead={lead} rate={opts.rate} camera={opts.camera} />
+        {opts.label && <LowerThird label={opts.label} text={opts.text ?? ""} lead={lead} at={opts.at ?? 0.5} until={opts.until ?? 99} high={opts.high} />}
       </AbsoluteFill>
     );
   };
@@ -101,12 +109,18 @@ const SCENES: Scene[] = [
         </AbsoluteFill>
       </Night>
     ),
-    then: T.leak(34, 3),
+    then: T.leak(1.13, 3),
   },
   {
     name: "The question",
     seconds: 4,
-    render: shot("footage/home-2x.mp4", 0.6, { zoom: [1.55, 1.75], focus: [[960, 330], [960, 430]] }),
+    render: shot("footage/making.mp4", 0.6, {
+      rate: 1.3,
+      camera: [
+        { at: 0, zoom: 1.0, focus: [960, 540] },
+        { at: 0.25, zoom: 1.5, focus: [960, 310] },
+      ],
+    }),
     then: T.blur(),
   },
   {
@@ -126,12 +140,12 @@ const SCENES: Scene[] = [
   {
     name: "Muse Spark designs",
     seconds: 4.6,
-    render: shot("footage/primer.mp4", 110, {
+    render: shot("footage/making.mp4", at(making, "dream") + 6, {
       rate: 24,
-      zoom: [1.35, 1.5],
-      focus: [
-        [820, 300],
-        [1460, 330],
+      camera: [
+        { at: 0, zoom: 1.15, focus: [960, 400] },
+        { at: 0.3, zoom: 1.5, focus: [800, 260] },
+        { at: 2.4, zoom: 1.45, focus: [1560, 320], over: 0.7 },
       ],
       label: "Muse Spark",
       text: "designs the game and writes its rules as code",
@@ -139,32 +153,45 @@ const SCENES: Scene[] = [
     }),
     then: T.blur(),
   },
-  { name: "A thousand games", seconds: 3.2, render: () => <Thousand />, then: T.push(20, "from-right") },
+  { name: "A thousand games", seconds: 3.2, render: () => <Thousand />, then: T.push(0.67, "from-right") },
   {
     name: "Playtest",
     seconds: 3.4,
-    render: shot("footage/primer.mp4", 300, {
-      rate: 8,
-      zoom: [1.55, 1.7],
-      focus: [
-        [220, 640],
-        [230, 760],
+    render: shot("footage/making.mp4", at(making, "ready") - 13, {
+      rate: 4,
+      camera: [
+        { at: 0, zoom: 1.2, focus: [400, 520] },
+        { at: 0.3, zoom: 1.5, focus: [270, 560] },
       ],
       label: "Tested, then fixed",
       text: "anything that breaks goes back to Muse Spark",
       until: 3.3,
     }),
+    then: T.push(0.6, "from-bottom"),
+  },
+  {
+    name: "Mochi",
+    seconds: 2.6,
+    render: shot("footage/making.mp4", at(making, "mochi", 2) + 1.2, {
+      rate: 1.5,
+      camera: [{ at: 0, zoom: 1.5, focus: [760, 985] }],
+      label: "While it's made",
+      text: "a little mochi game to pass the wait",
+      at: 0.2,
+      until: 2.5,
+      high: true,
+    }),
     then: T.iris(),
   },
-  { name: "Friends", seconds: 5.6, render: (lead) => <Friends lead={lead} />, then: T.leak(34, 7) },
+  { name: "Friends", seconds: 5.6, render: (lead) => <Friends lead={lead} />, then: T.leak(1.13, 7) },
   {
     name: "The table",
     seconds: 4.6,
-    render: shot("footage/table-2x.mp4", 1.2, {
-      zoom: [1.6, 1.85],
-      focus: [
-        [600, 380],
-        [560, 430],
+    render: shot("footage/table.mp4", 1.2, {
+      camera: [
+        { at: 0, zoom: 1.05, focus: [960, 540] },
+        { at: 0.3, zoom: 1.5, focus: [640, 360] },
+        { at: 2.5, zoom: 1.5, focus: [1260, 420], over: 0.75 },
       ],
     }),
     then: T.blur(),
@@ -172,41 +199,38 @@ const SCENES: Scene[] = [
   {
     name: "Cards",
     seconds: 4,
-    render: shot("footage/cards-2x.mp4", 6.5, {
-      zoom: [1.45, 1.6],
-      focus: [
-        [960, 760],
-        [900, 800],
+    render: shot("footage/cards.mp4", 6.5, {
+      camera: [
+        { at: 0, zoom: 1.1, focus: [960, 620] },
+        { at: 0.35, zoom: 1.5, focus: [940, 780] },
       ],
       label: "Engine building",
       text: "cards that set each other off",
     }),
-    then: T.wipe(24, 80),
+    then: T.wipe(0.8, 80),
   },
   {
     name: "Rivals",
     seconds: 4.6,
     render: shot("footage/rivals.mp4", 11, {
       rate: 1.6,
-      zoom: [1.06, 1.16],
-      focus: [
-        [960, 460],
-        [960, 520],
+      camera: [
+        { at: 0, zoom: 1.0, focus: [960, 540] },
+        { at: 1.6, zoom: 1.3, focus: [960, 500] },
       ],
       label: "Muse Spark Open",
       text: "takes the empty seat, and talks",
     }),
-    then: T.push(20, "from-left"),
+    then: T.push(0.67, "from-left"),
   },
   {
     name: "House rules",
     seconds: 3.6,
-    render: shot("footage/rule-2x.mp4", 2.2, {
-      rate: 1.3,
-      zoom: [1.9, 2.1],
-      focus: [
-        [1700, 600],
-        [1720, 630],
+    render: shot("footage/after.mp4", at(after, "rules") + 0.6, {
+      rate: 1.4,
+      camera: [
+        { at: 0, zoom: 1.2, focus: [1400, 540] },
+        { at: 0.3, zoom: 1.5, focus: [1660, 560] },
       ],
       label: "House rules",
       text: "changed in plain words, tested again",
@@ -216,16 +240,15 @@ const SCENES: Scene[] = [
   {
     name: "Painted",
     seconds: 3.6,
-    render: shot("footage/painted-2x.mp4", 2.2, {
-      zoom: [1.75, 1.95],
-      focus: [
-        [520, 330],
-        [520, 350],
+    render: shot("footage/painted.mp4", 2.2, {
+      camera: [
+        { at: 0, zoom: 1.1, focus: [700, 420] },
+        { at: 0.3, zoom: 1.5, focus: [540, 340] },
       ],
       label: "Muse Image · SAM 3.1",
       text: "paints the board, checks every tile",
     }),
-    then: T.leak(30, 11),
+    then: T.leak(1, 11),
   },
   {
     name: "Every game",
@@ -238,7 +261,7 @@ const SCENES: Scene[] = [
         </AbsoluteFill>
       </AbsoluteFill>
     ),
-    then: T.fade(18),
+    then: T.fade(0.6),
   },
   {
     name: "End",

@@ -39,16 +39,23 @@ const CURSOR = `(() => {
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", add); else add();
 })();`;
 
-export async function launch() {
-  return chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=d3d11", "--hide-scrollbars"] });
+/**
+ * Pages are drawn at this many device pixels per CSS pixel. Chrome's screencast sends frames at the
+ * device size only when the scale is forced at launch (a context's deviceScaleFactor alone still
+ * gives 1920 x 1080). Measured on Tidehearth with bots playing: 1.5 (2880 x 1620) keeps 39 frames
+ * a second, the longest gap 0.08 s; 2 drops to 21-24, with gaps of 0.2 s.
+ */
+export const SCALE = Number(process.env.SCALE ?? 1.5);
+
+export async function launch(scale = SCALE) {
+  return chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=d3d11", "--hide-scrollbars", `--force-device-scale-factor=${scale}`] });
 }
 
 /**
- * A page at the video's size, with the cursor drawn. `scale` 2 records at twice the pixels, for
- * close-ups that are cropped and enlarged in the edit. Every game counts as seen, so no first-game
- * guide covers the table.
+ * A page at the video's size (1920 x 1080 CSS pixels, drawn at SCALE), with the cursor drawn.
+ * Every game counts as seen, so no first-game guide covers the table.
  */
-export async function openPage(browser, { storageState, theme = "light", scale = 1 } = {}) {
+export async function openPage(browser, { storageState, theme = "light", scale = SCALE } = {}) {
   const context = await browser.newContext({ viewport: SIZE, deviceScaleFactor: scale, storageState, colorScheme: theme });
   await context.addInitScript(() => {
     const get = Storage.prototype.getItem;
@@ -220,4 +227,39 @@ export class Take {
     rmSync(this.dir, { recursive: true, force: true });
     log(`saved ${out} (${end.toFixed(1)} s, ${this.frames.length} frames)`);
   }
+}
+
+/**
+ * A few moves in the mochi steamer, the game to play while a game is made: steam two friends, then
+ * drag one onto another just like it, which merges them into the next friend. The steamer makes
+ * friends by itself only within 20 s of a move, so a move now and then keeps it going on camera.
+ */
+export async function playMochi(page, { steams = 2 } = {}) {
+  if (REHEARSE) return ensureVisible(page, ".mochi-steamer", "the mochi steamer");
+  const steamer = page.locator(".mochi-steamer").first();
+  if (!(await steamer.isVisible().catch(() => false))) return false;
+  for (let i = 0; i < steams; i++) await moveAndClick(page, steamer, "steam a friend", { settle: 200, after: 700 });
+  // The first two tiles holding the same friend.
+  const pair = await page.$$eval(".mochi-spot.taken:not(.locked)", (spots) => {
+    const seen = new Map();
+    for (const el of spots) {
+      const name = el.getAttribute("aria-label");
+      const r = el.getBoundingClientRect();
+      const at = [r.x + r.width / 2, r.y + r.height / 2];
+      if (seen.has(name)) return [seen.get(name), at];
+      seen.set(name, at);
+    }
+    return null;
+  });
+  if (!pair) return false;
+  const [from, to] = pair;
+  await glide(page, from, 600);
+  await wait(250);
+  await page.mouse.down();
+  await glide(page, [from[0] + (to[0] - from[0]) * 0.15, from[1] - 6], 180);
+  await glide(page, to, 700);
+  await wait(150);
+  await page.mouse.up();
+  await wait(1200);
+  return true;
 }
