@@ -206,7 +206,7 @@ const OnCamera: React.FC<{ take: Take; start: number; lead: number; named?: bool
 };
 
 /** Four Meta models and what each does here. */
-const Models: React.FC = () => {
+export const Models: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;

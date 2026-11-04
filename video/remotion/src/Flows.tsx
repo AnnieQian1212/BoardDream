@@ -234,10 +234,11 @@ const Dream: React.FC<{ t: number }> = ({ t }) => {
   );
 };
 
-export const TwoWays: React.FC<{ lead: number }> = ({ lead }) => {
+export const TwoWays: React.FC<{ lead: number; speed?: number }> = ({ lead, speed = 1 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const t = frame / fps - lead;
+  // A shorter cut plays the diagram's own clock faster.
+  const t = (frame / fps - lead) * speed;
   // The old way steps back once BoardDream takes the floor.
   const dim = 1 - 0.45 * ease(progress(t, CUE.dream.start, 0.6));
   const grid = `repeating-linear-gradient(0deg, ${INK.grid} 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, ${INK.grid} 0 1px, transparent 1px 40px)`;

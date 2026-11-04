@@ -8,7 +8,7 @@
 // The local servers must be running (web on :5173, API on :8787). Pages are drawn at SCALE (lib.mjs).
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, keepAwake, launch, log, moveAndClick, openPage, playMochi, pressEscape, scrollPrintPreview, signIn, typeSlowly, wait } from "./lib.mjs";
+import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, keepAwake, launch, log, moveAndClick, openPage, playMochi, signIn, typeSlowly, wait } from "./lib.mjs";
 
 const AICHEN = { email: "aichen@example.com", password: "game-night-demo", name: "Aichen" };
 const MIRA = { email: "mira@example.com", password: "game-night-demo", name: "Mira" };
@@ -18,6 +18,9 @@ const FOGFALL = "fogfall-lanterns-mw0zerzb";
 /** The game made on camera: a map, trading and cards that chain, the richest kind BoardDream makes. */
 const HERO_IDEA =
   "Rival families settle a ring of volcanic islands: gather spices and timber, trade with neighbours, build harbors and lighthouses, and play explorer cards that chain together.";
+
+/** The film's idea: the same game, in a sentence a person types in a few seconds. */
+const FILM_IDEA = "Rival families settle volcanic islands: trade spice and timber, build harbors and lighthouses.";
 
 const arg = (name, fallback) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 /** The table at full quality: twice the pixels of the low tier, and shadows. */
@@ -61,36 +64,27 @@ async function choose(page, label, value) {
   await wait(600);
 }
 
-/** Print and play: the kit, then Chrome's own print preview of it, scrolled through its pages. */
+/**
+ * Print and play: the site's own print-and-play page, its art ready, scrolled down with the wheel
+ * from the rules to the painted board and the cards, then closed.
+ */
 async function printAndPlay(page, take) {
   take.mark("print");
   await moveAndClick(page, 'button[aria-label="More"]', "More", { after: 600 });
-  await moveAndClick(page, '[role="menuitem"]:has-text("Print and play")', "Print and play", { after: 1500 });
-  const printIt = page.locator('button:has-text("Print or save as PDF")').first();
-  if (REHEARSE) await ensureVisible(page, printIt, "Print or save as PDF");
-  else {
-    if (!(await until(() => printIt.isVisible(), 90_000, 300))) throw new Error("the kit's art was not ready in 90 s");
-    await wait(600);
-    const box = await printIt.boundingBox();
-    await glide(page, [box.x + box.width / 2, box.y + box.height / 2]);
-    await wait(350);
-    take.mark("print-preview");
-    // The button calls window.print(), which holds the page until the preview closes, so the
-    // press is not waited for.
-    await page.mouse.down();
-    await wait(70);
-    const up = page.mouse.up().catch(() => {});
-    await scrollPrintPreview(page, [700, 600], { before: 3000, notches: 14, every: 420, look: 1500 });
-    // The page is held until the preview closes: Escape again if it has not.
-    for (let i = 0; i < 3; i++) {
-      if ((await Promise.race([up.then(() => "closed"), wait(6000).then(() => "open")])) === "closed") break;
-      log("the print preview is still open: Escape again");
-      await pressEscape(page);
+  await moveAndClick(page, '[role="menuitem"]:has-text("Print and play")', "Print and play", { after: 1200 });
+  const ready = page.locator('button:has-text("Print or save as PDF")').first();
+  if (REHEARSE) await ensureVisible(page, ready, "Print or save as PDF");
+  else if (!(await until(() => ready.isVisible(), 90_000, 300))) throw new Error("the kit's art was not ready in 90 s");
+  take.mark("print-ready");
+  await glide(page, [960, 620], 600);
+  await wait(500);
+  if (!REHEARSE)
+    for (let i = 0; i < 70; i++) {
+      await page.mouse.wheel(0, 90);
+      await wait(70);
     }
-    if ((await Promise.race([up.then(() => "closed"), wait(4000).then(() => "open")])) === "open") throw new Error("the print preview did not close");
-    take.mark("print-closed");
-    await wait(1200);
-  }
+  await wait(1200);
+  take.mark("print-scrolled");
   await moveAndClick(page, 'button[aria-label="Close the print kit"]', "close the print kit", { after: 1500 });
 }
 
@@ -461,7 +455,8 @@ const takes = {
     await wait(300);
     take.mark("home");
     await drift(page, [[960, 300], [800, 390]], { ms: 800, pause: 250 });
-    await typeSlowly(page, 'textarea[aria-label="Describe the game you want to play"]', HERO_IDEA, "the idea", 22);
+    // Short enough to be typed on camera at a person's pace.
+    await typeSlowly(page, 'textarea[aria-label="Describe the game you want to play"]', FILM_IDEA, "the idea", 45);
     take.mark("idea");
     await moveAndClick(page, 'button:has-text("Advanced settings")', "Advanced settings", { after: 900 });
     await moveAndClick(page, '[aria-label="Model effort"] button:has-text("High")', "High effort", { after: 500 });

@@ -32,9 +32,17 @@ const CURSOR = `(() => {
     c.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24"><path d="M5 3L19 12L12 13L9 20L5 3Z" fill="#2b2118" stroke="#fffaf0" stroke-width="1.7" stroke-linejoin="round"/></svg>';
     c.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;left:-80px;top:-80px;filter:drop-shadow(1px 3px 3px rgba(0,0,0,.35));";
     document.documentElement.appendChild(c);
+    // The page may be zoomed (the app draws itself at 75% on a computer screen): the pointer comes in
+    // screen pixels, so it is placed in the page's own, and the cursor kept its size.
+    const place = (x, y) => {
+      const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      c.style.zoom = String(1 / z);
+      c.style.left = x - 12 + "px";
+      c.style.top = y - 7 + "px";
+    };
     const at = window.__demoCursor;
-    if (at) { c.style.left = at[0] - 12 + "px"; c.style.top = at[1] - 7 + "px"; }
-    addEventListener("mousemove", (e) => { window.__demoCursor = [e.clientX, e.clientY]; c.style.left = e.clientX - 12 + "px"; c.style.top = e.clientY - 7 + "px"; }, true);
+    if (at) place(at[0], at[1]);
+    addEventListener("mousemove", (e) => { window.__demoCursor = [e.clientX, e.clientY]; place(e.clientX, e.clientY); }, true);
   };
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", add); else add();
 })();`;

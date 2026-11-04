@@ -189,7 +189,7 @@ const AppWindow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
  * runs on under it. `region` is in the page's pixels; the card sits at `at` (its centre) in the frame.
  */
 type Lift = { from: number; until: number; region: { x: number; y: number; w: number; h: number }; scale: number; at: [number, number]; label?: string };
-const Callout: React.FC<{ lift: Lift }> = ({ lift }) => {
+const Callout: React.FC<{ lift: Lift; sound?: boolean }> = ({ lift, sound = true }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
@@ -221,11 +221,13 @@ const Callout: React.FC<{ lift: Lift }> = ({ lift }) => {
         </div>
       </div>
       {lift.label && (
-        <div style={{ position: "absolute", left: lift.at[0] - w / 2, top: lift.at[1] + h / 2 + 14, opacity: show, fontFamily: UI, fontWeight: 650, fontSize: 24, color: C.goldSoft, letterSpacing: "0.02em" }}>{lift.label}</div>
+        <div style={{ position: "absolute", left: lift.at[0] - w / 2, top: lift.at[1] + h / 2 + 14, opacity: show, fontFamily: UI, fontWeight: 650, fontSize: 32, color: C.goldSoft, letterSpacing: "0.02em" }}>{lift.label}</div>
       )}
-      <Sequence from={Math.round(lift.from * fps)} durationInFrames={Math.round(0.3 * fps)} layout="none">
-        <Audio src={staticFile("sfx/pop.wav")} volume={0.35} />
-      </Sequence>
+      {sound && (
+        <Sequence from={Math.round(lift.from * fps)} durationInFrames={Math.round(0.3 * fps)} layout="none">
+          <Audio src={staticFile("sfx/pop.wav")} volume={0.35} />
+        </Sequence>
+      )}
     </>
   );
 };
@@ -252,7 +254,7 @@ const Caption: React.FC<{ words: Words }> = ({ words }) => {
         })}
       </div>
       {words.note && (
-        <div style={{ fontFamily: UI, fontSize: 26, fontWeight: 600, color: C.goldSoft, whiteSpace: "nowrap", opacity: interpolate(t, [0.25, 0.55], [0, 1], clamp) * leave }}>{words.note}</div>
+        <div style={{ fontFamily: UI, fontSize: 34, fontWeight: 600, color: C.goldSoft, whiteSpace: "nowrap", opacity: interpolate(t, [0.25, 0.55], [0, 1], clamp) * leave }}>{words.note}</div>
       )}
     </div>
   );
@@ -261,8 +263,8 @@ const Caption: React.FC<{ words: Words }> = ({ words }) => {
 /** Says, the whole time the app is on, when it was made. */
 const MadeHere: React.FC = () => (
   <div style={{ position: "absolute", left: 40, top: 34, display: "flex", alignItems: "center", gap: 12, padding: "9px 18px 9px 12px", borderRadius: 999, background: "rgba(18,13,10,0.72)", boxShadow: `0 0 0 1px ${C.gold}55` }}>
-    <BrandMark size={28} />
-    <span style={{ fontFamily: UI, fontSize: 21, fontWeight: 600, color: C.cream }}>Built during the Meta Global AI Developer Hackathon · Oct 26 – Nov 4, 2026</span>
+    <BrandMark size={36} />
+    <span style={{ fontFamily: UI, fontSize: 30, fontWeight: 600, color: C.cream }}>Built during the Meta Global AI Developer Hackathon · Oct 26 – Nov 4</span>
   </div>
 );
 
@@ -275,8 +277,8 @@ const WORDS: Words[] = [
   { from: s("rules", 7.6), until: s("revise", 9.4), text: "Muse Spark Open takes the empty seat." },
   { from: s("revise", 9.4), until: s("balance-ready", 14), text: "House rules, in plain words.", note: "Rewritten by Muse Spark, playtested again" },
   { from: s("balance-ready", 14), until: s("painted", 15.8), text: "Balance, measured." },
-  { from: s("painted", 15.8), until: s("print-preview", 18.2), text: "Painted by Muse Image.", note: "SAM 3.1 checks every tile" },
-  { from: s("print-preview", 18.2), until: s("invite", 22.4), text: "Print and play.", note: "Our A4 kit: rules, board and cards" },
+  { from: s("painted", 15.8), until: s("print-ready", 18.2), text: "Painted by Muse Image.", note: "SAM 3.1 checks every tile" },
+  { from: s("print-ready", 18.2), until: s("invite", 22.4), text: "Print and play.", note: "Our A4 kit: rules, board and cards" },
   { from: s("end", 22.4), until: APP_SECONDS + HEX, text: "Send a link. Play tonight." },
 ];
 
@@ -305,7 +307,7 @@ const LIFTS: Lift[] = [
   { from: s("painted", 15.8) + 0.1, until: s("print", 17.2) - 0.1, region: { x: 1664, y: 96, w: 244, h: 150 }, scale: 2.0, at: [1560, 430] },
 ];
 
-export const AppShot: React.FC = () => {
+export const AppShot: React.FC<{ sounds?: boolean }> = ({ sounds = true }) => {
   const { fps } = useVideoConfig();
   return (
     <Night glow={C.gold}>
@@ -313,14 +315,16 @@ export const AppShot: React.FC = () => {
         <Take />
       </AppWindow>
       {LIFTS.map((lift, i) => (
-        <Callout key={i} lift={lift} />
+        <Callout key={i} lift={lift} sound={sounds} />
       ))}
       {WORDS.map((w, i) => (
         <React.Fragment key={i}>
           <Caption words={w} />
-          <Sequence from={Math.round(w.from * fps)} durationInFrames={Math.round(0.3 * fps)} layout="none">
-            <Audio src={staticFile("sfx/tick.wav")} volume={0.4} />
-          </Sequence>
+          {sounds && (
+            <Sequence from={Math.round(w.from * fps)} durationInFrames={Math.round(0.3 * fps)} layout="none">
+              <Audio src={staticFile("sfx/tick.wav")} volume={0.4} />
+            </Sequence>
+          )}
         </React.Fragment>
       ))}
       {BADGES.filter((b) => PLAN.rates[b.part] > 3).map((b) => (
@@ -331,7 +335,7 @@ export const AppShot: React.FC = () => {
         </Sequence>
       ))}
       <MadeHere />
-      <Audio src={staticFile("sfx/whoosh.wav")} volume={0.5} />
+      {sounds && <Audio src={staticFile("sfx/whoosh.wav")} volume={0.5} />}
     </Night>
   );
 };

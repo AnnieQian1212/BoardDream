@@ -46,7 +46,7 @@ const Streak: React.FC<{ t: number; y: number; delay?: number; tilt?: number }> 
 };
 
 /** The question, each word flying in out of depth and focus. */
-const Question: React.FC<{ lead: number }> = ({ lead }) => {
+export const Question: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
   const words = "What do you want to play tonight?".split(" ");
   return (
@@ -223,7 +223,7 @@ const GameBox: React.FC<{ cover: string; size: number; depth: number; side: stri
  * The games' boxes on a turning ring, seen level, a little room between them; each fades as it
  * turns away to the side, so the ring reads as a smooth round.
  */
-const Carousel: React.FC<{ lead: number }> = ({ lead }) => {
+export const Carousel: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
   const n = 12;
   const size = 400;
@@ -407,7 +407,7 @@ const Cut: React.FC<{ crop: Crop; scale: number; lead: number }> = ({ crop, scal
   </div>
 );
 
-const Mochi: React.FC<{ lead: number }> = ({ lead }) => {
+export const Mochi: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
   // The page's parts are drawn at 75%, so they are lifted a third more to keep their size on screen.
   const big = 1.7 / 0.75;
@@ -476,7 +476,7 @@ const Mochi: React.FC<{ lead: number }> = ({ lead }) => {
 };
 
 /** A game being played: pieces landing on a board, the camera close over it. */
-const Play: React.FC<{ lead: number }> = ({ lead }) => {
+export const Play: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
   return (
     <AbsoluteFill>
@@ -502,7 +502,7 @@ const Play: React.FC<{ lead: number }> = ({ lead }) => {
 };
 
 /** Two friends' screens drifting together until they are one table. */
-const Friends: React.FC<{ lead: number }> = ({ lead }) => {
+export const Friends: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
   const p = sec(t, 0, 2.2);
   const box = { width: 860, height: 484 };

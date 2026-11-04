@@ -9,9 +9,12 @@ import film from "../public/footage/film.json";
 
 export type Stretch = { from: number; rate: number; seconds: number };
 
-/** The app's part of the film, and the hex it opens in before that. */
-export const APP_SECONDS = 24;
-export const HEX = 0.55;
+/** The music's beat (House Vibez, 122 BPM measured) and bar: the film cuts on bars. */
+export const BEAT = 60 / 122;
+export const BAR = 4 * BEAT;
+/** The app's part of the film: eleven bars, and half the hex it opens in before that. */
+export const APP_SECONDS = 11 * BAR;
+export const HEX = 0.3;
 
 type Mark = { label: string; t: number };
 const marks = (film as { marks: Mark[] }).marks;
@@ -33,8 +36,8 @@ export const PARTS: { until: string; plus?: number; seconds: number }[] = [
   { until: "paint", seconds: 0.8 },
   { until: "painted", plus: 0.4, seconds: 1.4 },
   { until: "print", seconds: 1.0 },
-  { until: "print-preview", plus: 0.5, seconds: 0.8 },
-  { until: "print-closed", seconds: 3.0 },
+  { until: "print-ready", plus: 0.3, seconds: 0.8 },
+  { until: "print-scrolled", seconds: 2.6 },
   { until: "invite", seconds: 0.4 },
   { until: "end", seconds: 1.0 },
 ];
@@ -47,7 +50,10 @@ function plan(): { stretches: Stretch[]; starts: Record<string, number>; rates: 
   const stretches: Stretch[] = [];
   const starts: Record<string, number> = {};
   const rates: Record<string, number> = {};
-  for (const part of PARTS) {
+  // The parts' seconds are shares: scaled so the take fills the app's time exactly.
+  const scale = (APP_SECONDS + HEX) / PARTS.reduce((sum, p) => sum + p.seconds, 0);
+  for (const written of PARTS) {
+    const part = { ...written, seconds: written.seconds * scale };
     const end = part.until === "end" ? (film as { duration: number }).duration - 0.3 : (markAt(part.until) ?? take) + (part.plus ?? 0);
     const rate = Math.max(0.25, (end - take) / part.seconds);
     stretches.push({ from: take, rate, seconds: part.seconds });
