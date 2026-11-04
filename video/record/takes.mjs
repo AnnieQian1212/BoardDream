@@ -8,7 +8,7 @@
 // The local servers must be running (web on :5173, API on :8787). Pages are drawn at SCALE (lib.mjs).
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, keepAwake, launch, log, moveAndClick, openPage, playMochi, scrollPrintPreview, signIn, typeSlowly, wait } from "./lib.mjs";
+import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, keepAwake, launch, log, moveAndClick, openPage, playMochi, pressEscape, scrollPrintPreview, signIn, typeSlowly, wait } from "./lib.mjs";
 
 const AICHEN = { email: "aichen@example.com", password: "game-night-demo", name: "Aichen" };
 const MIRA = { email: "mira@example.com", password: "game-night-demo", name: "Mira" };
@@ -81,7 +81,13 @@ async function printAndPlay(page, take) {
     await wait(70);
     const up = page.mouse.up().catch(() => {});
     await scrollPrintPreview(page, [700, 600], { before: 3000, notches: 14, every: 420, look: 1500 });
-    await up;
+    // The page is held until the preview closes: Escape again if it has not.
+    for (let i = 0; i < 3; i++) {
+      if ((await Promise.race([up.then(() => "closed"), wait(6000).then(() => "open")])) === "closed") break;
+      log("the print preview is still open: Escape again");
+      await pressEscape(page);
+    }
+    if ((await Promise.race([up.then(() => "closed"), wait(4000).then(() => "open")])) === "open") throw new Error("the print preview did not close");
     take.mark("print-closed");
     await wait(1200);
   }
@@ -500,10 +506,10 @@ const takes = {
           }
           return visible(page, 'button:has-text("Start playing")');
         },
-        25 * 60_000,
+        35 * 60_000,
         1000,
       );
-      if (!ready) throw new Error("the game was not ready in 25 minutes");
+      if (!ready) throw new Error("the game was not ready in 35 minutes");
       take.mark("ready");
       await wait(4000);
       await moveAndClick(page, 'button:has-text("Start playing")', "Start playing", { after: 2500 });

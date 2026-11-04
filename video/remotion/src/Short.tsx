@@ -135,12 +135,12 @@ const SRC = (film as { src?: string }).src ?? "footage/film.mp4";
  */
 const PARTS: { until: string; plus?: number; seconds: number }[] = [
   // The first part also covers the hex the window opens in.
-  { until: "idea", seconds: 1.6 + HEX },
+  { until: "idea", seconds: 1.3 + HEX },
   { until: "dream", plus: 0.3, seconds: 1.0 },
   { until: "ready", plus: 2.5, seconds: 3.4 },
   { until: "table", seconds: 1.0 },
   { until: "rivals", seconds: 1.6 },
-  { until: "rules", seconds: 1.8 },
+  { until: "rules", seconds: 1.5 },
   { until: "revise", seconds: 1.2 },
   { until: "revised", plus: 0.6, seconds: 2.2 },
   { until: "version-two", seconds: 1.2 },
@@ -149,7 +149,7 @@ const PARTS: { until: string; plus?: number; seconds: number }[] = [
   { until: "painted", plus: 0.4, seconds: 1.4 },
   { until: "print", seconds: 1.0 },
   { until: "print-preview", plus: 0.5, seconds: 0.8 },
-  { until: "print-closed", seconds: 2.4 },
+  { until: "print-closed", seconds: 3.0 },
   { until: "invite", seconds: 0.4 },
   { until: "end", seconds: 1.0 },
 ];
@@ -312,26 +312,41 @@ const MadeHere: React.FC = () => (
 const s = (label: string, fallback: number) => PLAN.starts[label] ?? fallback;
 /** The words over each part, by the parts' film times. */
 const WORDS: Words[] = [
-  { from: 0.3, until: s("dream", 1.6) + 0.6, text: "One sentence." },
+  { from: 0.3, until: s("ready", 2.6), text: "One sentence." },
   { from: s("ready", 2.6), until: s("table", 6), text: "Muse Spark designs it.", note: "Rules written as code · played 1,000 times · fixed" },
-  { from: s("table", 6), until: s("rivals", 7), text: "Your move." },
-  { from: s("rivals", 7), until: s("rules", 8.8), text: "Muse Spark Open takes the empty seat." },
-  { from: s("rules", 8.8), until: s("version-two", 13.4), text: "House rules, in plain words.", note: "Rewritten by Muse Spark, playtested again" },
-  { from: s("version-two", 13.4), until: s("paint", 15.8), text: "Balance, measured." },
-  { from: s("paint", 15.8), until: s("print", 18), text: "Painted by Muse Image.", note: "SAM 3.1 checks every tile" },
-  { from: s("print", 18), until: s("invite", 22.4), text: "Print and play.", note: "Our A4 kit: rules, board and cards" },
-  { from: s("invite", 22.4), until: APP_SECONDS + HEX, text: "Send a link. Play tonight." },
+  { from: s("rivals", 6), until: s("rules", 7.6), text: "Your move." },
+  { from: s("rules", 7.6), until: s("revise", 9.4), text: "Muse Spark Open takes the empty seat." },
+  { from: s("revise", 9.4), until: s("balance-ready", 14), text: "House rules, in plain words.", note: "Rewritten by Muse Spark, playtested again" },
+  { from: s("balance-ready", 14), until: s("painted", 15.8), text: "Balance, measured." },
+  { from: s("painted", 15.8), until: s("print-preview", 18.2), text: "Painted by Muse Image.", note: "SAM 3.1 checks every tile" },
+  { from: s("print-preview", 18.2), until: s("invite", 22.4), text: "Print and play.", note: "Our A4 kit: rules, board and cards" },
+  { from: s("end", 22.4), until: APP_SECONDS + HEX, text: "Send a link. Play tonight." },
 ];
 
 /** The speed of the take where it runs fast, by the parts that do. */
 const BADGES: { part: string; real: string }[] = [
   { part: "ready", real: "the making" },
+  { part: "balance-ready", real: "the playtests" },
   { part: "revised", real: "the rewrite" },
   { part: "painted", real: "the painting" },
 ];
 
 /** Parts of the page lifted out over the take: set once the take is in (its regions are its own). */
-const LIFTS: Lift[] = [];
+const LIFTS: Lift[] = [
+  // The idea as it is typed.
+  { from: 0.75, until: s("dream", 1.85) - 0.05, region: { x: 618, y: 380, w: 690, h: 150 }, scale: 1.45, at: [980, 700] },
+  // Each step of the making, ticked off.
+  { from: s("ready", 2.6) + 0.4, until: s("table", 6) - 0.15, region: { x: 12, y: 50, w: 226, h: 446 }, scale: 1.35, at: [250, 470], label: "Muse Spark at work" },
+  // Muse Spark Open taking its turn.
+  { from: s("rules", 7.6) + 0.15, until: s("revise", 9.4) - 0.1, region: { x: 790, y: 1018, w: 340, h: 52 }, scale: 1.9, at: [960, 790] },
+  // The rewrite's progress bar, then the two versions side by side.
+  { from: s("revised", 10.6) + 0.1, until: s("version-two", 12.8) - 0.05, region: { x: 1664, y: 415, w: 244, h: 140 }, scale: 2.1, at: [1540, 480], label: "Rewritten and playtested again" },
+  { from: s("version-two", 12.8), until: s("balance-ready", 14) - 0.05, region: { x: 1664, y: 376, w: 244, h: 254 }, scale: 1.75, at: [1560, 470], label: "Version two, beside version one" },
+  // The profile filling in as its games are played.
+  { from: s("paint", 15) - 0.3, until: s("painted", 15.8) - 0.05, region: { x: 1664, y: 162, w: 244, h: 276 }, scale: 1.7, at: [1560, 460] },
+  // Muse Image painting, SAM 3.1 checking.
+  { from: s("painted", 15.8) + 0.1, until: s("print", 17.2) - 0.1, region: { x: 1664, y: 96, w: 244, h: 150 }, scale: 2.0, at: [1560, 430] },
+];
 
 export const AppShot: React.FC = () => {
   const { fps } = useVideoConfig();
@@ -353,7 +368,7 @@ export const AppShot: React.FC = () => {
       ))}
       {BADGES.filter((b) => PLAN.rates[b.part] > 3).map((b) => (
         <Sequence key={b.part} from={Math.round((PLAN.starts[b.part] + 0.15) * fps)} durationInFrames={Math.round(1.6 * fps)} layout="none">
-          <div style={{ position: "absolute", right: 70, top: 40 }}>
+          <div style={{ position: "absolute", right: 70, bottom: 36 }}>
             <SpeedBadge factor={Math.round(PLAN.rates[b.part])} real={b.real} />
           </div>
         </Sequence>

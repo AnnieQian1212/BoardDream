@@ -392,10 +392,11 @@ const Cards: React.FC<{ lead: number }> = ({ lead }) => {
 const MOCHI_FROM = mergeTake.marks.find((m) => m.label === "steam")!.t - 0.05;
 type Crop = { x: number; y: number; w: number; h: number };
 /** The steamer's band, from its title to the end of its hint, set as wide as the blanket below. */
-const BAND: Crop = { x: 12, y: 849, w: 950, h: 41 };
-const BLANKET: Crop = { x: 340, y: 900, w: 700, h: 166 };
-const ORDERS: Crop = { x: 1050, y: 902, w: 276, h: 160 };
-const MET: Crop = { x: 1336, y: 910, w: 236, h: 145 };
+// Measured on the take with the interface at 75% (apps/web/src/styles.css).
+const BAND: Crop = { x: 6, y: 907, w: 716, h: 28 };
+const BLANKET: Crop = { x: 494, y: 942, w: 526, h: 124 };
+const ORDERS: Crop = { x: 1030, y: 946, w: 200, h: 118 };
+const MET: Crop = { x: 1244, y: 953, w: 172, h: 106 };
 
 /** A part of the page, cut out and set on a board of its own. */
 const Cut: React.FC<{ crop: Crop; scale: number; lead: number }> = ({ crop, scale, lead }) => (
@@ -408,8 +409,9 @@ const Cut: React.FC<{ crop: Crop; scale: number; lead: number }> = ({ crop, scal
 
 const Mochi: React.FC<{ lead: number }> = ({ lead }) => {
   const t = useT(lead);
-  const big = 1.7;
-  const small = 1.45;
+  // The page's parts are drawn at 75%, so they are lifted a third more to keep their size on screen.
+  const big = 1.7 / 0.75;
+  const small = 1.45 / 0.75;
   const shadow = "0 40px 90px rgba(90,50,20,0.3), 0 0 0 1.5px rgba(90,50,20,0.16)";
   const rise = (delay: number) => {
     const p = sec(t, -0.3 + delay, 0.9);

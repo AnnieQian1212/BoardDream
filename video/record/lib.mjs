@@ -69,6 +69,8 @@ export async function launch(scale = SCALE) {
       ignoreDefaultArgs: ["--enable-automation"],
       args: [
         "--kiosk",
+        // Chrome's own windows (the print preview) in English, whatever the system's language.
+        "--lang=en-US",
         "--hide-scrollbars",
         "--no-default-browser-check",
         "--disable-infobars",
@@ -296,6 +298,16 @@ class ScreenTake {
     const source = `gfxcapture=window_title=${token}:capture_cursor=0:max_framerate=60`;
     this.ff = spawn(SCREEN_FFMPEG, ["-hide_banner", "-y", "-f", "lavfi", "-i", source, "-vf", "hwdownload,format=bgra", "-fps_mode", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "15", "-pix_fmt", "yuv420p", "-movflags", "+faststart", this.out], { stdio: ["pipe", "ignore", "pipe"] });
     this.log = "";
+    // The capture hands on a frame only when the window changes: on a still page, nudge the drawn
+    // cursor a pixel back and forth until the first frames are in.
+    const [cx, cy] = this.page.mouse.at ?? [SIZE.width / 2, SIZE.height / 2];
+    let nudging = true;
+    (async () => {
+      for (let i = 0; nudging && i < 300; i++) {
+        await this.page.mouse.move(cx + (i % 2), cy).catch(() => {});
+        await wait(50);
+      }
+    })();
     // The take's clock starts when the first frames are in, worked back to the first one.
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`${this.name}: ffmpeg took no frames: ${this.log.slice(-400)}`)), 15_000);
@@ -309,7 +321,8 @@ class ScreenTake {
         }
       });
       this.ff.on("exit", (code) => reject(new Error(`${this.name}: ffmpeg stopped (${code}): ${this.log.slice(-400)}`)));
-    });
+    }).finally(() => (nudging = false));
+    await this.page.mouse.move(cx, cy).catch(() => {});
     log(`recording ${this.name} (screen)`);
     return this;
   }
@@ -347,7 +360,8 @@ class ScreenTake {
 /** A take: from the screencast, or from the screen with --screen. */
 export const Take = SCREEN ? ScreenTake : FrameTake;
 
-const USER32 = `Add-Type -Namespace W -Name U -MemberDefinition @'
+const USER32 = `$ProgressPreference = 'SilentlyContinue'
+Add-Type -Namespace W -Name U -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
 [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, int d, System.UIntPtr e);
@@ -357,13 +371,16 @@ const USER32 = `Add-Type -Namespace W -Name U -MemberDefinition @'
 [void][W.U]::SetProcessDPIAware()
 `;
 
+// The whole script goes in as one encoded command: piped in on stdin, a multi-line block such as
+// the here-string above is skipped without a word.
+const psArgs = (script) => ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(USER32 + script, "utf16le").toString("base64")];
+
 const powershell = (script) =>
   new Promise((resolve, reject) => {
-    const ps = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "-"], { stdio: ["pipe", "ignore", "pipe"] });
+    const ps = spawn("powershell.exe", psArgs(script), { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
     ps.stderr.on("data", (d) => (err += d));
     ps.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`powershell (${code}): ${err.slice(-300)}`))));
-    ps.stdin.end(USER32 + script);
   });
 
 /**
@@ -373,8 +390,7 @@ const powershell = (script) =>
 export function keepAwake() {
   if (REHEARSE || !SCREEN) return () => {};
   // ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED, held while the script sleeps.
-  const ps = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "-"], { stdio: ["pipe", "ignore", "ignore"] });
-  ps.stdin.end(USER32 + "[void][W.U]::SetThreadExecutionState(0x80000003)\nStart-Sleep -Seconds 7200\n");
+  const ps = spawn("powershell.exe", psArgs("[void][W.U]::SetThreadExecutionState(0x80000003)\nStart-Sleep -Seconds 7200\n"), { stdio: "ignore" });
   const stop = () => ps.kill();
   process.on("exit", stop);
   return stop;
@@ -387,6 +403,12 @@ export function keepAwake() {
  * `every` ms apart, a look, and Escape to close it. The pointer then rests where the page's drawn
  * cursor is, so the page sees it move nowhere.
  */
+/** Escape, from the system's keyboard, with the pointer back where the page's drawn cursor is. */
+export const pressEscape = (page) =>
+  powershell(`[W.U]::keybd_event(0x1B, 0, 0, [System.UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [W.U]::keybd_event(0x1B, 0, 2, [System.UIntPtr]::Zero)
+[void][W.U]::SetCursorPos(${Math.round(page.mouse.at[0] * SCREEN_SCALE)}, ${Math.round(page.mouse.at[1] * SCREEN_SCALE)})
+`);
+
 export async function scrollPrintPreview(page, [x, y], { before = 2500, notches = 12, every = 450, look = 1500 } = {}) {
   const at = ([u, v]) => `${Math.round(u * SCREEN_SCALE)}, ${Math.round(v * SCREEN_SCALE)}`;
   await powershell(`Start-Sleep -Milliseconds ${before}
