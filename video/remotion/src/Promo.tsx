@@ -74,6 +74,8 @@ export const Promo: React.FC = () => {
       <Timeline scenes={SCENES} />
       {bgm && (
         <Audio
+          // House Vibez (Lily J, Mixkit Stock Music Free License), kept out of git: download
+          // https://assets.mixkit.co/music/745/745.mp3 to public/audio/bgm/house-vibez.mp3 before rendering.
           src={staticFile("audio/bgm/house-vibez.mp3")}
           trimBefore={Math.round(MUSIC_FROM * fps)}
           volume={(f) => 0.55 * interpolate(f / fps, [0, 0.2, end - 0.9, end], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}

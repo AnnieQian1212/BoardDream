@@ -8,3 +8,6 @@ out
 
 # The recorded takes (video/record) are large and made again on any machine.
 public/footage
+
+# Licensed music is not handed out as a file: download it (see src/Promo.tsx) before rendering.
+public/audio/bgm/*.mp3
