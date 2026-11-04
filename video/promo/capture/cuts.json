@@ -1,0 +1,115 @@
+[
+ {
+  "name": "type",
+  "from": 1.0,
+  "to": 10.4,
+  "speed": 1,
+  "note": "film take: the idea typed in the real box (typing ends at the 'idea' mark, 10.1 s)"
+ },
+ {
+  "name": "settings",
+  "from": 10.1,
+  "to": 25.4,
+  "speed": 1,
+  "note": "film take: Advanced settings, High effort, 3 players, play time and complexity to the top, map and hex, Dream it up at 24.4 s"
+ },
+ {
+  "name": "making-plan",
+  "from": 24.4,
+  "to": 144.7,
+  "speed": 8,
+  "note": "film take: Muse Spark plans the game and picks tested mechanics (mochi round 65.0-71.5 s) (pre-sped 8x: a time-lapse of every 8th frame)"
+ },
+ {
+  "name": "making-code",
+  "from": 144.7,
+  "to": 530.2,
+  "speed": 16,
+  "note": "film take: Muse Spark writes the rules as code (pre-sped 16x)"
+ },
+ {
+  "name": "making-test",
+  "from": 530.2,
+  "to": 549.5,
+  "speed": 1,
+  "note": "film take: playtest of 1,000 games, ready at 541.2 s, Start playing clicked about 546 s, table at 549.1 s"
+ },
+ {
+  "name": "table-mine",
+  "from": 549.1,
+  "to": 585.0,
+  "speed": 1,
+  "note": "film take: the made game's table, my turn: glowing corners to settle a hamlet"
+ },
+ {
+  "name": "mochi",
+  "from": 63.0,
+  "to": 74.0,
+  "speed": 1,
+  "note": "film take: a round of the mochi game while the game is made (65.0-71.5 s)"
+ },
+ {
+  "name": "table-bots",
+  "src": "after.mp4",
+  "from": 0.8,
+  "to": 13.5,
+  "speed": 1,
+  "note": "after take: the made game's table, bots in every seat, pieces landing"
+ },
+ {
+  "name": "rivals",
+  "src": "after.mp4",
+  "from": 16.8,
+  "to": 55.4,
+  "speed": 1,
+  "note": "after take: Muse Spark Open plays the other seats and talks"
+ },
+ {
+  "name": "rule",
+  "src": "after.mp4",
+  "from": 55.4,
+  "to": 70.0,
+  "speed": 1,
+  "note": "after take: Designer opened, the house rule typed, Apply the change at about 66.4 s"
+ },
+ {
+  "name": "revise",
+  "src": "after.mp4",
+  "from": 66.4,
+  "to": 152.0,
+  "speed": 8,
+  "note": "after take: Muse Spark rewrites and re-tests the rules, 84 s (pre-sped 8x)"
+ },
+ {
+  "name": "revised",
+  "src": "after.mp4",
+  "from": 150.7,
+  "to": 163.5,
+  "speed": 1,
+  "note": "after take: version two, before and after; the Art tab, Paint the board at 162.8 s"
+ },
+ {
+  "name": "paint",
+  "src": "after.mp4",
+  "from": 162.8,
+  "to": 205.0,
+  "speed": 1,
+  "note": "after take: Muse Image paints the board, SAM 3.1 checks it (painted at 196.9 s), designer closed"
+ },
+ {
+  "name": "painted-table",
+  "src": "after.mp4",
+  "from": 204.7,
+  "to": 216.2,
+  "speed": 1,
+  "note": "after take: the painted table"
+ },
+ {
+  "name": "invite",
+  "src": "after.mp4",
+  "from": 216.2,
+  "to": 220.3,
+  "speed": 1,
+  "note": "after take: the table's invite, the link copied"
+ }
+]

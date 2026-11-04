@@ -2,7 +2,27 @@
 
 The submission needs a demo video of at most three minutes that shows what was built during the hackathon (all of BoardDream), and judges must be able to tell what that is. Judges score Impact (30%), Use of Meta AI tooling (25%), Technical depth (20%) and Demo (25%: "is the demo video genuinely cool to watch?"), and the finalists' videos are watched live.
 
-## The 1:05 film (`Short` in `video/remotion/src/Short.tsx`)
+## The film (`video/promo`, the one submitted, 1:44)
+
+Made from scratch on Nov 4 with [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft) and Remotion; no earlier footage or cut is used. Following the organizers' guidance (most of the video real screen footage of the working product with the live Meta model calls visible, simulated or sped-up parts labelled, 3:00 at most, in English, an opening line on what existed before the event), the product is shown in two new screen recordings at 60 fps: one game, Clovefire Reach, made for real at the highest settings (High effort, complexity and play time at their top, a map on hexes; 8 min 37 s to ready), then played against Muse Spark Open, given a house rule, painted by Muse Image and checked by SAM 3.1. Every sped-up stretch carries its real duration. It is cut on one music track (five bars of its calm middle left out): the click on Dream it up lands on its first drop, our code on its second. The design spec, storyboard and how to make it again are in [video/promo/SPEC.md](../video/promo/SPEC.md); sources and licences in [video/promo/NOTICE.md](../video/promo/NOTICE.md).
+
+| Time | Shot |
+| --- | --- |
+| 0:00 | BoardDream pressed in ink; what existed before Oct 26 (the repo's first commit, a two-line README) and what was built during the hackathon (everything shown) |
+| 0:07 | The README's diagram drawn: the old way loops for weeks, BoardDream goes straight through in minutes |
+| 0:17 | Screen recording: one sentence typed, the settings at their highest, Dream it up |
+| 0:30 | Screen recording, sped up and labelled: Muse Spark plans the game, picks tested mechanics, writes the rules as code live, 1,130 bot games |
+| 0:42 | Ready to play, the real clock (8:37); Start playing |
+| 0:46 | Screen recording at real speed: the 3D table; Muse Spark Open plays the empty seats and talks |
+| 0:52 | A house rule in plain words; Muse Spark rewrites and re-tests it; version two |
+| 0:57 | Muse Image paints the board, SAM 3.1 checks the tiles (39 of 39 aligned) |
+| 1:05 | Friends join by a link, print and play, the mochi game, Behind the scenes |
+| 1:16 | Built at the hackathon: our code in three windows, the four Meta models and their jobs |
+| 1:32 | A piece of every feature around the mark, boarddream.pages.dev |
+
+A tag in the corner says from 0:17 to the end card that everything shown was built at the hackathon, Oct 26 – Nov 4.
+
+## The 1:05 film, an earlier cut (`Short` in `video/remotion/src/Short.tsx`)
 
 No voice: words on screen, music, and sounds made for it (`public/sfx`, synthesized with ffmpeg). The pace follows a short AI product promo: the app as an object that floats and drifts rather than a camera pushing into it, parts of it lifted out as larger cards, words sweeping in, and an object (the BoardDream hex) carrying each hand-over.
 

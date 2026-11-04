@@ -1,0 +1,25 @@
+{
+  "name": "boarddream-promo",
+  "version": "1.0.0",
+  "description": "BoardDream's one-minute demo, made with video-shotcraft and Remotion from fresh stills of the app",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "preview": "remotion render src/index.ts Promo out/promo-720p.mp4 --scale=0.6666666666666666",
+    "render": "remotion render src/index.ts Promo out/promo-2k60.mp4 --scale=1.3333333333333333"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.8",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@remotion/cli": "4.0.540",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.540"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}

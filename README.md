@@ -70,7 +70,7 @@ Everything here was made from scratch for the Meta Global AI Developer Hackathon
 
 **What we built:** the game-design pipeline (plan, mechanic search, rules written as code, a 1,000-game fuzzer, repair and playtest), the library of 27 tested mechanics and the reference games, the 3D table with physics, house rules in plain words, the Balance profile, board and card art with alignment checks, print and play, tables with friends, the mochi game, Behind the scenes, and every benchmark in `eval/`.
 
-**What we used:** Meta's Muse Spark, Muse Spark Open, Muse Image and SAM 3.1 through their APIs, and open-source libraries (React, three.js, React Three Fiber, Rapier, Vite, Fraunces and Inter fonts, Lucide icons). The demo video was edited with Remotion and recorded with Playwright.
+**What we used:** Meta's Muse Spark, Muse Spark Open, Muse Image and SAM 3.1 through their APIs, and open-source libraries (React, three.js, React Three Fiber, Rapier, Vite, Fraunces and Inter fonts, Lucide icons). The demo video was made with video-shotcraft and Remotion from screen recordings of the app (Playwright and ffmpeg).
 
 ## Try it
 
@@ -139,6 +139,6 @@ flowchart LR
 | `apps/server` | The Muse Spark pipeline and the rules sandbox |
 | `apps/web` | The React + three.js app and the demo games |
 | `eval/` | Retrieval, generation, opponents and reference-game benchmarks |
-| `video/` | The demo video: scripted recordings and the Remotion edit |
+| `video/` | The demo video: the app captured with Playwright, the film made in Remotion (`video/promo`) |
 
 The plan and every decision: [docs/PLAN.md](docs/PLAN.md). What was built, day by day: [docs/BUILT.md](docs/BUILT.md).

@@ -1,0 +1,7 @@
+node_modules
+out
+public/cap
+public/audio/bgm/*.mp3
+public/footage
+footage-raw
+capture/*.log

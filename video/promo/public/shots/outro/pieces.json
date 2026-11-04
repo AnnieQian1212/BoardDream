@@ -1,0 +1,59 @@
+{
+ "background": "table-painted",
+ "pieces": [
+  {
+   "name": "board",
+   "still": "table-painted",
+   "w": 600,
+   "h": 540
+  },
+  {
+   "name": "making",
+   "still": "making-136",
+   "w": 680,
+   "h": 138
+  },
+  {
+   "name": "steps",
+   "still": "making-136",
+   "w": 218,
+   "h": 634
+  },
+  {
+   "name": "card",
+   "still": "cloudwaft-1",
+   "w": 148,
+   "h": 206
+  },
+  {
+   "name": "mochi",
+   "still": "mochi-3",
+   "w": 506,
+   "h": 118
+  },
+  {
+   "name": "room",
+   "still": "friends-host-joined",
+   "w": 420,
+   "h": 508
+  },
+  {
+   "name": "stats",
+   "still": "results-0",
+   "w": 764,
+   "h": 118
+  },
+  {
+   "name": "idea",
+   "still": "home-typed",
+   "w": 660,
+   "h": 194
+  },
+  {
+   "name": "print",
+   "still": "print-1",
+   "w": 404,
+   "h": 508
+  }
+ ]
+}

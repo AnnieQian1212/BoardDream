@@ -14,7 +14,7 @@ import { chromium } from "playwright-core";
 export const BASE = process.env.BASE_URL ?? "http://localhost:5173";
 export const REHEARSE = process.argv.includes("--rehearse");
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const FOOTAGE = path.join(here, "..", "remotion", "public", "footage");
+export const FOOTAGE = process.env.FOOTAGE_DIR ?? path.join(here, "..", "remotion", "public", "footage");
 const FFMPEG = path.join(here, "..", "remotion", "node_modules", "@remotion", "compositor-win32-x64-msvc", "ffmpeg.exe");
 const FRAMES = process.env.FRAMES_DIR ?? path.join(os.tmpdir(), "boarddream-frames");
 export const SIZE = { width: 1920, height: 1080 };
