@@ -4,6 +4,7 @@ import { CONCEPT_SECONDS, Concept } from "./Concept";
 import { TwoWays } from "./Flows";
 import { PRIMER_SECONDS, Primer } from "./Primer";
 import { REEL_SECONDS, Reel } from "./Reel";
+import { SHORT_SECONDS, Short } from "./Short";
 import { FPS, HEIGHT, WIDTH } from "./theme";
 
 const reel = Math.round(CONCEPT_SECONDS * FPS);
@@ -23,6 +24,7 @@ const DemoVideo: React.FC = () => (
 
 export const RemotionRoot: React.FC = () => (
   <>
+    <Composition id="Short" component={Short} durationInFrames={Math.round(SHORT_SECONDS * FPS)} fps={FPS} width={WIDTH} height={HEIGHT} />
     <Composition id="DemoVideo" component={DemoVideo} durationInFrames={reel + primer} fps={FPS} width={WIDTH} height={HEIGHT} />
     <Composition id="Concept" component={Concept} durationInFrames={reel} fps={FPS} width={WIDTH} height={HEIGHT} />
     <Composition id="Reel" component={Reel} durationInFrames={Math.round(REEL_SECONDS * FPS)} fps={FPS} width={WIDTH} height={HEIGHT} />

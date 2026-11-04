@@ -1,19 +1,19 @@
-# The 3-minute demo video
+# The demo video
 
-The submission needs a demo video of at most three minutes that shows what was built during the hackathon (all of BoardDream). Judges score Impact (30%), Use of Meta AI tooling (25%), Technical depth (20%) and Demo (25%: "is the demo video genuinely cool to watch?"), and the finalists' videos are watched live.
+The submission needs a demo video of at most three minutes that shows what was built during the hackathon (all of BoardDream), and judges must be able to tell what that is. Judges score Impact (30%), Use of Meta AI tooling (25%), Technical depth (20%) and Demo (25%: "is the demo video genuinely cool to watch?"), and the finalists' videos are watched live.
 
-**The story: game night with friends.** A group that plays every week runs out of games; BoardDream makes a new one from a sentence, tested a thousand times, and the friends play it together that night, at one table by a link, with Muse Spark Open in any empty seat and house rules asked for in words. The friendship is shown, not claimed: friends joining by a link, two windows dealt in, rivals talking. The models and the testing stay the spine, since they carry 45% of the score.
+## The 1:05 film (`Short` in `video/remotion/src/Short.tsx`)
 
-The video has two parts:
+No voice: words on screen, music, and sounds made for it (`public/sfx`, synthesized with ffmpeg). The pace follows a short AI product promo: the app as an object that floats and drifts rather than a camera pushing into it, parts of it lifted out as larger cards, words sweeping in, and an object (the BoardDream hex) carrying each hand-over.
 
-| Part | Time | Reference | What it is |
-| --- | --- | --- | --- |
-| 1. BoardDream, a concept film | 0:00–0:30 | Figma, [Introducing Figma Motion](https://www.youtube.com/watch?v=l3HuAYXyOTo) | What BoardDream gives a table, not how: real results set in depth and light. Music, no voice |
-| 2. A primer with the builder | 0:30–2:59 | Linear, [Introducing Linear Initiatives](https://www.youtube.com/watch?v=FlDVDvzCmn0) | The real walkthrough: Aichen on camera between the app's shots, the narration as subtitles |
+| Time | Part | What it is |
+| --- | --- | --- |
+| 0:00–0:30 | A concept film | The games' boxes on a ring, painted boards, cards, the mochi game, a table in play, two friends' screens: results, not process |
+| 0:30–0:35 | Aichen, five seconds | Cut fast against word cards, after Apple's 2018 keynote opener: a shrug at the shelf, "Game night?", a box held up, "Played it.", another, "Played that.", a look at the camera, "So I built this." The words keep the beat alone if the face is left out |
+| 0:35–0:59 | The app in one take | Recorded in the film's order and played without a cut, fast through the waits: one sentence, Muse Spark designing it, a turn, Muse Spark Open in the empty seat, a house rule with its progress bar and version two, Balance, the board painted and checked, the print-and-play kit in Chrome's print preview, the invite. A tag says throughout that it was built during the hackathon |
+| 0:59–1:05 | Built at the hackathon | Commits a day from the first to the last, what we built, what it is powered by (the four Meta models and open-source libraries), and boarddream.pages.dev |
 
-The two parts do not repeat each other: the making, testing, house rules, painting and invite are Part 2's alone. Inside a part, one activity is one continuous shot, never two moments joined.
-
-**The look.** Part 1 is a concept film: the games' boxes on a turning ring, painted boards rising in depth, a hand of cards, the mochi game cut into boards, a table in play, two friends' screens drifting together. Part 2 fills the frame with the app: the camera pushes in and whips across it in moves of about a second (never past 1.5×, by transform, so nothing snaps to whole pixels), and one page is one shot, its waits played fast and its moments at their own pace. Between, cards in warm near-black with gold type (the app's Fraunces and Inter). Every cut has a handover: a blur-zoom, a soft slanted wipe, a push, an iris, a fade, or a gold light leak. The film is rendered at 2560 × 1440 and 60 fps, every frame a PNG, at 24 Mbps.
+The three-minute version below (`DemoVideo`) is the earlier cut, kept for its parts.
 
 ## What the references do
 

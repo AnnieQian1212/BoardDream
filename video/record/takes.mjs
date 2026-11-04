@@ -440,8 +440,8 @@ const takes = {
    * Part 2's app in one take for the screen (--screen), in the film's order, nothing stepped over:
    * the idea typed and Dream it up, the making with a round of the mochi game, the table with a turn
    * and Muse Spark Open in the other seats, a house rule applied (its progress bar, then the two
-   * versions side by side), the rulebook, the Balance tab, the board painted, the print-and-play kit
-   * printed (Chrome's preview scrolled), the invite, and, after a page load, Behind the scenes.
+   * versions side by side), the Balance tab, the board painted, the print-and-play kit printed
+   * (Chrome's preview scrolled), and the invite.
    * A rehearsal stops at Dream it up and checks the rest on --game=<id>, spending nothing.
    */
   async film(browser) {
@@ -548,17 +548,6 @@ const takes = {
     take.mark("version-two");
     await drift(page, [[700, 420], [960, 520]], { ms: 1100, pause: 600 });
 
-    take.mark("rulebook");
-    await moveAndClick(page, 'header button:has-text("Rules")', "Rules", { after: 1800 });
-    if (!REHEARSE)
-      for (let i = 0; i < 12; i++) {
-        await page.mouse.wheel(0, 60);
-        await wait(60);
-      }
-    await wait(1500);
-    await page.keyboard.press("Escape");
-    await wait(800);
-
     take.mark("balance");
     await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1000 });
     await moveAndClick(page, 'button:text-is("Balance")', "Balance tab", { after: 500 });
@@ -588,15 +577,6 @@ const takes = {
     await moveAndClick(page, 'button:has-text("Invite friends")', "Invite friends", { after: 2500 });
     await moveAndClick(page, 'button:has-text("Copy")', "copy the link", { after: 3000 });
 
-    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-    await wait(1200);
-    take.mark("behind");
-    await moveAndClick(page, 'button:has-text("Behind the scenes")', "Behind the scenes", { after: 1800 });
-    await glide(page, [960, 600], 500);
-    for (let i = 0; i < 40; i++) {
-      await page.mouse.wheel(0, 40);
-      await wait(70);
-    }
     await wait(1500);
     await take.stop();
     awake();

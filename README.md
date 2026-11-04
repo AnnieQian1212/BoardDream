@@ -64,6 +64,14 @@ Every number comes from a benchmark in this repository, and **Behind the scenes*
 | **0.81 → 0.97** | how well the right building blocks are found (nDCG), with Muse Spark expanding and reranking the search · [retrieval](eval/retrieval/README.md) |
 | **19 / 19** | painted tiles lined up with the real board, checked by SAM 3.1 · [plan](docs/PLAN.md) |
 
+## Built during the hackathon
+
+Everything here was made from scratch for the Meta Global AI Developer Hackathon, Oct 26 – Nov 4, 2026. The history starts at kickoff with a two-line README, and every commit since is in this repository's public log.
+
+**What we built:** the game-design pipeline (plan, mechanic search, rules written as code, a 1,000-game fuzzer, repair and playtest), the library of 27 tested mechanics and the reference games, the 3D table with physics, house rules in plain words, the Balance profile, board and card art with alignment checks, print and play, tables with friends, the mochi game, Behind the scenes, and every benchmark in `eval/`.
+
+**What we used:** Meta's Muse Spark, Muse Spark Open, Muse Image and SAM 3.1 through their APIs, and open-source libraries (React, three.js, React Three Fiber, Rapier, Vite, Fraunces and Inter fonts, Lucide icons). The demo video was edited with Remotion and recorded with Playwright.
+
 ## Try it
 
 **Online:** [boarddream.pages.dev](https://boarddream.pages.dev) has the demo games and Muse Spark Open opponents. Making new games and tables with friends need the full server.
