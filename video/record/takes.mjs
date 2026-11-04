@@ -1,14 +1,14 @@
 // The demo video's takes (docs/VIDEO.md). Each is run on its own, after a rehearsal:
 //   node video/record/takes.mjs <take> [--name=<n>] [--game=<id>] --rehearse   every selector checked, nothing recorded or spent
 //   node video/record/takes.mjs <take> [...]                                   recorded to video/remotion/public/footage
-// Takes: make (a game made on camera from the hero idea; --name=make-1, make-2, ... for candidates),
+// Takes: film (Part 2's app in one take, from the idea to the invite, and Behind the scenes: --screen), make (a game made on camera from the hero idea; --name=make-1, make-2, ... for candidates),
 // after (that game played on: --game=<id> --rule="..."), extras (its turn, rulebook, Balance tab and
 // Behind the scenes: --game=<id>), mochi (the mochi game played through), rivals, friends, table,
 // cards, painted.
 // The local servers must be running (web on :5173, API on :8787). Pages are drawn at SCALE (lib.mjs).
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, launch, log, moveAndClick, openPage, playMochi, signIn, typeSlowly, wait } from "./lib.mjs";
+import { BASE, FOOTAGE, REHEARSE, Take, drift, ensureVisible, glide, keepAwake, launch, log, moveAndClick, openPage, playMochi, scrollPrintPreview, signIn, typeSlowly, wait } from "./lib.mjs";
 
 const AICHEN = { email: "aichen@example.com", password: "game-night-demo", name: "Aichen" };
 const MIRA = { email: "mira@example.com", password: "game-night-demo", name: "Mira" };
@@ -59,6 +59,33 @@ async function choose(page, label, value) {
   }
   await select.selectOption(value);
   await wait(600);
+}
+
+/** Print and play: the kit, then Chrome's own print preview of it, scrolled through its pages. */
+async function printAndPlay(page, take) {
+  take.mark("print");
+  await moveAndClick(page, 'button[aria-label="More"]', "More", { after: 600 });
+  await moveAndClick(page, '[role="menuitem"]:has-text("Print and play")', "Print and play", { after: 1500 });
+  const printIt = page.locator('button:has-text("Print or save as PDF")').first();
+  if (REHEARSE) await ensureVisible(page, printIt, "Print or save as PDF");
+  else {
+    if (!(await until(() => printIt.isVisible(), 90_000, 300))) throw new Error("the kit's art was not ready in 90 s");
+    await wait(600);
+    const box = await printIt.boundingBox();
+    await glide(page, [box.x + box.width / 2, box.y + box.height / 2]);
+    await wait(350);
+    take.mark("print-preview");
+    // The button calls window.print(), which holds the page until the preview closes, so the
+    // press is not waited for.
+    await page.mouse.down();
+    await wait(70);
+    const up = page.mouse.up().catch(() => {});
+    await scrollPrintPreview(page, [700, 600], { before: 3000, notches: 14, every: 420, look: 1500 });
+    await up;
+    take.mark("print-closed");
+    await wait(1200);
+  }
+  await moveAndClick(page, 'button[aria-label="Close the print kit"]', "close the print kit", { after: 1500 });
 }
 
 const takes = {
@@ -406,6 +433,188 @@ const takes = {
     take.mark("play");
     await drift(page, [[767, 205], [790, 320], [620, 380], [700, 260], [767, 190], [620, 370], [760, 330]], { ms: 1500, pause: 250 });
     await wait(1500);
+    await take.stop();
+  },
+
+  /**
+   * Part 2's app in one take for the screen (--screen), in the film's order, nothing stepped over:
+   * the idea typed and Dream it up, the making with a round of the mochi game, the table with a turn
+   * and Muse Spark Open in the other seats, a house rule applied (its progress bar, then the two
+   * versions side by side), the rulebook, the Balance tab, the board painted, the print-and-play kit
+   * printed (Chrome's preview scrolled), the invite, and, after a page load, Behind the scenes.
+   * A rehearsal stops at Dream it up and checks the rest on --game=<id>, spending nothing.
+   */
+  async film(browser) {
+    const page = await openPage(browser);
+    await signIn(page, AICHEN);
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await wait(1500);
+    const before = REHEARSE ? [] : (await (await page.request.get(`${BASE}/api/games`)).json()).map((g) => g.id);
+    const awake = keepAwake();
+    const take = await new Take(page, "film").start();
+    await wait(300);
+    take.mark("home");
+    await drift(page, [[960, 300], [800, 390]], { ms: 800, pause: 250 });
+    await typeSlowly(page, 'textarea[aria-label="Describe the game you want to play"]', HERO_IDEA, "the idea", 22);
+    take.mark("idea");
+    await moveAndClick(page, 'button:has-text("Advanced settings")', "Advanced settings", { after: 900 });
+    await moveAndClick(page, '[aria-label="Model effort"] button:has-text("High")', "High effort", { after: 500 });
+    const minPlayers = page.locator("label.field", { hasText: "Min players" }).locator("input").first();
+    await moveAndClick(page, minPlayers, "fewest players", { after: 150 });
+    if (!REHEARSE) {
+      await page.keyboard.press("Control+A");
+      await page.keyboard.type("3", { delay: 120 });
+      await wait(400);
+    }
+    await rangeToMax(page, "Play time");
+    await rangeToMax(page, "Complexity");
+    await choose(page, "Game type", "map");
+    await choose(page, "Board", "hex");
+    await wait(800);
+
+    if (REHEARSE) {
+      await ensureVisible(page, 'button:has-text("Dream it up")', "Dream it up");
+      const game = arg("game");
+      if (!game) throw new Error("rehearse the rest on which game? --game=<id>");
+      await page.goto(table(game), { waitUntil: "networkidle" });
+      await wait(2500);
+    } else {
+      await moveAndClick(page, 'button:has-text("Dream it up")', "Dream it up", { after: 500 });
+      take.mark("dream");
+      // The making screen, with one round of the mochi game while it waits.
+      const seen = new Set();
+      let mochi = Date.now() + 40_000;
+      const ready = await until(
+        async () => {
+          for (const step of ["Pick tested mechanics", "Write the rules", "Playtest", "Fix the rules", "Ready to play"]) {
+            if (!seen.has(step) && (await page.locator(`[class*="now"]:has-text("${step}")`).count()) > 0) {
+              seen.add(step);
+              take.mark(`step:${step}`);
+            }
+          }
+          if (mochi && Date.now() > mochi) {
+            mochi = 0;
+            take.mark("mochi");
+            await playMochi(page);
+            take.mark("mochi-done");
+          }
+          return visible(page, 'button:has-text("Start playing")');
+        },
+        25 * 60_000,
+        1000,
+      );
+      if (!ready) throw new Error("the game was not ready in 25 minutes");
+      take.mark("ready");
+      await wait(4000);
+      await moveAndClick(page, 'button:has-text("Start playing")', "Start playing", { after: 2500 });
+    }
+    take.mark("table");
+    await drift(page, [[700, 420], [960, 520]], { ms: 1200, pause: 500 });
+
+    // A turn: what can be done glows; one of the moves the action bar offers. Muse Spark Open, in
+    // the other seats, may move first.
+    const moves = page.locator(".action-bar > button.action");
+    if (!REHEARSE && !(await until(async () => (await moves.count()) > 0, 120_000, 500))) throw new Error("no turn of mine in two minutes");
+    take.mark("turn");
+    if (!REHEARSE) {
+      await drift(page, [[820, 430], [1040, 520], [960, 880]], { ms: 1000, pause: 400 });
+      await moveAndClick(page, moves.first(), "a move", { after: 1500 });
+      // A move may ask for a choice or a target: take the first offered.
+      const choice = page.locator(".choice-menu button").first();
+      if (await choice.isVisible().catch(() => false)) await moveAndClick(page, choice, "the choice", { after: 1500 });
+    }
+    take.mark("rivals");
+    await drift(page, [[700, 420], [900, 360], [1150, 450], [800, 520]], { ms: 1400, pause: 1600 });
+    await wait(REHEARSE ? 500 : 20_000);
+
+    // A house rule, in words: the panel's progress bar, then the two versions side by side.
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1200 });
+    const timber = /timber/i.test(await page.locator("body").innerText());
+    const rule = arg("rule", timber ? "Every family starts the game with one extra timber." : "Every family starts the game with one extra of each resource.");
+    take.mark("rules");
+    await typeSlowly(page, "textarea", rule, "change the rules");
+    if (REHEARSE) await ensureVisible(page, 'button:has-text("Apply the change")', "Apply the change");
+    else {
+      await moveAndClick(page, 'button:has-text("Apply the change")', "Apply the change", { after: 500 });
+      take.mark("revise");
+      await glide(page, [1700, 980], 900);
+      const revised = await until(() => visible(page, 'button:has-text("Apply the change")'), 15 * 60_000, 500);
+      if (!revised) throw new Error("the change took over 15 minutes");
+      take.mark("revised");
+      await drift(page, [[1700, 560], [1720, 700]], { ms: 1100, pause: 1800 });
+      await wait(2500);
+    }
+    await moveAndClick(page, 'button[aria-label="Close the designer"]', "close the designer", { after: 1500 });
+    take.mark("version-two");
+    await drift(page, [[700, 420], [960, 520]], { ms: 1100, pause: 600 });
+
+    take.mark("rulebook");
+    await moveAndClick(page, 'header button:has-text("Rules")', "Rules", { after: 1800 });
+    if (!REHEARSE)
+      for (let i = 0; i < 12; i++) {
+        await page.mouse.wheel(0, 60);
+        await wait(60);
+      }
+    await wait(1500);
+    await page.keyboard.press("Escape");
+    await wait(800);
+
+    take.mark("balance");
+    await moveAndClick(page, 'button:has-text("Designer")', "Designer", { after: 1000 });
+    await moveAndClick(page, 'button:text-is("Balance")', "Balance tab", { after: 500 });
+    if (!REHEARSE) await until(async () => !(await visible(page, "text=Simulating")) && !(await visible(page, "text=Measuring")), 180_000, 300);
+    take.mark("balance-ready");
+    await drift(page, [[1700, 420], [1740, 620]], { ms: 1200, pause: 1500 });
+
+    // The board painted by Muse Image and checked by SAM 3.1, its progress bar, then the table.
+    await moveAndClick(page, 'button:text-is("Art")', "Art tab", { after: 1200 });
+    const paint = page.locator('button:has-text("Paint the board"), button:has-text("Repaint the board")').first();
+    if (REHEARSE) await ensureVisible(page, paint, "paint the board");
+    else {
+      await moveAndClick(page, paint, "paint the board", { after: 800 });
+      take.mark("paint");
+      await until(async () => !(await visible(page, 'button:has-text("Cancel")')), 8 * 60_000, 500);
+      take.mark("painted");
+      await wait(3000);
+    }
+    await moveAndClick(page, 'button[aria-label="Close the designer"]', "close the designer", { after: 2000 });
+    take.mark("painted-table");
+    await drift(page, [[600, 420], [900, 520], [1150, 400]], { ms: 1300, pause: 600 });
+    await wait(1200);
+
+    await printAndPlay(page, take);
+
+    take.mark("invite");
+    await moveAndClick(page, 'button:has-text("Invite friends")', "Invite friends", { after: 2500 });
+    await moveAndClick(page, 'button:has-text("Copy")', "copy the link", { after: 3000 });
+
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await wait(1200);
+    take.mark("behind");
+    await moveAndClick(page, 'button:has-text("Behind the scenes")', "Behind the scenes", { after: 1800 });
+    await glide(page, [960, 600], 500);
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.wheel(0, 40);
+      await wait(70);
+    }
+    await wait(1500);
+    await take.stop();
+    awake();
+    if (REHEARSE) return;
+    const games = (await (await page.request.get(`${BASE}/api/games`)).json()).filter((g) => !before.includes(g.id));
+    log("made:", games.map((g) => `${g.id} ${g.title}`).join(", "));
+    writeFileSync(path.join(FOOTAGE, "film.game.json"), JSON.stringify(games.map((g) => ({ id: g.id, title: g.title })), null, 2) + "\n");
+  },
+
+  /** The print preview on its own (--game=<id> --screen): a minute's try of the film take's printing. */
+  async print(browser) {
+    const page = await openPage(browser);
+    await signIn(page, AICHEN);
+    await page.goto(table(arg("game", "basalt-kin-mw1bm4fr"), "&bots"), { waitUntil: "networkidle" });
+    await wait(2500);
+    const take = await new Take(page, "print-try").start();
+    await printAndPlay(page, take);
+    await wait(800);
     await take.stop();
   },
 

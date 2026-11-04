@@ -1,9 +1,9 @@
 import type { GameModule } from "@boarddream/engine";
 import { PencilLine } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { DesignEvent, PlayStats, ReviseReply } from "../../../server/src/agent/protocol";
 import { generatedSource, loadGeneratedGame } from "../generated";
-import { DESIGN_SILENCE_MS, revisionStatus } from "../generation";
+import { DESIGN_SILENCE_MS, reviseStep, revisingFrom, revisionProgress, revisionStatus, type Revising } from "../generation";
 import { readEvents } from "../sse";
 
 /** What the change did, kept until another game is revised. */
@@ -27,6 +27,7 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [comparison, setComparison] = useState<Comparison>();
+  const [revising, setRevising] = useState<Revising>();
   const source = generatedSource(game);
   const shown = comparison?.gameId === game.meta.id ? comparison : undefined;
 
@@ -34,6 +35,7 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
     e.preventDefault();
     setBusy(true);
     setStatus("Starting…");
+    setRevising(revisingFrom(Date.now()));
     try {
       const res = await fetch("/api/revise", {
         method: "POST",
@@ -47,8 +49,10 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
         res,
         (event, data) => {
           if (event === "design") {
-            const status = revisionStatus(JSON.parse(data) as DesignEvent);
+            const design = JSON.parse(data) as DesignEvent;
+            const status = revisionStatus(design);
             if (status) setStatus(status);
+            setRevising((r) => r && reviseStep(r, design));
           } else if (event === "result") result = JSON.parse(data) as ReviseReply;
           else if (event === "error") failure = data;
         },
@@ -75,6 +79,7 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
       setStatus(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setRevising(undefined);
     }
   }
 
@@ -99,8 +104,33 @@ export function RevisePanel({ game, onRevised }: { game: GameModule; onRevised(g
       <button type="submit" className="action wide" disabled={busy || !source}>
         <PencilLine size={16} /> {busy ? "Revising…" : "Apply the change"}
       </button>
-      {status && <p className="hint status-line">{status}</p>}
+      {busy && revising ? <RevisionProgress revising={revising} status={status} length={source?.length ?? 0} /> : status && <p className="hint status-line">{status}</p>}
     </form>
+  );
+}
+
+/** How far the change is: the rewrite, then the playtest's games counted, then any fix. */
+function RevisionProgress({ revising, status, length }: { revising: Revising; status: string; length: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, []);
+  // Never back: a fix starts its own share of the bar where the last one left off.
+  const peak = useRef(0);
+  peak.current = Math.max(peak.current, revisionProgress(revising, now, length));
+  const width = 100 * peak.current;
+  const { attempt, checking } = revising;
+  // While it is playtested, the games played so far.
+  const label =
+    !revising.writing && checking
+      ? `${attempt === 0 ? "Playtesting the new rules" : `Playtesting fix ${attempt}`} · ${checking.done.toLocaleString("en")} / ${checking.total.toLocaleString("en")}`
+      : status;
+  return (
+    <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(width)} aria-label="Changing the rules">
+      <div className="progress-bar" style={{ width: `${width}%` }} />
+      <span>{label}</span>
+    </div>
   );
 }
 

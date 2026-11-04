@@ -2,7 +2,7 @@ import { fitBounds, type CardView, type GameModule, type ResourceSpec } from "@b
 import { MoveLog, type LogEntry } from "../components/LogPanel";
 import { unlit } from "../instructions";
 import { usePrefs } from "../prefs";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, events, type RootState } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NeutralToneMapping } from "three";
 import { playerColor } from "../colors";
@@ -20,6 +20,7 @@ import type { BoardPaint } from "./Board3D";
 import { Scene, type Insets } from "./Scene";
 import { FirstFrame, WarmUp } from "./WarmUp";
 import { cardFace } from "./textures";
+import { pageZoom, unzoom } from "../zoom";
 
 interface Props {
   game: GameModule;
@@ -109,6 +110,19 @@ function useMover(state: unknown, active: number | undefined): number | undefine
 }
 
 /** The 3D table: the scene plus the HTML around it (move buttons, choice menu, card preview, result). */
+/**
+ * Pointer events on the table, found from the pointer's place in the canvas's box on screen: under
+ * the page's zoom, offsets and the canvas's own size are in different pixels.
+ */
+const zoomedEvents = (store: Parameters<typeof events>[0]) => ({
+  ...events(store),
+  compute(event: PointerEvent | MouseEvent, state: RootState) {
+    const box = state.gl.domElement.getBoundingClientRect();
+    state.pointer.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
+    state.raycaster.setFromCamera(state.pointer, state.camera);
+  },
+});
+
 export function Tabletop({ game, state, numPlayers, human, insets, speech, art, boardPaint, guide, onMove, onRestart, names, rivalModel, log }: Props) {
   const fonts = useFontsReady();
   const talking = useSpeech(speech);
@@ -197,8 +211,11 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
         <Canvas
           frameloop={warm ? "demand" : "never"}
           shadows={quality.shadows ? "percentage" : false}
-          dpr={quality.dpr}
-          resize={{ debounce: 0 }}
+          // The page may be zoomed (styles.css): the canvas is sized in the page's own pixels, its
+          // pixel ratio scaled to match, and pointers found against its box on screen.
+          dpr={quality.dpr * pageZoom()}
+          resize={{ debounce: 0, offsetSize: true }}
+          events={zoomedEvents}
           camera={{ fov: 30, near: 5, far: 1500, position: [0, 150, 110] }}
           gl={{ antialias: !quality.ambientOcclusion, powerPreference: "high-performance" }}
           onCreated={({ gl }) => {
@@ -287,7 +304,7 @@ export function Tabletop({ game, state, numPlayers, human, insets, speech, art, 
       )}
 
       {menu && (
-        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: unzoom(menu.x), top: unzoom(menu.y) }} onMouseLeave={() => setMenu(null)}>
           {menu.moves.map((move, i) => (
             <button key={i} type="button" onClick={() => onMove(move)}>
               {label(move)}
@@ -307,7 +324,7 @@ function Preview({ resources }: { resources: Map<string, ResourceSpec> }) {
   if (!hover) return null;
   if ("text" in hover) {
     return (
-      <div className="tooltip" style={{ left: hover.x + 16, top: hover.y + 16 }}>
+      <div className="tooltip" style={{ left: unzoom(hover.x) + 16, top: unzoom(hover.y) + 16 }}>
         {hover.text}
       </div>
     );

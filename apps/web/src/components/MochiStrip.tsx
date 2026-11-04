@@ -37,6 +37,7 @@ import {
   type Upgrade,
 } from "../mochi";
 import { MochiArt, SteamerBase, SteamerLid } from "./MochiArt";
+import { unzoom } from "../zoom";
 
 const KEY = "boarddream.mochi";
 const OPEN_KEY = "boarddream.mochi-open";
@@ -382,7 +383,7 @@ export function MochiStrip({ test = false }: { test?: boolean }) {
       setHint(undefined);
       setDragFrom(d.from);
     }
-    d.el.style.transform = `translate(${dx}px, ${dy}px) scale(1.12)`;
+    d.el.style.transform = `translate(${unzoom(dx)}px, ${unzoom(dy)}px) scale(1.12)`;
     const { spot, slot } = targetAt(d, e.clientX, e.clientY);
     setOver(spot >= 0 && spot !== d.from ? spot : undefined);
     setOverOrder(slot >= 0 && current.current.orders[slot] ? slot : undefined);

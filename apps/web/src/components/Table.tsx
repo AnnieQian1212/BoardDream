@@ -12,6 +12,7 @@ import { Hint, useHint } from "./Hint";
 import { Card } from "./Card";
 import { PlayerMat } from "./PlayerMat";
 import { ResourceChip } from "./ResourceChip";
+import { unzoom } from "../zoom";
 
 interface Props {
   game: GameModule;
@@ -135,7 +136,7 @@ export function Table({ game, state, numPlayers, human, onMove, onRestart, names
       )}
 
       {menu && (
-        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+        <div className={menu.up ? "choice-menu up" : "choice-menu"} style={{ left: unzoom(menu.x), top: unzoom(menu.y) }} onMouseLeave={() => setMenu(null)}>
           {menu.moves.map((move, i) => (
             <button key={i} type="button" onClick={() => onMove(move)}>
               {label(move)}

@@ -347,6 +347,61 @@ class ScreenTake {
 /** A take: from the screencast, or from the screen with --screen. */
 export const Take = SCREEN ? ScreenTake : FrameTake;
 
+const USER32 = `Add-Type -Namespace W -Name U -MemberDefinition @'
+[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+[DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+[DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, int d, System.UIntPtr e);
+[DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, System.UIntPtr e);
+[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint s);
+'@
+[void][W.U]::SetProcessDPIAware()
+`;
+
+const powershell = (script) =>
+  new Promise((resolve, reject) => {
+    const ps = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "-"], { stdio: ["pipe", "ignore", "pipe"] });
+    let err = "";
+    ps.stderr.on("data", (d) => (err += d));
+    ps.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`powershell (${code}): ${err.slice(-300)}`))));
+    ps.stdin.end(USER32 + script);
+  });
+
+/**
+ * Keeps the display on through a long take: with no one at the keyboard Windows would dim and then
+ * switch it off, and a screen that is off hands the capture no frames. Returns a stop function.
+ */
+export function keepAwake() {
+  if (REHEARSE || !SCREEN) return () => {};
+  // ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED, held while the script sleeps.
+  const ps = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "-"], { stdio: ["pipe", "ignore", "ignore"] });
+  ps.stdin.end(USER32 + "[void][W.U]::SetThreadExecutionState(0x80000003)\nStart-Sleep -Seconds 7200\n");
+  const stop = () => ps.kill();
+  process.on("exit", stop);
+  return stop;
+}
+
+/**
+ * Chrome's print preview is the browser's own window, out of reach of the page's input, so it is
+ * scrolled with the system's own pointer: after `before` ms for the preview to draw, to `[x, y]`
+ * (CSS pixels of the 1920 x 1080 page), a click to give it the keys, `notches` turns of the wheel
+ * `every` ms apart, a look, and Escape to close it. The pointer then rests where the page's drawn
+ * cursor is, so the page sees it move nowhere.
+ */
+export async function scrollPrintPreview(page, [x, y], { before = 2500, notches = 12, every = 450, look = 1500 } = {}) {
+  const at = ([u, v]) => `${Math.round(u * SCREEN_SCALE)}, ${Math.round(v * SCREEN_SCALE)}`;
+  await powershell(`Start-Sleep -Milliseconds ${before}
+[void][W.U]::SetCursorPos(${at([x, y])})
+Start-Sleep -Milliseconds 300
+[W.U]::mouse_event(0x0002, 0, 0, 0, [System.UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [W.U]::mouse_event(0x0004, 0, 0, 0, [System.UIntPtr]::Zero)
+Start-Sleep -Milliseconds 700
+for ($i = 0; $i -lt ${notches}; $i++) { [W.U]::mouse_event(0x0800, 0, 0, -120, [System.UIntPtr]::Zero); Start-Sleep -Milliseconds ${every} }
+Start-Sleep -Milliseconds ${look}
+[W.U]::keybd_event(0x1B, 0, 0, [System.UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [W.U]::keybd_event(0x1B, 0, 2, [System.UIntPtr]::Zero)
+Start-Sleep -Milliseconds 400
+[void][W.U]::SetCursorPos(${at(page.mouse.at)})
+`);
+}
+
 /**
  * A few moves in the mochi steamer, the game to play while a game is made: steam two friends, then
  * drag one onto another just like it, which merges them into the next friend. The steamer makes

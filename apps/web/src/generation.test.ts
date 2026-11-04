@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { componentItems, progressOf, revisionStatus, stepOf, type Generation, type Plan } from "./generation";
+import { componentItems, progressOf, reviseStep, revisingFrom, revisionProgress, revisionStatus, stepOf, type Generation, type Plan } from "./generation";
 
 const t0 = 1_000_000;
 const base: Generation = { surprise: false, started: t0, idea: "rival lighthouse keepers", attempt: 0, writing: false, code: "", checks: [], rounds: [] };
@@ -55,11 +55,33 @@ describe("components in the box", () => {
 
 describe("a revision's status", () => {
   it("follows the typed design events: rewrite, playtest, fix, smooth", () => {
-    expect(revisionStatus({ type: "writing", attempt: 0 })).toBe("Rewriting the rules and playtesting the old ones…");
-    expect(revisionStatus({ type: "checking", attempt: 0, done: 10, total: 1000 })).toBe("Playtesting the new rules over 1,000 games…");
+    expect(revisionStatus({ type: "writing", attempt: 0 })).toBe("Muse Spark is rewriting the rules…");
+    expect(revisionStatus({ type: "checking", attempt: 0, done: 10, total: 1000 })).toBe("Playtesting the new rules…");
     expect(revisionStatus({ type: "checked", attempt: 0, ok: false, problem: "a game never ended" })).toBe("Fixing what the change broke…");
     expect(revisionStatus({ type: "checking", attempt: 2, done: 0, total: 1000 })).toBe("Playtesting fix 2…");
-    expect(revisionStatus({ type: "checked", attempt: 2, ok: true, issues: ["seat 1 wins 70%"] })).toBe("Smoothing a design problem the playtest found…");
+    expect(revisionStatus({ type: "checked", attempt: 2, ok: true, issues: ["seat 1 wins 70%"] })).toBe("Smoothing a design problem…");
+  });
+
+  it("has a progress bar that follows the rewrite, the playtest and any fix, and never reaches the end early", () => {
+    const t0 = 1_000_000;
+    const length = 20_000;
+    let r = revisingFrom(t0);
+    const thinking = revisionProgress(r, t0 + 6000, length);
+    expect(thinking).toBeGreaterThan(0);
+    expect(thinking).toBeLessThan(0.13);
+    r = reviseStep(r, { type: "code", text: "x".repeat(10_000) }, t0 + 15_000);
+    expect(revisionProgress(r, t0 + 16_000, length)).toBeCloseTo(0.65 * 0.6, 5);
+    r = reviseStep(r, { type: "draft", attempt: 0, source: "" }, t0 + 40_000);
+    expect(revisionProgress(r, t0 + 40_000, length)).toBeCloseTo(0.65, 5);
+    r = reviseStep(r, { type: "checking", attempt: 0, done: 500, total: 1000 }, t0 + 45_000);
+    expect(revisionProgress(r, t0 + 45_000, length)).toBeCloseTo(0.775, 5);
+    r = reviseStep(r, { type: "checked", attempt: 0, ok: false, problem: "a game never ended" }, t0 + 50_000);
+    r = reviseStep(r, { type: "writing", attempt: 1 }, t0 + 50_000);
+    const fixing = revisionProgress(r, t0 + 50_000, length);
+    expect(fixing).toBeGreaterThanOrEqual(0.9);
+    r = reviseStep(r, { type: "checking", attempt: 1, done: 1000, total: 1000 }, t0 + 80_000);
+    expect(revisionProgress(r, t0 + 80_000, length)).toBeCloseTo(0.9 + 0.6 * 0.08, 5);
+    expect(revisionProgress(r, t0 + 80_000, length)).toBeLessThan(0.98);
   });
 
   it("says nothing new for events that change nothing worth saying", () => {

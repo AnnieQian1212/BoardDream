@@ -142,12 +142,12 @@ function apply(g: Generation, event: DesignEvent): Generation {
 export function revisionStatus(event: DesignEvent): string | undefined {
   switch (event.type) {
     case "writing":
-      return event.attempt === 0 ? "Rewriting the rules and playtesting the old ones…" : undefined;
+      return event.attempt === 0 ? "Muse Spark is rewriting the rules…" : undefined;
     case "checking":
-      return event.attempt === 0 ? "Playtesting the new rules over 1,000 games…" : `Playtesting fix ${event.attempt}…`;
+      return event.attempt === 0 ? "Playtesting the new rules…" : `Playtesting fix ${event.attempt}…`;
     case "checked":
       if (!event.ok) return "Fixing what the change broke…";
-      return event.issues?.length ? "Smoothing a design problem the playtest found…" : undefined;
+      return event.issues?.length ? "Smoothing a design problem…" : undefined;
     default:
       return undefined;
   }
@@ -174,6 +174,52 @@ export function progressOf(g: Generation, now: number): number {
   if (g.attempt === 0) return 0.2 + 0.45 * written + 0.15 * checked;
   let start = 0.8;
   for (let i = 1; i < g.attempt; i++) start += 0.6 * (0.98 - start);
+  return start + 0.6 * (0.98 - start) * (0.75 * written + 0.25 * checked);
+}
+
+/** A change to the rules under way, as its progress bar follows it. */
+export interface Revising {
+  /** The rules being written or checked: 0 for the rewrite, then one per fix. */
+  attempt: number;
+  writing: boolean;
+  writingSince: number;
+  /** How much of the current rules has arrived, in characters, and when its first piece did. */
+  written: number;
+  codeSince?: number;
+  checking?: { done: number; total: number };
+}
+
+export const revisingFrom = (now: number): Revising => ({ attempt: 0, writing: true, writingSince: now, written: 0 });
+
+/** A revision moved on by one design event. */
+export function reviseStep(r: Revising, event: DesignEvent, now = Date.now()): Revising {
+  switch (event.type) {
+    case "writing":
+      return { attempt: event.attempt, writing: true, writingSince: now, written: 0 };
+    case "code":
+      return { ...r, written: r.written + event.text.length, codeSince: r.codeSince ?? now };
+    case "draft":
+      return { ...r, attempt: event.attempt, writing: false, checking: undefined };
+    case "checking":
+      return { ...r, attempt: event.attempt, writing: false, checking: { done: event.done, total: event.total } };
+    default:
+      return r;
+  }
+}
+
+/**
+ * About how far a change to the rules is, from 0 to 0.98, given how long the old rules are (the new
+ * ones run about as long): the rewrite to 65%, a slow creep while Muse Spark thinks and then the
+ * share written, and its playtest to 90%, by the games played. Each fix covers 60% of what is left
+ * before 98%, so a long repair slows the bar rather than stopping it. The panel never lets it go back.
+ */
+export function revisionProgress(r: Revising, now: number, length: number): number {
+  const thought = 1 - Math.exp(-(now - r.writingSince) / (THINKING * 1000));
+  const written = r.writing ? (r.codeSince ? 0.2 + 0.8 * Math.min(1, r.written / Math.max(1, length)) : 0.2 * thought) : 1;
+  const checked = r.writing || !r.checking ? 0 : r.checking.done / Math.max(1, r.checking.total);
+  if (r.attempt === 0) return 0.65 * written + 0.25 * checked;
+  let start = 0.9;
+  for (let i = 1; i < r.attempt; i++) start += 0.6 * (0.98 - start);
   return start + 0.6 * (0.98 - start) * (0.75 * written + 0.25 * checked);
 }
 
