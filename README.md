@@ -76,7 +76,7 @@ Everything here was made from scratch for the Meta Global AI Developer Hackathon
 
 ## Try it
 
-**Online, full server:** [aichen-qian-boarddream.hf.space](https://aichen-qian-boarddream.hf.space) makes a new game from your sentence in a few minutes (3 an hour per visitor), with Muse Spark Open opponents, art and tables for friends.
+**Online, full server:** [aichen-qian-boarddream.hf.space](https://aichen-qian-boarddream.hf.space) makes a new game from your sentence in a few minutes (10 an hour per visitor), with Muse Spark Open opponents, art and tables for friends.
 
 **Online, static demo:** [boarddream.pages.dev](https://boarddream.pages.dev) loads fastest and has the demo games and Muse Spark Open opponents.
 

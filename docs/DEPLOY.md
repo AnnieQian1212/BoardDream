@@ -49,7 +49,7 @@ docker build -t boarddream .
 docker run -p 7860:7860 -e MODEL_API_KEY=... -e OPEN_MODEL_API_KEY=... -e OPEN_MODEL_BASE_URL=https://inference.baseten.co/v1 -e PUBLIC_DEMO=1 boarddream
 ```
 
-- `PUBLIC_DEMO=1` turns on the rate limits: per client 3 generations an hour, 2 paintings an hour and 120 opponent moves per 10 minutes; in all, 40 generations, 20 paintings and 5,000 moves a day.
+- `PUBLIC_DEMO=1` turns on the rate limits: per client 10 generations an hour, 6 paintings an hour and 120 opponent moves per 10 minutes; in all, 80 generations, 50 paintings and 5,000 moves a day.
 - Generation runs fuzzing in worker threads capped at 512 MB each: give it about 2 CPUs and 2 GB.
 - Generated games are saved under `data/`, which most hosts wipe on restart; the demo games are part of the image.
 - Accounts, sessions and shared tables live in `data/boarddream.db` (SQLite through Node's built-in driver, nothing to install). Mount a persistent volume at `/app/data` to keep them, and generated games, across restarts. Passwords are stored as scrypt hashes; the session cookie is http-only and SameSite=Lax, and is marked Secure behind HTTPS (the server reads `X-Forwarded-Proto`).
